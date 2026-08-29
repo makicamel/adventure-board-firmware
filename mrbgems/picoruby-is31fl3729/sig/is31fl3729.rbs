@@ -1,0 +1,68 @@
+class IS31FL3729
+  ADDRESS_GND: Integer
+  ADDRESS_SCL: Integer
+  ADDRESS_SDA: Integer
+  ADDRESS_VCC: Integer
+
+  PWM_BASE: Integer
+  SCALING_BASE: Integer
+  CONFIGURATION: Integer
+  GLOBAL_CURRENT: Integer
+  PULL_RESISTOR: Integer
+  SPREAD_SPECTRUM: Integer
+  PWM_FREQUENCY: Integer
+  OPEN_SHORT_BASE: Integer
+  RESET: Integer
+  RESET_VALUE: Integer
+
+  SSD: Integer
+  LGC: Integer
+  OSDE_DISABLE: Integer
+  OSDE_OPEN: Integer
+  OSDE_SHORT: Integer
+
+  GLOBAL_CURRENT_MAX: Integer
+  ROW_STRIDE: Integer
+  SCALING_COUNT: Integer
+  OPEN_SHORT_SIZE: Integer
+  MIN_ROWS: Integer
+  MAX_ROWS: Integer
+
+  @i2c: I2C
+  @address: Integer
+  @rows: Integer
+  @columns: Integer
+  @logic_high: bool
+  @buffer: String
+  @dirty_from: Integer
+  @dirty_to: Integer
+
+  attr_reader address: Integer
+  attr_reader rows: Integer
+  attr_reader columns: Integer
+
+  def initialize: (i2c: I2C, ?address: Integer, ?rows: Integer, ?logic_high: bool) -> void
+  def setup: (global_current: Integer, ?scaling: Integer) -> self
+  def reset: () -> void
+  def configure: (?enabled: bool, ?open_short: Integer) -> void
+  def shutdown: () -> void
+  def resume: () -> void
+  def global_current=: (Integer value) -> Integer
+  def scaling_all=: (Integer value) -> Integer
+  def set_scaling: (Integer cs, Integer value) -> void
+  def register_of: (Integer sw, Integer cs) -> Integer
+  def set_dot: (Integer sw, Integer cs, Integer pwm) -> Integer
+  def dot: (Integer sw, Integer cs) -> Integer
+  def fill: (Integer pwm) -> nil
+  def clear: () -> nil
+  def frame: () -> String
+  def frame=: (String bytes) -> String
+  def dirty?: () -> bool
+  def flush: () -> bool
+  def read_open_short: () -> String
+
+  private def write_register: (Integer register, Integer | String value) -> nil
+  private def mark_dirty: (Integer offset) -> nil
+  private def check_sw: (Integer sw) -> nil
+  private def check_cs: (Integer cs) -> nil
+end

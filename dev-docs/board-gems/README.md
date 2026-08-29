@@ -9,11 +9,12 @@
 ## 1. 結論
 
 **新規に作るのは 2 つだけ。** 残りは既存 gem がそのまま使える。
+ただし 2 つは**形態が違う**。
 
-| # | Gem | 役割 |
-|---|---|---|
-| 1 | `picoruby-is31fl3729` | LED ドライバのチップ層。基板非依存の汎用 16×8 |
-| 2 | `picoruby-picorubykaigi01` | **ボードサポート**。全機能のファサード。初心者はこれだけ触る |
+| # | 名前 | 形態 | 役割 |
+|---|---|---|---|
+| 1 | `picoruby-is31fl3729` | **ファーム同梱の gem** | LED ドライバのチップ層。基板非依存の汎用 16×8 |
+| 2 | `/lib/picorubykaigi01.rb` | **littlefs 上の Ruby ソース** | ボードサポート。全機能のファサード。**ユーザが読んで直せる**（§3） |
 
 音声は `picoruby-psg` + `picoruby-midibase-mml` が、文字は `picoruby-shinonome` が、
 描画は `picoruby-vram` がすでに揃っている。**LED マトリクス以外は新規のドライバが要らない。**
@@ -42,10 +43,23 @@
 `keyboard` が入っている。**基板用の build_config はこれをベースにして、
 上の 2 つを足すだけで足りる。**
 
-## 3. ボードサポート gem の狙い
+## 3. ボードサポートは gem にせず、読めるソースで置く
 
 初心者が「触ってすぐ光る・鳴る・反応する」ところまでを数行で書けるようにする。
 `docs/PicoBoard_design_policy.md` のコンセプトそのもの。
+
+そのうえで、**ボードサポートはファームに焼き込まず、`/lib/picorubykaigi01.rb` という
+読めるソースとして littlefs に置き、`require` で読む。**
+ピン番号も明るさの方針もボタンの名前も、全部そこに平文で書いてある状態にする。
+ユーザが `vim /lib/picorubykaigi01.rb` で中を読み、真似して自分の部品を足せる。
+
+境界の引き方:
+
+| | 形態 | 理由 |
+|---|---|---|
+| `IS31FL3729` チップ層 | ファーム同梱の gem | レジスタ操作。初心者が読んでも得るものが少なく、速度も要る |
+| ボードサポート | **`/lib` のソース** | ピン番号・API・ポリシー。**ここが読んで直したい場所** |
+| サンプル | `/home` のソース | 同上 |
 
 ```ruby
 require 'picorubykaigi01'
@@ -89,6 +103,53 @@ m.show
   `while` + 整数インデックス。ivar は3回以上参照するならローカルに退避
 - ボタン読みや行転送はホットパスなので特に効く
 
+## 3-1. `require` の仕組み（調べた結果）
+
+`mrbgems/picoruby-require/mrblib/require.rb` と
+`mrbgems/picoruby-shell/mrblib/shell.rb` を読んで確認した事実。
+
+- **`$LOAD_PATH` は `["/lib"]`。** `Shell.setup_system_files` が起動時に設定し、
+  `bin home etc etc/init.d etc/network etc/dfu var var/log lib` を作る
+- `require(name)` は **まず `extern(name)`（ファームに焼かれた gem）を探し、
+  見つからなければ `$LOAD_PATH` のファイルを読む**。
+  → **ボードサポートを同名の gem としてファームに入れてはいけない。**
+  入れるとそちらが優先され、`/lib` のファイルは読まれなくなる
+- 拡張子の優先順は **`.mrb` → `.rb`**。
+  配るのは `.rb` だけにする。速度が要るなら利用者が
+  `install /lib/x.rb /lib/x.mrb` で自分で先読み版を作れる
+  （ただし古い `.mrb` が編集後の `.rb` を黙って隠すので、そこは注意書きが要る）
+- ソースの読み込みは `Sandbox` 経由でオンデバイスコンパイル。
+  IRB や `/bin/install` と同じ経路なので、実行時コンパイルは正規の使い方
+
+### 起動フックと安全網
+
+`main_task.rb` は、ファイルシステム準備のあと
+**`Shell.bootstrap("/etc/init.d/r2p2")`** を実行してからシェルを起動する。
+ここでボードライブラリを `require` すればよい。
+
+`Shell.bootstrap` には **`s` キーを押すと実行をスキップできる 2 秒の猶予**がある。
+つまり **ユーザがボードライブラリを壊しても、`s` を押せば必ずシェルに入って直せる。**
+「読んで直せる」を安全に成立させる土台がすでにある。
+
+## 3-2. 30枚に配る方法
+
+`/lib/*.rb` をどうやって出荷時のフラッシュに入れるか。
+既存の `shell_executables` の仕組み（`/bin/ls` などを配るもの）は
+**コンパイル済み `.mrb` を書き出す**ので、ソースを配るのには使えない。
+
+| 案 | 内容 | 評価 |
+|---|---|---|
+| **A. ファームに埋めて初回起動時に書き出す** | gem の `mrbgem.rake` で `files/*.rb` を**ソースのまま**文字列テーブルに変換して同梱し、`/lib` に無ければ書き出す | ◎ **UF2 一発で配れる。壊しても `rm` して再起動で復活**（自己修復）。機構は小さい（C 不要、`spec.rbfiles` に生成ファイルを足すだけ） |
+| **B. littlefs イメージを picotool で作って配る** | 1枚に手で入れて `picotool save -r <littlefs領域>` で吸い出し、UF2 として配布 | ○ **新規コードゼロ**。picotool は Docker イメージに入っている。ただし UF2 が2つになり、壊れたら PC + BOOTSEL が必要 |
+| C. 配布時に1枚ずつ手でコピー | シリアル経由 | ✗ 30枚は非現実的 |
+
+**当面は B**（機構を作らずに進められる）、**ワークショップまでに A** に移行するのが素直。
+自己修復できるかどうかは、初心者30人相手だと効き方が大きく違う。
+
+> littlefs 領域の先頭は `FLASH_TARGET_OFFSET=0x00340000`
+> （`picoruby-r2p2/cmake/CMakeLists.txt`、RP2350 の picoruby ビルド）。
+> B を採るときはこのオフセットを使う。
+
 ## 4. 作る順番
 
 [../led-matrix-gem/plan.md](../led-matrix-gem/plan.md) のフェーズに、他機能を差し込む。
@@ -96,7 +157,7 @@ m.show
 | 段階 | 内容 | 実基板 |
 |---|---|---|
 | 1 | `picoruby-is31fl3729`（レジスタ層、picotest + mock I2C） | 不要 |
-| 2 | ボード gem の骨格 + `LedMatrix` + Console バックエンド | 不要 |
+| 2 | `/lib/picorubykaigi01.rb` の骨格 + `LedMatrix` + Console バックエンド | 不要 |
 | 3 | `Buttons` / `Speaker` / `status_led` / `grove_*` を追加。<br>**Speaker は Pico 2 W 実機で本当に鳴らせる**（GPIO10/11 に圧電スピーカかアンプを繋ぐ） | 一部可 |
 | 4 | サンプルプログラム群 | 一部可 |
 | 5 | 基板用 build_config とボード定義、実基板ブリングアップ | 必要 |
@@ -126,14 +187,19 @@ Pico 2 W でどこまで行けるか:
 | 7 | 明るさフェード / 適応電流制御のデモ | matrix 8bit PWM | 実基板 |
 | 8 | 実装検査（開放/短絡検出） | matrix | 実基板 |
 
-## 6. Gem の置き場所
-
-**`mrbgems/` 配下に置く。**
+## 6. 置き場所
 
 ```
-mrbgems/picoruby-is31fl3729/         チップドライバ
-mrbgems/picoruby-picorubykaigi01/    ボードサポート
+mrbgems/picoruby-is31fl3729/     ファーム同梱の gem（チップドライバ）
+lib/picorubykaigi01.rb           littlefs へ配るソース（リポジトリ上の原本）
+examples/*.rb                    サンプルプログラムの原本
 ```
+
+**ファームに焼く gem は `mrbgems/` 配下。**
+ボードサポートは gem ではないので、リポジトリ上ではただの Ruby ファイルとして持ち、
+§3-2 の方法で `/lib` へ届ける。原本の置き場所は
+`mrbgems/picoruby-is31fl3729/` とは分けて、リポジトリ直下か
+`mrbgems/picoruby-r2p2/examples/`（`snake_game.rb` の隣）あたりが素直。
 
 submodule の懸念について:
 
