@@ -126,7 +126,10 @@ rake 'test:gems:picoruby[picoruby-is31fl3729]'
 - `VRAM::Delegatable` を include → `set_pixel` / `draw_line` / `draw_rect` / `draw_bitmap`
 - `Shinonome::Drawable` を include → **16×16 の漢字がそのまま出る**
   （`picoruby-shinonome` の `min16` / `go16`。16×16 マトリクスを選んだ理由そのもの）
-- `Backend::Console#show(vram)` … シリアルに ASCII アートで出力
+- `Backend::Console#show(vram)` … シリアルに ASCII アートで出力。
+  ただし目視検証の本命はブラウザシミュレータ（[../wasm-simulator/](../wasm-simulator/)）。
+  そちらは仮想 IS31FL3729 を置いて実レジスタ書き込みをデコードするので、
+  ドライバを迂回せず 2 チップ合成と座標マッピングまで確認できる
 - `Backend::IS31FL3729#show(vram)` … 上下半分に切って 2 チップへ転送。
   SDB ピン（GPIO14）の制御もここ
 
