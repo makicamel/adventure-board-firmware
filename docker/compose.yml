@@ -72,5 +72,18 @@ services:
     tty: true
     stdin_open: true
 
+  # Headless browser for the LED matrix simulator page. Its own image, because
+  # nothing in the firmware build needs Node or Chromium.
+  browser:
+    build:
+      context: .
+      dockerfile: browser.Dockerfile
+    image: picorubykaigi01-browser-check:latest
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /work
+    volumes:
+      - ..:/work
+    command: ["node", "/work/tools/browser-check/check.cjs"]
+
 volumes:
   bundle:

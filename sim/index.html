@@ -65,6 +65,7 @@
     <div class="controls">
       <select id="examples"></select>
       <button id="run" class="primary" disabled>Run</button>
+      <button id="selftest" disabled>描画テスト</button>
       <button id="reset" disabled>Reset</button>
     </div>
     <textarea id="code" spellcheck="false"></textarea>
@@ -81,12 +82,14 @@
   const canvas = document.getElementById('panel');
   const ctx = canvas.getContext('2d');
 
-  window.renderPanel = function (values) {
+  // Two hex digits per dot, 512 characters. See Panel#levels_hex for why the
+  // frame crosses the boundary as a string rather than an array.
+  window.renderPanel = function (hex) {
     ctx.fillStyle = '#0a0b0d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     for (let y = 0; y < 16; y++) {
       for (let x = 0; x < 16; x++) {
-        const v = Math.max(0, Math.min(255, values[y * 16 + x] | 0));
+        const v = parseInt(hex.substr((y * 16 + x) * 2, 2), 16) || 0;
         const px = PAD + x * (CELL + GAP);
         const py = PAD + y * (CELL + GAP);
         // Off LEDs stay visible as a faint well so the grid reads as a panel.
@@ -109,7 +112,7 @@
       }
     }
   };
-  window.renderPanel(new Array(256).fill(0));
+  window.renderPanel('0'.repeat(512));
 })();
 </script>
 

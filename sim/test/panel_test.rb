@@ -154,6 +154,18 @@ levels = panel.levels
 check("256 entries")            { levels.size == 256 }
 check("first one is lit")       { 0 < levels[0].to_i }
 check("second one is not")      { levels[1].to_i == 0 }
+check("levels_hex is 512 chars")  { panel.levels_hex.bytesize == 512 }
+check("levels_hex agrees with levels") do
+  ls = panel.levels
+  hex = panel.levels_hex
+  ok = true
+  i = 0
+  while i < 256
+    ok = false if hex[i * 2, 2].to_s != Panel::HEX[ls[i].to_i].to_s
+    i += 1
+  end
+  ok
+end
 check("brightness follows GCC") do
   _p2, _t2, _b2, m2 = new_board(global_current: 0x40)
   m2.set(1, 1); m2.show

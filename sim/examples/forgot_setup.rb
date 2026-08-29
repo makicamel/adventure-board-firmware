@@ -10,3 +10,7 @@ led.flush
 # ここまでで真っ暗。下の 2 行のコメントを外すと光る。
 # led.global_current = 0x20
 # led.scaling_all = 0xFF
+
+# なお reset は本当にチップを初期状態へ戻すので、この後は
+# matrix 側の上半分も光らなくなる（実機と同じ挙動）。
+# Reset ボタンを押すと作り直されて元に戻る。

@@ -186,6 +186,18 @@ class Panel
   TOP_ADDRESS    = 0x34
   BOTTOM_ADDRESS = 0x35
 
+  # 0x00 .. 0xFF as two lowercase hex digits, built once.
+  HEX = begin
+    digits = "0123456789abcdef"
+    table = []
+    i = 0
+    while i < 256
+      table << (digits[i >> 4].to_s + digits[i & 0x0F].to_s)
+      i += 1
+    end
+    table
+  end
+
   attr_reader :i2c, :top, :bottom
 
   def initialize
@@ -213,15 +225,46 @@ class Panel
     chip.brightness_at(sw, cs)
   end
 
-  # The whole panel as 256 values of 0..255, row major from (1, 1). This is the
-  # one thing handed to the renderer, so a frame costs a single JS call.
+  # Two hex digits per dot, row major from (1, 1): 512 characters for the whole
+  # panel. This is what the renderer is handed.
+  #
+  # It is a String rather than the Array that reads more naturally because the
+  # JS bridge accepts only String, Integer, Float, nil, boolean and JS::Object
+  # as call arguments — an Array raises TypeError. JS::Bridge.to_js would
+  # convert one, but by pushing each element across the boundary separately,
+  # which is exactly the per-frame cost this avoids. Hex rather than raw bytes
+  # because the bridge takes the string as a C string and a dark dot is a NUL.
+  def levels_hex
+    out = ""
+    hex = HEX
+    y = 1
+    while y <= HEIGHT
+      x = 1
+      while x <= WIDTH
+        out << hex[level_at(x, y)].to_s
+        x += 1
+      end
+      y += 1
+    end
+    out
+  end
+
+  def level_at(x, y)
+    v = (brightness(x, y) * 255.0).to_i
+    return 0 if v < 0
+    return 255 if 255 < v
+    v
+  end
+
+  # The same values as an Array, for tests and for anything that would rather
+  # not parse hex.
   def levels
     out = []
     y = 1
     while y <= HEIGHT
       x = 1
       while x <= WIDTH
-        out << (brightness(x, y) * 255.0).to_i
+        out << level_at(x, y)
         x += 1
       end
       y += 1

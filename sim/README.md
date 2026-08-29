@@ -42,6 +42,20 @@ matrix.show             # これを呼ぶまでチップには届かない
 rake sim:test
 ```
 
+## ブラウザでの検証
+
+ページそのものはヘッドレス Chromium で確認できる。
+
+```console
+rake sim:check              # 全サンプルを実行して結果を報告
+rake sim:check[l_shape]     # 1 つだけ
+```
+
+canvas のピクセルを読み戻して 16×16 のテキストに落とすので、目視ではなく
+機械的に確認できる。console 出力とページエラーも報告し、
+スクリーンショットは `tmp/browser-check/` に残る。
+ファーム用とは別のイメージ（`docker/browser.Dockerfile`）を使う。
+
 ## 何を再現しているか
 
 仮想チップは、ドライバが実際に書くレジスタをデコードする。
