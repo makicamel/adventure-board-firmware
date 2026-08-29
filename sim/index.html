@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>picorubykaigi01 LED matrix simulator</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 16px;
+    font: 14px/1.5 ui-sans-serif, system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: #14161a; color: #d8dee9;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 16px; color: #8b95a5; font-size: 13px; }
+  .wrap { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .panel-side { flex: 0 0 auto; }
+  .code-side { flex: 1 1 380px; min-width: 320px; }
+  canvas { background: #0a0b0d; border: 1px solid #2c313a; border-radius: 6px; display: block; }
+  .controls { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  button, select {
+    font: inherit; padding: 6px 14px; border-radius: 4px;
+    border: 1px solid #3b424e; background: #232833; color: #d8dee9; cursor: pointer;
+  }
+  button.primary { background: #2f6feb; border-color: #2f6feb; color: #fff; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  textarea {
+    width: 100%; box-sizing: border-box; height: 300px; resize: vertical;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #0f1116; color: #d8dee9; border: 1px solid #2c313a;
+    border-radius: 6px; padding: 10px;
+  }
+  #status { margin-top: 10px; padding: 8px 10px; border-radius: 4px; min-height: 1.5em;
+            font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
+  #status.ok    { background: #10261a; color: #7ee2a8; border: 1px solid #1d4630; }
+  #status.error { background: #2a1416; color: #ff9a9a; border: 1px solid #5a2126; }
+  #status.busy  { background: #1b2029; color: #8b95a5; border: 1px solid #2c313a; }
+  label { color: #8b95a5; }
+  .legend { color: #8b95a5; font-size: 12px; margin-top: 10px; }
+  code { background: #1b2029; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>picorubykaigi01 LED matrix simulator</h1>
+<p class="sub">
+  実機の <code>IS31FL3729</code> ドライバをそのまま動かし、仮想チップ2個が受け取った
+  レジスタ書き込みを 16×16 に合成して描いています。
+</p>
+
+<div class="wrap">
+  <div class="panel-side">
+    <canvas id="panel" width="452" height="452"></canvas>
+    <div class="controls">
+      <label for="gcc">明るさ (GCC)</label>
+      <input type="range" id="gcc" min="0" max="64" value="32">
+      <span id="gcc-value">32</span>
+    </div>
+    <div class="legend">
+      上半分 = U10 (0x34) / 下半分 = U11 (0x35、列が左右反転)
+    </div>
+  </div>
+
+  <div class="code-side">
+    <div class="controls">
+      <select id="examples"></select>
+      <button id="run" class="primary" disabled>Run</button>
+      <button id="reset" disabled>Reset</button>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div id="status" class="busy">PicoRuby.wasm を読み込んでいます…</div>
+  </div>
+</div>
+
+<script>
+// Painting is the one thing left to JavaScript: a frame is 256 values handed
+// over in a single call, instead of several hundred property writes crossing
+// the Ruby/JS boundary.
+(function () {
+  const CELL = 26, GAP = 2, PAD = 4;
+  const canvas = document.getElementById('panel');
+  const ctx = canvas.getContext('2d');
+
+  window.renderPanel = function (values) {
+    ctx.fillStyle = '#0a0b0d';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = Math.max(0, Math.min(255, values[y * 16 + x] | 0));
+        const px = PAD + x * (CELL + GAP);
+        const py = PAD + y * (CELL + GAP);
+        // Off LEDs stay visible as a faint well so the grid reads as a panel.
+        ctx.fillStyle = '#1a1d23';
+        ctx.fillRect(px, py, CELL, CELL);
+        if (v > 0) {
+          const a = v / 255;
+          ctx.fillStyle = 'rgba(255, 250, 235, ' + a.toFixed(3) + ')';
+          ctx.fillRect(px, py, CELL, CELL);
+          ctx.shadowColor = 'rgba(255, 245, 210, ' + (a * 0.9).toFixed(3) + ')';
+          ctx.shadowBlur = 10 * a;
+          ctx.fillRect(px, py, CELL, CELL);
+          ctx.shadowBlur = 0;
+        }
+        // The seam between the two driver chips.
+        if (y === 8) {
+          ctx.fillStyle = '#3b424e';
+          ctx.fillRect(0, py - GAP, canvas.width, 1);
+        }
+      }
+    }
+  };
+  window.renderPanel(new Array(256).fill(0));
+})();
+</script>
+
+<script>
+// The loader turns every <script type="text/ruby"> into its own mruby task, and
+// tasks are scheduled cooperatively rather than run to completion in order. The
+// three sources here depend on one another, so they are fetched and concatenated
+// into a single inline script — one task, deterministic order.
+//
+// sim_panel.rb has to come first: it defines the I2C stand-in and tolerates the
+// driver's `require 'i2c'`, which has no gem to resolve to in the browser.
+(async function () {
+  const status = document.getElementById('status');
+  const SOURCES = [
+    'sim_panel.rb',
+    '../mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb',
+    'sim_ui.rb'
+  ];
+  try {
+    const texts = await Promise.all(SOURCES.map(async (path) => {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(path + ': ' + res.status + ' ' + res.statusText);
+      return await res.text();
+    }));
+    const ruby = document.createElement('script');
+    ruby.type = 'text/ruby';
+    ruby.textContent = texts.join("\n");
+    document.body.appendChild(ruby);
+
+    const loader = document.createElement('script');
+    loader.src = 'https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js';
+    loader.onerror = function () {
+      status.className = 'error';
+      status.textContent = 'PicoRuby.wasm を CDN から読み込めませんでした。ネットワークを確認してください。';
+    };
+    document.body.appendChild(loader);
+  } catch (e) {
+    status.className = 'error';
+    status.textContent = 'ソースの読み込みに失敗しました: ' + e.message
+      + "\nリポジトリルートをサーバのルートにして開いてください (rake sim:server)。";
+  }
+})();
+</script>
+
+</body>
+</html>
