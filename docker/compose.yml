@@ -1,0 +1,47 @@
+# Docker build environment for the picorubykaigi01-board firmware.
+#
+#   docker compose -f docker/compose.yml build            # build the image
+#   docker compose -f docker/compose.yml run --rm build   # build the firmware
+#   docker compose -f docker/compose.yml run --rm shell   # interactive shell
+#
+# The repository is bind-mounted at /work. It must live on the WSL2 ext4
+# filesystem, not under /mnt/c: picoruby tracks symlinks (mrblib,
+# picoruby-mbedtls/lib/mbedtls, picoruby-socket/lib/lwip, ...) that a Windows
+# checkout turns into plain text files, and the build fails on them.
+# docker/build.sh copies the finished .uf2/.elf to ./dist.
+
+name: picorubykaigi01-firmware
+
+x-common: &common
+  build:
+    # Only this directory is the build context: the Dockerfile copies nothing
+    # from the repository, and the repository itself is a 1.2 GB context.
+    context: .
+    dockerfile: Dockerfile
+  image: picorubykaigi01-board-firmware:latest
+  working_dir: /work
+  volumes:
+    - ..:/work
+    # Gems stay in a volume so they survive `docker compose down` and never
+    # land in the working tree.
+    - bundle:/usr/local/bundle
+  environment:
+    PICO_SDK_PATH: /work/mrbgems/picoruby-r2p2/lib/pico-sdk
+    # Target for this board: RP2350A, no wireless, mruby VM.
+    VM: picoruby
+    BOARD: pico2
+    MODE: prod
+
+services:
+  build:
+    <<: *common
+    command: ["/work/docker/build.sh"]
+
+  shell:
+    <<: *common
+    command: ["bash"]
+    tty: true
+    stdin_open: true
+
+volumes:
+  bundle:

@@ -43,3 +43,6 @@ tags
 
 .r2p2/
 releases/
+
+# Firmware artifacts copied out of the Docker build (see docker/build.sh)
+/dist

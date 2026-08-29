@@ -1,1 +1,4 @@
 *.wasm binary
+
+# Container entrypoints must keep LF endings on Windows checkouts
+docker/*.sh text eol=lf
