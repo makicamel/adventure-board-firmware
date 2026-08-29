@@ -2,7 +2,12 @@
 #
 #   docker compose -f docker/compose.yml build            # build the image
 #   docker compose -f docker/compose.yml run --rm build   # build the firmware
+#   docker compose -f docker/compose.yml run --rm flash   # flash it over SWD
 #   docker compose -f docker/compose.yml run --rm shell   # interactive shell
+#
+# `rake docker:image`, `rake docker:r2p2:{vm}:{board}:{mode}`,
+# `rake docker:flash:{vm}:{board}:{mode}` and `rake docker:shell`
+# (tasks/docker.rake) wrap the same commands.
 #
 # The repository is bind-mounted at /work. It must live on the WSL2 ext4
 # filesystem, not under /mnt/c: picoruby tracks symlinks (mrblib,
@@ -19,6 +24,10 @@ x-common: &common
     context: .
     dockerfile: Dockerfile
   image: picorubykaigi01-board-firmware:latest
+  # Everything the build writes goes into the bind mount below, so the
+  # container runs as the invoking user instead of root. `rake docker:...`
+  # fills these in; the defaults cover the usual single-user Linux/WSL2 host.
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
   working_dir: /work
   volumes:
     - ..:/work
@@ -36,6 +45,26 @@ services:
   build:
     <<: *common
     command: ["/work/docker/build.sh"]
+
+  # Flash over SWD through a CMSIS-DAP probe. All WSL2 distros share one
+  # kernel, so a probe attached on Windows with `usbipd attach --wsl` appears
+  # in /dev/bus/usb here even though the daemon runs in the docker-desktop
+  # distro; the bind mount survives the probe being re-attached under a new
+  # bus/device number, which `devices:` would not.
+  flash:
+    <<: *common
+    # The device nodes are root:root 0664, so group root is what grants
+    # openocd write access -- the container still runs as the host user.
+    user: "${HOST_UID:-1000}:0"
+    volumes:
+      - ..:/work
+      - bundle:/usr/local/bundle
+      - /dev/bus/usb:/dev/bus/usb
+    # Without this the device cgroup denies the open even though the node is
+    # visible. 189 is the usbfs major.
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    command: ["/work/docker/flash.sh"]
 
   shell:
     <<: *common
