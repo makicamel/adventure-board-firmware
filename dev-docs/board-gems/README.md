@@ -31,8 +31,8 @@
 | 音楽（MML） | 同上 | `picoruby-midibase-mml` | ✅ そのまま。初心者向けの入口として最適 |
 | アンプ ミュート | GPIO23（Low=停止、4.7k プルダウン） | `picoruby-gpio` | ✅ ボード gem が面倒を見る |
 | ステータス LED（緑） | GPIO16 + R31 2kΩ（PWM0A） | `picoruby-gpio` / `picoruby-pwm` | ✅ 明滅もできる |
-| GROVE-A（I2C） | I2C1 GPIO6/7、4.7kΩ プルアップ | `picoruby-i2c` | ✅ 設定済みオブジェクトを返すだけ |
-| GROVE-B（UART or ADC） | GPIO28/29 = UART0 / ADC2・3 | `picoruby-uart` / `picoruby-adc` | ✅ どちらで使うかを選べるように |
+| GROVE-A（I2C） | I2C1 GPIO6/7、4.7kΩ プルアップ | `picoruby-i2c` | ✅ `Board#grove_i2c` |
+| GROVE-B（UART or ADC） | GPIO28/29 = UART0 / ADC2・3 | `picoruby-uart` / `picoruby-adc` | ✅ `Board#grove_uart`（要求時に生成。ADC とは排他） |
 | J1 ブレッドボードヘッダ | GPIO 2,3,8,9,11,12,13,14,15,25,26,27 | `picoruby-gpio` `-spi` `-pwm` `-adc` `-pio` | ✅ GPIO12〜15 が SPI1 一式 |
 | ファイル | W25Q64（8MB） | `picoruby-littlefs` + R2P2 シェル | ✅ |
 | USB シリアル | CDC ×3 | `picoruby-r2p2` | ✅ |
@@ -172,6 +172,16 @@ Pico 2 W でどこまで行けるか:
 - **ステータス LED** … Pico 2 W のオンボード LED は CYW43 側なので、外付け LED で代用
 
 つまり **LED マトリクス以外はほぼ実機で検証できる**。
+
+### GROVE-B で基板 2 枚を繋ぐ場合
+
+**クロスケーブルが要る。** ファンクション mux は UART の役割をピン番号の
+4 の剰余で固定していて（0→TX, 1→RX, 2→CTS, 3→RTS）、
+GPIO28 は TX、GPIO29 は RX にしかなれない。RP2350 で増えた F11（UART_AUX）も
+この 2 本には無い。したがって同じ基板同士をストレートで繋ぐと TX 同士がぶつかる。
+
+Seeed が **Grove - UART Crossover Cable 4Pin**（SS100052406）を出している。
+サンプルは [`examples/grove_uart_chat.rb`](../../examples/grove_uart_chat.rb)。
 
 ## 5. サンプルプログラムの候補
 

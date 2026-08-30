@@ -225,6 +225,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 | [dev-docs/wasm-simulator/](dev-docs/wasm-simulator/) | ブラウザシミュレータの計画と完了レポート |
 | [docker/README.md](docker/README.md) | ビルド環境の詳細 |
 | [sim/README.md](sim/README.md) | シミュレータの使い方 |
+| [examples/](examples/) | **実機専用**サンプル（シミュレータに無いハードを使うもの） |
 
 ## 進捗
 

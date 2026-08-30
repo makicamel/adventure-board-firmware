@@ -22,6 +22,10 @@ class Board
   STATUS_LED_PIN  = 16   # green LED through R31
   GROVE_A_SDA_PIN = 6
   GROVE_A_SCL_PIN = 7
+  # GROVE-B (J5). The same two pins are ADC2 and ADC3, so a program picks one
+  # use or the other.
+  GROVE_B_TX_PIN  = 28   # J5.2
+  GROVE_B_RX_PIN  = 29   # J5.1
 
   # The six buttons, in GPIO order so they can be read in one sweep.
   BUTTON_PINS = [
@@ -101,6 +105,36 @@ class Board
     @buttons = buttons
     @speaker = speaker
     @status_led = status_led
+  end
+
+  # GROVE-B as UART0, for talking to another board.
+  #
+  # Built on request rather than at boot: these pins are also ADC2 and ADC3,
+  # and asking for the UART gives up the analogue side.
+  #
+  # ⚠ Two of these boards need a **crossed** cable. The function mux fixes the
+  # UART roles by pin number — a pin whose number is a multiple of 4 can only
+  # be TX and the next one only RX — so GPIO28 is TX and GPIO29 is RX on both
+  # boards, and a straight cable would put TX against TX. Seeed sells one
+  # (Grove - UART Crossover Cable 4Pin, SS100052406); a Grove-to-jumper pair
+  # with the two signal wires swapped does the same job.
+  def grove_uart(baudrate: 115200)
+    @grove_uart ||= UART.new(
+      unit: :RP2040_UART0,
+      txd_pin: GROVE_B_TX_PIN,
+      rxd_pin: GROVE_B_RX_PIN,
+      baudrate: baudrate
+    )
+  end
+
+  # GROVE-A as I2C1, for sensors and displays.
+  def grove_i2c(frequency: 100_000)
+    @grove_i2c ||= I2C.new(
+      unit: :RP2040_I2C1,
+      sda_pin: GROVE_A_SDA_PIN,
+      scl_pin: GROVE_A_SCL_PIN,
+      frequency: frequency
+    )
   end
 
   def shutdown
