@@ -90,12 +90,24 @@ class GPIO
   OPEN_DRAIN = 32
   ALT        = 64
 
+  # Edge and level constants, as picoruby-irq adds them to GPIO.
+  LEVEL_LOW  = 1
+  LEVEL_HIGH = 2
+  EDGE_FALL  = 4
+  EDGE_RISE  = 8
+
   def self.state
     @state ||= {}
   end
 
+  # Edge handlers registered through GPIO#irq, keyed by pin.
+  def self.handlers
+    @handlers ||= {}
+  end
+
   def self.reset
     @state = {}
+    @handlers = {}
     nil
   end
 
@@ -109,14 +121,34 @@ class GPIO
     0
   end
 
-  # What the page calls: a press pulls the pin down, because the buttons are
-  # wired active low.
+  # What the page calls. The buttons are wired active low, so a press pulls the
+  # pin down. The edge is delivered straight to whoever registered for it —
+  # there is nothing to poll and nothing to miss, which is what the real chip's
+  # interrupt does.
   def self.press(pin)
+    return 0 if read_at(pin) == 0
     write_at(pin, 0)
+    fire(pin, EDGE_FALL)
+    0
   end
 
   def self.release(pin)
+    return 0 if read_at(pin) == 1
     write_at(pin, 1)
+    fire(pin, EDGE_RISE)
+    0
+  end
+
+  def self.fire(pin, event_type)
+    list = handlers[pin]
+    return nil unless list
+    i = 0
+    while i < list.size
+      # Only the handlers that asked for this edge.
+      list[i][0].call(nil, event_type) if (list[i][1] & event_type) != 0
+      i += 1
+    end
+    nil
   end
 
   attr_reader :pin, :flags
@@ -145,6 +177,30 @@ class GPIO
 
   def low?
     read == 0
+  end
+
+  # Stand-in for GPIO#irq from picoruby-irq. The debounce argument is accepted
+  # and ignored: the page produces clean events, and the gem does the filtering
+  # on the board.
+  def irq(event_type, debounce: nil, capture: nil, &block)
+    (GPIO.handlers[@pin] ||= []) << [block, event_type]
+    block
+  end
+end
+
+# Stand-in for picoruby-irq. Only what the board layer touches: the page
+# delivers edges synchronously, so there is no dispatcher to start.
+module IRQ
+  def self.start
+    true
+  end
+
+  def self.stop
+    true
+  end
+
+  def self.process(_max = nil)
+    0
   end
 end
 

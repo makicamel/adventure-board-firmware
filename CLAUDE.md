@@ -166,6 +166,15 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - 静的サーバは `.wasm` に `application/wasm` を返すこと。
   でないとストリーミングコンパイルが拒否される
 
+### ボタン / 割り込み
+
+- **ボタンはポーリングしない。** `picoruby-irq` のエッジ割り込みで受ける
+  （`peripherals` gembox に含まれる。デバウンスは gem 内蔵）。
+  ポーリングだと、短いクリックがサンプルの隙間に収まって**一度も観測されない**
+- 押下はキューに積んで `take_press` / `each_press` で取り出す。
+  ループの速さに関係なく 1 回の押しが 1 回として届く
+- オートリピートは `Buttons` に入れずループ側で作る
+
 ### その他
 
 - `bin/picoruby` で相対パスを `load` するには `$LOAD_PATH = ["."]` が要る

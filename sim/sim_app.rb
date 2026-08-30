@@ -123,7 +123,6 @@ class SimApp < Funicular::Component
       block = $loop_block
       if block
         begin
-          $board.buttons.update
           block.call
           $app.draw if $app
           schedule if $loop_block

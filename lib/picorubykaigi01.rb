@@ -52,7 +52,15 @@ class Board
       matrix: LedMatrix.new(i2c: i2c, global_current: global_current),
       buttons: Buttons.new,
       speaker: speaker_backend && Speaker.new(backend: speaker_backend)
-    )
+    ).tap { start_irq }
+  end
+
+  # Delivers interrupts from a dispatcher task, so nothing polls. PicoRuby
+  # only; FemtoRuby has no IRQ.start yet and would need IRQ.process instead.
+  def self.start_irq
+    IRQ.start
+  rescue NameError, NoMethodError
+    nil
   end
 
   # sleep_ms is a picoruby Kernel method; a host that does not have it just
@@ -308,139 +316,115 @@ end
 
 # The six buttons.
 #
-# Each pin has a 10k pull-up on the board, so a pressed button reads low. The
-# pins are consecutive, which is why they are kept in one array and swept in
-# order rather than being six separate objects to poll.
+# Edge interrupts rather than polling. A press is an event, so it cannot be
+# missed however short the click is or however slowly the main loop runs — the
+# level alone would lose a tap that started and finished between two polls.
+# picoruby-irq debounces in the gem, so there is nothing to filter here.
+#
+# Presses queue up and are taken one at a time; the level is there separately
+# for anything that should act while a button is held. Auto-repeat is not here
+# on purpose: a loop that wants it can count its own ticks against `pressed?`,
+# and one that does not is not paying for it.
 class Buttons
   NAMES = [:up, :down, :left, :right, :a, :b]
 
-  # Auto-repeat, counted in `update` calls rather than milliseconds so that no
-  # clock is needed. With a 60ms loop the defaults give one step, a pause of
-  # about a third of a second, then a step every ~120ms — the way a key
-  # repeats. Without this, holding a direction moves as fast as the loop runs,
-  # which is several cells before a finger comes off the button.
-  DEFAULT_REPEAT_DELAY = 6
-  DEFAULT_REPEAT_INTERVAL = 2
+  # Milliseconds, handled inside picoruby-irq.
+  DEFAULT_DEBOUNCE_MS = 20
 
-  def initialize(pins: Board::BUTTON_PINS,
-                 repeat_delay: DEFAULT_REPEAT_DELAY,
-                 repeat_interval: DEFAULT_REPEAT_INTERVAL)
+  # Presses beyond this are dropped rather than growing without bound; a loop
+  # that far behind has bigger problems than a lost keystroke.
+  QUEUE_LIMIT = 16
+
+  def initialize(pins: Board::BUTTON_PINS, debounce: DEFAULT_DEBOUNCE_MS)
     @names = []
     @gpios = []
-    @held = []
+    @level = 0
+    @queue = []
     i = 0
     while i < pins.size
-      @names << pins[i][0]
-      @gpios << GPIO.new(pins[i][1], GPIO::IN | GPIO::PULL_UP)
-      @held << 0
+      name = pins[i][0]
+      gpio = GPIO.new(pins[i][1], GPIO::IN | GPIO::PULL_UP)
+      @names << name
+      @gpios << gpio
+      watch(gpio, name, 1 << i, debounce)
       i += 1
     end
-    @raw = 0
-    @stable = 0
-    @previous = 0
-    @repeated = 0
-    @repeat_delay = repeat_delay
-    @repeat_interval = (repeat_interval < 1) ? 1 : repeat_interval
   end
 
-  # Sample the pins. Two matching readings in a row are needed before a change
-  # is believed, which is enough to keep a bouncing contact from firing twice.
-  def update
-    bits = 0
-    gpios = @gpios
-    i = 0
-    size = gpios.size
-    while i < size
-      bits |= (1 << i) if gpios[i].read == 0 # active low
-      i += 1
-    end
-    if bits == @raw
-      @previous = @stable
-      @stable = bits
-    else
-      @previous = @stable
-      @raw = bits
-    end
-    update_repeat
-    self
-  end
-
-  # Fires once when a button goes down, then again on a repeat tick. This is
-  # what a cursor should move on.
-  def repeat?(name)
-    index = index_of(name)
-    return false if index < 0
-    (@repeated & (1 << index)) != 0
-  end
-
+  # Currently held down.
   def pressed?(name)
-    index = index_of(name)
-    return false if index < 0
-    (@stable & (1 << index)) != 0
-  end
-
-  # True only on the sample where the button went down.
-  def just_pressed?(name)
-    index = index_of(name)
-    return false if index < 0
-    mask = 1 << index
-    (@stable & mask) != 0 && (@previous & mask) == 0
+    (@level & mask_of(name)) != 0
   end
 
   def any?
-    @stable != 0
+    @level != 0
   end
 
   # The names currently held down.
   def pressed
     out = []
-    i = 0
     names = @names
+    i = 0
     while i < names.size
-      out << names[i] if (@stable & (1 << i)) != 0
+      out << names[i] if (@level & (1 << i)) != 0
       i += 1
     end
     out
   end
 
-  private
+  # The oldest press not yet taken, or nil. Every press is delivered exactly
+  # once, which is the whole point of queueing them.
+  def take_press
+    @queue.shift
+  end
 
-  # How many consecutive samples each button has been down for, and which of
-  # them should act this time.
-  def update_repeat
-    repeated = 0
-    held = @held
-    stable = @stable
-    delay = @repeat_delay
-    interval = @repeat_interval
-    i = 0
-    size = held.size
-    while i < size
-      mask = 1 << i
-      if (stable & mask) == 0
-        held[i] = 0
-      else
-        n = held[i] + 1
-        held[i] = n
-        if n == 1
-          repeated |= mask
-        elsif delay < n && (n - delay - 1) % interval == 0
-          repeated |= mask
-        end
-      end
-      i += 1
+  def each_press
+    while (name = @queue.shift)
+      yield name
     end
-    @repeated = repeated
     nil
   end
 
-  def index_of(name)
+  def presses_waiting
+    @queue.size
+  end
+
+  def clear_presses
+    @queue = []
+    nil
+  end
+
+  private
+
+  # A method, not the body of the loop above: `while` opens no scope, so a
+  # block written inside one closes over the shared variables and every button
+  # would end up reporting the last one.
+  def watch(gpio, name, mask, debounce)
+    gpio.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE, debounce: debounce) do |_peripheral, event_type|
+      if event_type == GPIO::EDGE_RISE
+        @level &= ~mask
+      else
+        @level |= mask
+        push(name)
+      end
+    end
+    nil
+  end
+
+  def push(name)
+    queue = @queue
+    queue << name
+    queue.shift while QUEUE_LIMIT < queue.size
+    nil
+  end
+
+  def mask_of(name)
     names = @names
     i = 0
     while i < names.size
-      return i if names[i] == name
+      return 1 << i if names[i] == name
       i += 1
     end
-    -1
+    0
   end
 end

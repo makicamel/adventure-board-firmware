@@ -232,64 +232,50 @@ check("dark while SDB is low")  { panel.brightness(1, 1) == 0.0 }
 GPIO.write_at(Panel::SDB_PIN, 1)
 check("lit again")              { 0.0 < panel.brightness(1, 1) }
 
-puts "9. buttons read active low and debounce"
+puts "9. buttons are driven by edges, not by polling"
 _p, _t, _b, _m, board = new_board
 buttons = board.buttons
-buttons.update
 check("nothing pressed at rest") { !buttons.any? }
 
 GPIO.press(17) # up
-buttons.update  # first sample: seen, not yet believed
-check("one sample is not enough") { !buttons.pressed?(:up) }
-buttons.update  # second matching sample
-check("two samples settle it")    { buttons.pressed?(:up) }
-check("and only that one")        { !buttons.pressed?(:down) }
-check("edge is reported once")    { buttons.just_pressed?(:up) }
-buttons.update
-check("edge does not repeat")     { !buttons.just_pressed?(:up) && buttons.pressed?(:up) }
+check("a press is seen immediately") { buttons.pressed?(:up) }
+check("and only that one")           { !buttons.pressed?(:down) }
+check("and it is queued")            { buttons.presses_waiting == 1 }
+check("taking it gives the name")    { buttons.take_press == :up }
+check("and only once")               { buttons.take_press.nil? }
+check("still held")                  { buttons.pressed?(:up) }
 
+GPIO.release(17)
+check("released")            { !buttons.pressed?(:up) }
+check("no phantom press")    { buttons.take_press.nil? }
+
+# The case that made quick taps disappear: with polling, a click that started
+# and finished between two samples was never seen at all.
+GPIO.press(17)
+GPIO.release(17)
+check("a click with no poll in the middle is still queued") { buttons.take_press == :up }
+check("and the level is back up")                           { !buttons.pressed?(:up) }
+
+# Several presses in a row all survive, in order.
+GPIO.press(19); GPIO.release(19)
+GPIO.press(20); GPIO.release(20)
+GPIO.press(19); GPIO.release(19)
+taken = []
+buttons.each_press { |name| taken << name }
+check("every press is delivered, in order") { taken == [:left, :right, :left] }
+check("the queue is empty afterwards")      { buttons.presses_waiting == 0 }
+
+GPIO.press(17)
 GPIO.press(21) # a
-buttons.update
-buttons.update
-check("two at once")              { buttons.pressed?(:up) && buttons.pressed?(:a) }
+check("two at once") { buttons.pressed?(:up) && buttons.pressed?(:a) }
 check("pressed lists both") do
   names = buttons.pressed
   names.size == 2 && names.include?(:up) && names.include?(:a)
 end
-
 GPIO.release(17)
 GPIO.release(21)
-buttons.update
-buttons.update
-check("released")                 { !buttons.any? }
-
-puts "9-2. auto repeat: one step, a pause, then a steady rate"
-GPIO.reset
-GPIO.write_at(Panel::SDB_PIN, 1)
-b = Buttons.new(repeat_delay: 4, repeat_interval: 2)
-b.update                       # nothing pressed
-GPIO.press(Board::BUTTON_PINS[0][1])
-b.update                       # first sample: seen, not believed yet
-check("no step before the debounce settles") { !b.repeat?(:up) }
-b.update                       # settles, and that is step 1
-check("one step as it goes down") { b.repeat?(:up) }
-
-fired = []
-i = 0
-while i < 10
-  b.update
-  fired << i if b.repeat?(:up)
-  i += 1
-end
-# The settling update is step 1 (held == 1). With delay 4 the next step is at
-# held == 5, four quiet samples later, and then every second one.
-check("a pause, then every other sample") { fired == [3, 5, 7, 9] }
-check("still pressed throughout")         { b.pressed?(:up) }
-
-GPIO.release(Board::BUTTON_PINS[0][1])
-b.update
-b.update
-check("nothing repeats once released") { !b.repeat?(:up) && !b.pressed?(:up) }
+check("released")            { !buttons.any? }
+buttons.clear_presses
 
 check("every name maps to a pin") do
   ok = true
@@ -298,12 +284,9 @@ check("every name maps to a pin") do
   while i < names.size
     GPIO.reset
     GPIO.write_at(Panel::SDB_PIN, 1)
-    pin = Board::BUTTON_PINS[i][1]
-    GPIO.press(pin)
     b = Buttons.new
-    b.update
-    b.update
-    ok = false unless b.pressed?(names[i]) && b.pressed.size == 1
+    GPIO.press(Board::BUTTON_PINS[i][1])
+    ok = false unless b.take_press == names[i] && b.pressed == [names[i]]
     i += 1
   end
   ok
