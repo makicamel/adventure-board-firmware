@@ -62,6 +62,10 @@ end
 # methods, so it loads without a browser.
 load "sim/sim_audio.rb"
 
+
+# The page boots the real board layer, so the test boots the same thing:
+# Board.boot raises SDB, builds LedMatrix on the virtual bus and the buttons on
+# the GPIO stand-in.
 # Records what a sink would have been asked to play.
 class RecordingSink
   attr_reader :events
@@ -77,13 +81,12 @@ class RecordingSink
   end
 end
 
-# The page boots the real board layer, so the test boots the same thing:
-# Board.boot raises SDB, builds LedMatrix on the virtual bus and the buttons on
-# the GPIO stand-in.
 def new_board(global_current: 0x20)
   GPIO.reset
   panel = Panel.new
-  board = Board.boot(i2c: panel.i2c, global_current: global_current)
+  board = Board.boot(i2c: panel.i2c, speaker_backend: RecordingSink.new,
+                     global_current: global_current)
+  $board = board
   m = board.matrix
   [panel, m.top, m.bottom, m, board]
 end
@@ -308,17 +311,17 @@ check("the three notes come out as C4 D4 E4") { notes[0, 3] == [60, 62, 64] }
 puts "11. Speaker routes to its sink and drives the amplifier"
 GPIO.reset
 sink = RecordingSink.new
-speaker = Speaker.new(sink: sink)
+spk = Speaker.new(sink: sink)
 check("amplifier starts muted") { GPIO.read_at(Board::AMP_SD_PIN) == 0 }
 
-speaker.note_on(60, velocity: 90)
+spk.note_on(60, velocity: 90)
 check("note_on reaches the sink")  { sink.events[-1] == [:note_on, 0, 60, 90] }
 check("and unmutes the amplifier") { GPIO.read_at(Board::AMP_SD_PIN) == 1 }
 
-speaker.note_off(60)
+spk.note_off(60)
 check("note_off reaches the sink") { sink.events[-1] == [:note_off, 0, 60] }
 
-speaker.stop
+spk.stop
 check("stop sends all notes off") { sink.events[-1] == [:control_change, 0, 123, 0] }
 check("and mutes again")          { GPIO.read_at(Board::AMP_SD_PIN) == 0 }
 

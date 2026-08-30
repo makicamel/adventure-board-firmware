@@ -11,37 +11,17 @@
 # so `code`, `audio`, `select` and friends cannot be used here.
 require 'js'
 
+# Bringing the board up is the one thing that genuinely differs between here
+# and the device, so it is the one thing done here: the peripherals are
+# stand-ins and the audio sink can be switched on later. Everything a program
+# touches — `board`, `matrix`, `buttons`, `speaker` — comes from the board
+# layer and is identical on the device.
 $panel = Panel.new
 $notelog = NoteLog.new
-# Built on the first user gesture: creating an AudioContext before one makes the
-# browser complain, and not every session wants sound.
-$speaker_backend = nil
-$board = Board.boot(i2c: $panel.i2c)
-$matrix = $board.matrix
+$audio_sink = SwitchableSink.new
+$board = Board.boot(i2c: $panel.i2c, speaker_backend: $audio_sink)
+$board.speaker.router.connect(:mml, $notelog)
 $app = nil
-
-# --- what the code typed into the page can call -----------------------------
-
-def matrix
-  $matrix
-end
-
-def buttons
-  $board.buttons
-end
-
-def board
-  $board
-end
-
-# The simulated panel behind the matrix: virtual chips and the virtual bus.
-def panel
-  $panel
-end
-
-def speaker
-  SimApp.speaker
-end
 
 
 class SimApp < Funicular::Component
@@ -74,25 +54,7 @@ class SimApp < Funicular::Component
 
   MONITOR_MS = 50
 
-  # --- the speaker and the run loop, which outlive any one render -----------
-
-  def self.speaker
-    return $speaker if $speaker
-    $speaker = Speaker.new(sink: audio_sink, amp_sd_pin: Board::AMP_SD_PIN)
-    $speaker.router.connect(:mml, $notelog)
-    $speaker
-  end
-
-  # WebAudio once it has been switched on, otherwise a sink that swallows
-  # events so a melody still reaches the note log.
-  def self.audio_sink
-    $speaker_backend || NullSink.new
-  end
-
-  class NullSink
-    def handle(_event, source: :mml, priority: 0, timestamp_us: nil, **_c); true; end
-    def handle_midi(_event, _source, _priority, _timestamp_us); true; end
-  end
+  # --- the run loop, which outlives any one render -------------------------
 
   # The code typed into the page runs in a task of its own, so it can be
   # written exactly as it would be on the board — `while true` with `sleep_ms`,
@@ -277,7 +239,7 @@ class SimApp < Funicular::Component
   def on_gcc(event)
     value = event.target[:value].to_s.to_i
     patch(gcc: value)
-    $matrix.brightness = value
+    matrix.brightness = value
     draw
     nil
   end
@@ -306,12 +268,13 @@ class SimApp < Funicular::Component
   def on_reset(_event)
     begin
       SimApp.stop_task
-      $speaker.stop if $speaker
+      speaker.stop if speaker
       $notelog.clear
       GPIO.reset
       $panel = Panel.new
-      $board = Board.boot(i2c: $panel.i2c, global_current: state[:gcc])
-      $matrix = $board.matrix
+      $board = Board.boot(i2c: $panel.i2c, speaker_backend: $audio_sink,
+                          global_current: state[:gcc])
+      $board.speaker.router.connect(:mml, $notelog)
       patch(held: [], status: "リセットしました", kind: "ok")
       draw
     rescue Exception => e
@@ -324,14 +287,10 @@ class SimApp < Funicular::Component
   # running on the gesture's own stack.
   def on_audio(_event)
     begin
-      unless $speaker_backend
-        $speaker_backend = WebAudioSpeaker.new
-        $speaker_backend.resume
-        if $speaker
-          $speaker.stop
-          $speaker = nil
-        end
-        SimApp.speaker
+      unless $audio_sink.backend
+        web = WebAudioSpeaker.new
+        web.resume
+        $audio_sink.backend = web
       end
       patch(audio_on: true, status: "音を有効にしました。", kind: "ok")
     rescue Exception => e
@@ -345,7 +304,7 @@ class SimApp < Funicular::Component
   def run(source)
     begin
       SimApp.stop_task
-      $speaker.stop if $speaker
+      speaker.stop if speaker
       $notelog.clear
       SimApp.start_task(source)
       patch(status: "実行中", kind: "ok")
@@ -367,7 +326,7 @@ class SimApp < Funicular::Component
   # Four corners plus a centre cross, driven through the real driver: if this
   # shows up, both the rendering and the whole driver path are working.
   def self_test
-    m = $matrix
+    m = matrix
     m.clear
     m.set(1, 1); m.set(16, 1); m.set(1, 16); m.set(16, 16)
     i = 6

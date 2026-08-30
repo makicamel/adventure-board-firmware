@@ -93,6 +93,29 @@ class NoteLog
   end
 end
 
+# The sink the board's Speaker is built with, so that enabling audio later does
+# not mean rebuilding the board. Silent until a backend is attached, which is
+# what lets a melody reach the note log with the sound switched off.
+class SwitchableSink
+  attr_accessor :backend
+
+  def initialize(backend = nil)
+    @backend = backend
+  end
+
+  def handle(event, source: :mml, priority: 0, timestamp_us: nil, **context)
+    b = @backend
+    return true unless b
+    b.handle(event, source: source, priority: priority, timestamp_us: timestamp_us)
+  end
+
+  def handle_midi(event, source, priority, timestamp_us)
+    b = @backend
+    return true unless b
+    b.handle_midi(event, source, priority, timestamp_us)
+  end
+end
+
 # The browser's sound generator, standing in for PSG.
 #
 # The AudioContext starts suspended until a user gesture, which is why `resume`

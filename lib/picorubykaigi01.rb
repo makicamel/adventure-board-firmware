@@ -38,21 +38,44 @@ class Board
   # pulling it low.
   SDB_SETTLE_MS = 1
 
-  attr_reader :matrix, :buttons, :speaker, :status_led
+  attr_reader :i2c, :matrix, :buttons, :speaker, :status_led
 
-  # The I2C bus and the speaker backend are handed in rather than built here:
-  # on the board they are the real peripherals, in the simulator they are
-  # stand-ins, and everything else in this file is the same either way.
-  def self.boot(i2c:, speaker_backend: nil, global_current: 0x20)
+  # Brings the board up. Called with no arguments it builds this board's own
+  # peripherals; the simulator hands in stand-ins instead. Everything below
+  # this method is the same either way.
+  def self.boot(i2c: nil, speaker_backend: nil, global_current: 0x20)
+    i2c ||= default_i2c
+    speaker_backend ||= default_speaker_backend
     sdb = GPIO.new(LED_SDB_PIN, GPIO::OUT)
     sdb.write(1)
     settle
     new(
       sdb: sdb,
+      i2c: i2c,
       matrix: LedMatrix.new(i2c: i2c, global_current: global_current),
       buttons: Buttons.new,
-      speaker: speaker_backend && Speaker.new(backend: speaker_backend)
+      speaker: speaker_backend && Speaker.new(sink: speaker_backend)
     ).tap { start_irq }
+  end
+
+  # I2C0, the bus the two LED drivers sit on.
+  def self.default_i2c
+    I2C.new(unit: :RP2040_I2C0,
+            sda_pin: I2C0_SDA_PIN, scl_pin: I2C0_SCL_PIN,
+            frequency: 400_000)
+  end
+
+  # PSG on the audio PWM pin, which feeds the RC filter and the PAM8302A.
+  # GPIO11 is the same PWM slice and only reaches the breadboard header, so it
+  # is handed over as the right channel and simply goes nowhere on the board.
+  # nil on a build without picoruby-psg, and then there is no speaker.
+  def self.default_speaker_backend
+    PSG::Synth.new(
+      PSG::Driver.new(:pwm, left: AUDIO_PWM_PIN, right: AUDIO_PWM_PIN_R),
+      voice_count: 3
+    ).start
+  rescue NameError, NoMethodError
+    nil
   end
 
   # Delivers interrupts from a dispatcher task, so nothing polls. PicoRuby
@@ -71,8 +94,9 @@ class Board
     nil
   end
 
-  def initialize(sdb:, matrix:, buttons:, speaker: nil, status_led: nil)
+  def initialize(sdb:, i2c:, matrix:, buttons:, speaker: nil, status_led: nil)
     @sdb = sdb
+    @i2c = i2c
     @matrix = matrix
     @buttons = buttons
     @speaker = speaker
@@ -427,4 +451,29 @@ class Buttons
     end
     0
   end
+end
+
+# --- what a program calls ----------------------------------------------------
+#
+# `$board` is set by whoever brought the board up: /etc/init.d on the device,
+# the page in the simulator. A program never has to know how the peripherals
+# were built, and the same source runs in both places.
+#
+# These are ordinary top-level methods, so they are private methods on Object
+# and are reachable from anywhere, including inside a Task.
+
+def board
+  $board ||= Board.boot
+end
+
+def matrix
+  board.matrix
+end
+
+def buttons
+  board.buttons
+end
+
+def speaker
+  board.speaker
 end
