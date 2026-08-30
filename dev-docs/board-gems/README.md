@@ -30,7 +30,7 @@
 | 音声出力 | PWM GPIO10 → 2次RC → PAM8302A → LS1 | `picoruby-psg` | ✅ `PSG::Driver.select_pwm(10, 11)` で出力ピンを指定できる |
 | 音楽（MML） | 同上 | `picoruby-midibase-mml` | ✅ そのまま。初心者向けの入口として最適 |
 | アンプ ミュート | GPIO23（Low=停止、4.7k プルダウン） | `picoruby-gpio` | ✅ ボード gem が面倒を見る |
-| ステータス LED（緑） | GPIO16 + R31 2kΩ（PWM0A） | `picoruby-gpio` / `picoruby-pwm` | ✅ 明滅もできる |
+| ステータス LED（緑） | GPIO16 + R31 2kΩ（PWM0A）、アクティブ High | `picoruby-gpio` | ✅ `Board#status_led`（on/off/toggle）。GPIO16 は PWM0A なので調光も可能 |
 | GROVE-A（I2C） | I2C1 GPIO6/7、4.7kΩ プルアップ | `picoruby-i2c` | ✅ `Board#grove_i2c` |
 | GROVE-B（UART or ADC） | GPIO28/29 = UART0 / ADC2・3 | `picoruby-uart` / `picoruby-adc` | ✅ `Board#grove_uart`（要求時に生成。ADC とは排他） |
 | J1 ブレッドボードヘッダ | GPIO 2,3,8,9,11,12,13,14,15,25,26,27 | `picoruby-gpio` `-spi` `-pwm` `-adc` `-pio` | ✅ GPIO12〜15 が SPI1 一式 |

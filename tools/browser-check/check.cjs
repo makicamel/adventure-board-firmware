@@ -110,7 +110,30 @@ async function showNotes(page, label) {
   return lines;
 }
 
+// The status LED is a class on a span, so it can be read the same way the
+// panel is: sampled a few times to see it actually blinking.
+async function watchStatusLed(page, samples = 8, gapMs = 120) {
+  const seen = [];
+  for (let i = 0; i < samples; i++) {
+    const cls = await page.getAttribute('#status-led', 'class');
+    seen.push(cls && !cls.includes('off') ? 'on' : 'off');
+    await page.waitForTimeout(gapMs);
+  }
+  console.log(`--- status led over ${samples} samples ---`);
+  console.log('  ' + seen.join(' '));
+  return seen;
+}
+
 const INTERACTIVE = {
+  status_led: async (page) => {
+    const seen = await watchStatusLed(page);
+    const blinked = seen.includes('on') && seen.includes('off');
+    console.log(`# blinking: ${blinked}`);
+    await press(page, '[data-pin="21"]', 700, async () => {
+      const held = await page.getAttribute('#status-led', 'class');
+      console.log(`# while A is held: ${held && !held.includes('off') ? 'on' : 'off'}`);
+    });
+  },
   melody: async (page) => {
     // The player runs as its own task, so the notes arrive over time.
     await page.waitForTimeout(2500);

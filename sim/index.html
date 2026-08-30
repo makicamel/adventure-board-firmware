@@ -55,6 +55,12 @@
     border-radius: 6px; cursor: pointer; user-select: none;
   }
   .btn.round { border-radius: 50%; }
+  .leds { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; }
+  .led { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .led.green { background: #4ade80; box-shadow: 0 0 8px #4ade8099; }
+  .led.green.off { background: #1f2a22; box-shadow: none; }
+  .led.red { background: #f87171; box-shadow: 0 0 8px #f8717199; }
+  .leds .legend { margin-left: 4px; }
   .btn.held { background: #2f6feb; border-color: #2f6feb; color: #fff; }
 </style>
 </head>

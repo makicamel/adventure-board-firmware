@@ -30,6 +30,7 @@ class SimApp < Funicular::Component
     ["文字スクロール（要ローカル wasm）", "scroll.rb"],
     ["線と矩形（要ローカル wasm）", "shapes.rb"],
     ["1ドット", "one_dot.rb"],
+    ["ステータス LED", "status_led.rb"],
     ["ボタンで動かす", "buttons.rb"],
     ["自動で動く（ループ確認）", "spinner.rb"],
     ["MML でメロディ", "melody.rb"],
@@ -129,6 +130,13 @@ class SimApp < Funicular::Component
         div(class: "pad") do
           div(class: "dpad") { dpad_buttons }
           div(class: "ab") { ab_buttons }
+        end
+        div(class: "leds") do
+          # The green status LED and, beside it, the red power one that is
+          # wired straight to 3V3 on the board and so is always lit.
+          span(ref: :status_led, id: "status-led", class: "led green off") { "" }
+          span(class: "led red") { "" }
+          span(class: "legend") { "ステータス LED (GPIO16) / 電源 LED" }
         end
         div(class: "legend") do
           span { "上半分 = U10 (0x34) / 下半分 = U11 (0x35、列が左右反転)" }
@@ -326,7 +334,21 @@ class SimApp < Funicular::Component
 
   def draw
     JS.global.renderPanel($panel.levels_hex)
+    draw_status_led
     draw_notes
+    nil
+  end
+
+  # Read on the heartbeat like the panel: the board layer drives the pin and
+  # the page shows whatever it currently is.
+  def draw_status_led
+    el = refs[:status_led]
+    return nil unless el
+    led = $board.status_led
+    lit = led && led.on?
+    return nil if lit == $status_led_shown
+    $status_led_shown = lit
+    el[:className] = lit ? "led green" : "led green off"
     nil
   end
 

@@ -295,6 +295,21 @@ check("every name maps to a pin") do
   ok
 end
 
+puts "9-3. the status LED is active high on GPIO16"
+_p, _t, _b, _m, board = new_board
+led = board.status_led
+check("starts off")            { !led.on? && GPIO.read_at(Board::STATUS_LED_PIN) == 0 }
+led.on
+check("on drives the pin high"){ led.on? && GPIO.read_at(Board::STATUS_LED_PIN) == 1 }
+led.toggle
+check("toggle turns it off")   { !led.on? && GPIO.read_at(Board::STATUS_LED_PIN) == 0 }
+led.toggle
+check("and back on")           { led.on? }
+led.write(0)
+check("write(0) is off")       { !led.on? }
+led.write(1)
+check("write(1) is on")        { led.on? }
+
 puts "10. MML turns into the MIDI events the synth expects"
 seq = MIDIBASE::MML::Sequence.new(["t120 o4 l4 cde"])
 notes = []
