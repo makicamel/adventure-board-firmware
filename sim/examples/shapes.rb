@@ -1,12 +1,16 @@
 # VRAM の描画 API。線と矩形。
-# VRAM は 1bit なので、明るさは blit の on: で決める。
+#
+# VRAM は 8bit なので、色にそのまま明るさ (0..255) を渡せる。
+# 何も指定しなければ matrix.pen の値が使われる。
 
 require 'picorubykaigi01'
 
 matrix.clear
 matrix.clear_drawing
-matrix.draw_rect(0, 0, 16, 16, 1)
-matrix.draw_line(0, 0, 15, 15, 1)
-matrix.draw_line(15, 0, 0, 15, 1)
-matrix.blit(on: 0x80)
+
+matrix.draw_rect(0, 0, 16, 16, 0xFF)    # 外枠は明るく
+matrix.draw_line(0, 0, 15, 15, 0x60)    # 対角線は暗く
+matrix.draw_line(15, 0, 0, 15, 0x20)    # もう一本はもっと暗く
+
+matrix.blit
 matrix.show

@@ -165,6 +165,7 @@ class LedMatrix
     @global_current = global_current
     @top.setup(global_current: global_current)
     @bottom.setup(global_current: global_current)
+    @pen = 0xFF
   end
 
   # x and y are 1-based.
@@ -213,10 +214,10 @@ class LedMatrix
 
   # --- drawing ------------------------------------------------------------
   #
-  # Everything above works dot by dot with 8-bit brightness. What follows goes
-  # through picoruby-vram, which is 1-bit only, so shapes and text are on or
-  # off and `blit` decides how bright "on" is. The two are deliberately
-  # separate: `set` for brightness, the VRAM for drawing.
+  # The VRAM is 8 bits deep, so a line, a rectangle and a glyph all carry a
+  # brightness of their own — the same 0..255 that `set` takes. `pen` is what
+  # they use when none is given, which is also how a font bitmap gets its
+  # brightness, since BDFFont calls draw_bitmap without one.
   #
   # picoruby-shinonome carries the 16x16 JIS font, which is the whole reason
   # this panel is 16x16 rather than 12x12.
@@ -226,14 +227,21 @@ class LedMatrix
     # No picoruby-shinonome in this build; only the shape API is available.
   end
 
+  # The brightness the drawing methods use when none is given, 0..255.
+  attr_accessor :pen
+
   # Built on first use: a board without picoruby-vram can still light dots.
+  #
+  # Two pages, one per driver chip, so that a change confined to one half can
+  # be pushed without touching the other.
   def vram
-    @vram ||= VRAM.new(w: WIDTH, h: HEIGHT, cols: 1, rows: HEIGHT / 8)
+    @vram ||= VRAM.new(w: WIDTH, h: HEIGHT, cols: 1, rows: 2, layout: :gray8)
   end
 
-  # What BDFFont::Drawable calls, and so what makes draw_shinonome work.
-  def draw_bitmap(x:, y:, w:, h:, data:)
-    vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
+  # What BDFFont::Drawable calls, and so what makes draw_shinonome work. The
+  # font is a bitmap, so its pixels take the pen.
+  def draw_bitmap(x:, y:, w:, h:, data:, color: nil)
+    vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data, color: color || @pen)
     nil
   end
 
@@ -242,18 +250,18 @@ class LedMatrix
     self
   end
 
-  def set_pixel(x, y, color = 1)
-    vram.set_pixel(x, y, color)
+  def set_pixel(x, y, color = nil)
+    vram.set_pixel(x, y, color || @pen)
     self
   end
 
-  def draw_line(x0, y0, x1, y1, color = 1)
-    vram.draw_line(x0, y0, x1, y1, color)
+  def draw_line(x0, y0, x1, y1, color = nil)
+    vram.draw_line(x0, y0, x1, y1, color || @pen)
     self
   end
 
-  def draw_rect(x, y, w, h, color = 1)
-    vram.draw_rect(x, y, w, h, color)
+  def draw_rect(x, y, w, h, color = nil)
+    vram.draw_rect(x, y, w, h, color || @pen)
     self
   end
 
@@ -262,27 +270,24 @@ class LedMatrix
     self
   end
 
-  # Copy the 1-bit buffer onto the dots. VRAM is 0-based and organised in pages
-  # of eight rows, one byte per column, bit 0 at the top.
-  #
-  # This is 256 assignments per frame and the one place worth rewriting in C if
-  # it ever proves too slow; nothing else in the drawing path is per-pixel.
-  def blit(on: 0xFF, off: 0x00)
+  # Copy the drawing buffer onto the dots. Both are a byte per pixel now, so
+  # this is a straight copy: the buffer holds the brightness the drawing was
+  # made with.
+  def blit
     pages = vram.pages
     pi = 0
     while pi < pages.size
       page = pages[pi]
-      row = page[1].to_i
+      top = page[1].to_i * 8
       data = page[2].to_s
-      x = 0
-      while x < WIDTH
-        byte = data.getbyte(x) || 0
-        b = 0
-        while b < 8
-          set(x + 1, row * 8 + b + 1, ((byte >> b) & 1) == 1 ? on : off)
-          b += 1
+      ly = 0
+      while ly < 8
+        x = 0
+        while x < WIDTH
+          set(x + 1, top + ly + 1, data.getbyte(ly * WIDTH + x) || 0)
+          x += 1
         end
-        x += 1
+        ly += 1
       end
       pi += 1
     end

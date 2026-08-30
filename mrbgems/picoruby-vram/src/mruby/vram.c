@@ -29,6 +29,7 @@ struct mrb_data_type mrb_vram_type = {
 /*
  * vram = VRAM.new(w: 128, h: 64, cols: 1, rows: 8)
  * vram = VRAM.new(w: 200, h: 200, cols: 1, rows: 1, layout: :horizontal, invert: true)
+ * vram = VRAM.new(w: 16, h: 16, cols: 1, rows: 1, layout: :gray8)
  */
 static mrb_value
 mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
@@ -47,11 +48,14 @@ mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
   mrb_int cols = mrb_fixnum(kw_values[2]);
   mrb_int rows = mrb_fixnum(kw_values[3]);
 
-  /* Optional: layout (:vertical default, :horizontal for UC8151) */
-  bool horizontal = false;
+  /* Optional: layout (:vertical default, :horizontal for UC8151, :gray8 for
+   * a byte per pixel) */
+  pixel_format_t format = PIXEL_FORMAT_MONO;
   if (!mrb_undef_p(kw_values[4]) && mrb_symbol_p(kw_values[4])) {
     if (mrb_symbol(kw_values[4]) == mrb_intern_lit(mrb, "horizontal")) {
-      horizontal = true;
+      format = PIXEL_FORMAT_MONO_H;
+    } else if (mrb_symbol(kw_values[4]) == mrb_intern_lit(mrb, "gray8")) {
+      format = PIXEL_FORMAT_GRAY8;
     }
   }
 
@@ -78,7 +82,7 @@ mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
 
   mrb_value vram = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class_ptr(klass), &mrb_vram_type, disp));
 
-  size_t page_size = display_page_buffer_size(page_w, page_h, horizontal, rotate);
+  size_t page_size = display_page_buffer_size(page_w, page_h, format, rotate);
 
   for (mrb_int ty = 0; ty < rows; ty++) {
     for (mrb_int tx = 0; tx < cols; tx++) {
@@ -96,7 +100,7 @@ mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
       page->raw_size = page_size;
       mrb_gc_register(mrb, page->buffer);
       page->dirty = false;
-      display_page_init_format(page, horizontal);
+      display_page_init_format(page, format);
       page->fill(page, 0);
     }
   }
@@ -198,10 +202,12 @@ mrb_vram_erase(mrb_state* mrb, mrb_value self)
 static mrb_value
 mrb_vram_draw_bitmap(mrb_state* mrb, mrb_value self)
 {
-  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data) };
-  mrb_value kw_values[5];
+  /* color is optional and defaults to 1, which is what a 1bit page wants; a
+   * gray8 page needs the brightness saying explicitly. */
+  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data), MRB_SYM(color) };
+  mrb_value kw_values[6];
   mrb_value kw_rest;
-  mrb_kwargs kwargs = { 5, 5, kw_names, kw_values, &kw_rest };
+  mrb_kwargs kwargs = { 6, 5, kw_names, kw_values, &kw_rest };
   mrb_get_args(mrb, ":", &kwargs);
 
   display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
@@ -211,6 +217,10 @@ mrb_vram_draw_bitmap(mrb_state* mrb, mrb_value self)
       !mrb_integer_p(kw_values[2]) || !mrb_integer_p(kw_values[3]) ||
       !mrb_array_p(kw_values[4])) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid arguments for draw_bitmap");
+  }
+  uint32_t color = 1;
+  if (!mrb_undef_p(kw_values[5]) && mrb_integer_p(kw_values[5])) {
+    color = (uint32_t)mrb_integer(kw_values[5]);
   }
 
   mrb_int x = mrb_integer(kw_values[0]);
@@ -229,7 +239,7 @@ mrb_vram_draw_bitmap(mrb_state* mrb, mrb_value self)
       uint64_t row_data = (uint64_t)mrb_integer(row_val);
       for (mrb_int img_x = 0; img_x < width; img_x++) {
         uint8_t pixel = (row_data >> (width - 1 - img_x)) & 1;
-        display_set_pixel(disp, x + img_x, y + img_y, pixel);
+        display_set_pixel(disp, x + img_x, y + img_y, pixel ? color : 0);
       }
     }
   }
@@ -240,10 +250,10 @@ mrb_vram_draw_bitmap(mrb_state* mrb, mrb_value self)
 static mrb_value
 mrb_vram_draw_bytes(mrb_state* mrb, mrb_value self)
 {
-  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data) };
-  mrb_value kw_values[5];
+  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data), MRB_SYM(color) };
+  mrb_value kw_values[6];
   mrb_value kw_rest;
-  mrb_kwargs kwargs = { 5, 5, kw_names, kw_values, &kw_rest };
+  mrb_kwargs kwargs = { 6, 5, kw_names, kw_values, &kw_rest };
   mrb_get_args(mrb, ":", &kwargs);
 
   display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
@@ -253,6 +263,10 @@ mrb_vram_draw_bytes(mrb_state* mrb, mrb_value self)
       !mrb_integer_p(kw_values[2]) || !mrb_integer_p(kw_values[3]) ||
       !mrb_string_p(kw_values[4])) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid arguments for draw_bytes");
+  }
+  uint32_t color = 1;
+  if (!mrb_undef_p(kw_values[5]) && mrb_integer_p(kw_values[5])) {
+    color = (uint32_t)mrb_integer(kw_values[5]);
   }
 
   mrb_int x = mrb_integer(kw_values[0]);
@@ -265,7 +279,7 @@ mrb_vram_draw_bytes(mrb_state* mrb, mrb_value self)
 
   display_draw_bytes(disp, x, y, width, height,
                      (const uint8_t *)RSTRING_PTR(data_val),
-                     (size_t)RSTRING_LEN(data_val));
+                     (size_t)RSTRING_LEN(data_val), color);
   return self;
 }
 
@@ -280,8 +294,8 @@ mrb_picoruby_vram_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(dirty_pages), mrb_vram_dirty_pages, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_line), mrb_vram_draw_line, MRB_ARGS_REQ(5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_rect), mrb_vram_draw_rect, MRB_ARGS_REQ(5));
-  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bitmap), mrb_vram_draw_bitmap, MRB_ARGS_KEY(5, 5));
-  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bytes), mrb_vram_draw_bytes, MRB_ARGS_KEY(5, 5));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bitmap), mrb_vram_draw_bitmap, MRB_ARGS_KEY(6, 5));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bytes), mrb_vram_draw_bytes, MRB_ARGS_KEY(6, 5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(set_pixel), mrb_vram_set_pixel, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(fill), mrb_vram_fill, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(erase), mrb_vram_erase, MRB_ARGS_REQ(4));

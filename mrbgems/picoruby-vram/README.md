@@ -16,10 +16,11 @@ The `picoruby-vram` gem provides an efficient abstraction layer for managing dis
 
 ## Supported Pixel Formats
 
-- `PIXEL_FORMAT_MONO`: 1-bit per pixel (monochrome)
+- `PIXEL_FORMAT_MONO`: 1-bit per pixel, vertical layout (SSD1306 style)
+- `PIXEL_FORMAT_MONO_H`: 1-bit per pixel, horizontal layout (UC8151 style)
+- `PIXEL_FORMAT_GRAY8`: 8-bit per pixel (256 levels), one byte per pixel
 - TODO:
   - `PIXEL_FORMAT_GRAY4`: 4-bit per pixel (16 grayscale levels)
-  - `PIXEL_FORMAT_GRAY8`: 8-bit per pixel (256 grayscale levels)
   - `PIXEL_FORMAT_RGB565`: 16-bit per pixel (RGB color)
   - `PIXEL_FORMAT_RGB888`: 24-bit per pixel (full RGB color)
   - `PIXEL_FORMAT_ARGB8888`: 32-bit per pixel (RGB with alpha channel)
@@ -32,7 +33,16 @@ The `picoruby-vram` gem provides an efficient abstraction layer for managing dis
 # Create a 128x64 pixel display with 8 pages (1 column, 8 rows)
 vram = VRAM.new(w: 128, h: 64, cols: 1, rows: 8)
 vram.name = "SSD1306"
+
+# 8 bits per pixel: colour is a brightness, and a page is w * h bytes with no
+# row packing.
+vram = VRAM.new(w: 16, h: 16, cols: 1, rows: 2, layout: :gray8)
+vram.draw_line(0, 0, 15, 15, 0x60)
 ```
+
+`draw_bitmap` and `draw_bytes` read a 1-bit source whatever the destination
+is, so they take an optional `color:` for what a set bit should become. It
+defaults to 1, which is what a monochrome page wants.
 
 ### Drawing Operations
 

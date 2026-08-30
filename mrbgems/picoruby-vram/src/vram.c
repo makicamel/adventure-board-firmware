@@ -6,16 +6,20 @@
  * When rotate=90 or 270, the buffer stores the transposed image (buf_w=h, buf_h=w).
  *   vertical   layout: buf_w * ceil(buf_h / 8)
  *   horizontal layout: ceil(buf_w / 8) * buf_h
+ *   gray8      layout: buf_w * buf_h
  */
 static size_t
-display_page_buffer_size(int page_w, int page_h, bool horizontal, int rotate)
+display_page_buffer_size(int page_w, int page_h, pixel_format_t format, int rotate)
 {
   int bw = (rotate == 90 || rotate == 270) ? page_h : page_w;
   int bh = (rotate == 90 || rotate == 270) ? page_w : page_h;
-  if (horizontal) {
-    return (size_t)(((bw + 7) / 8) * bh);
-  } else {
-    return (size_t)(bw * ((bh + 7) / 8));
+  switch (format) {
+    case PIXEL_FORMAT_MONO_H:
+      return (size_t)(((bw + 7) / 8) * bh);
+    case PIXEL_FORMAT_GRAY8:
+      return (size_t)(bw * bh);
+    default:
+      return (size_t)(bw * ((bh + 7) / 8));
   }
 }
 
@@ -102,11 +106,51 @@ mono_h_page_fill(struct display_page *page, uint32_t color)
 }
 
 /*
+ * Gray8 layout: one byte per pixel, no packing.
+ *   byte_idx = x + y * page_w
+ *
+ * The drawing primitives already carry colour as uint32_t and know nothing
+ * about the layout, so lines, rectangles, rotation and draw_bytes work here
+ * unchanged; only these three functions differ from mono.
+ */
+static void
+gray8_page_set_pixel(struct display_page *page, int x, int y, uint32_t color)
+{
+  if (x < 0 || x >= page->buf_w || y < 0 || y >= page->buf_h) return;
+  uint8_t value = (uint8_t)(color & 0xFF);
+  if (page->invert) value = (uint8_t)(0xFF - value);
+  int byte_idx = x + y * page->buf_w;
+  if (byte_idx < 0 || (size_t)byte_idx >= page->raw_size) return;
+  page->raw_data[byte_idx] = value;
+  page->dirty = true;
+}
+
+static uint32_t
+gray8_page_get_pixel(struct display_page *page, int x, int y)
+{
+  if (x < 0 || x >= page->buf_w || y < 0 || y >= page->buf_h) return 0;
+  int byte_idx = x + y * page->buf_w;
+  if (byte_idx < 0 || (size_t)byte_idx >= page->raw_size) return 0;
+  uint8_t value = page->raw_data[byte_idx];
+  if (page->invert) value = (uint8_t)(0xFF - value);
+  return (uint32_t)value;
+}
+
+static void
+gray8_page_fill(struct display_page *page, uint32_t color)
+{
+  uint8_t value = (uint8_t)(color & 0xFF);
+  if (page->invert) value = (uint8_t)(0xFF - value);
+  memset(page->raw_data, value, page->raw_size);
+  page->dirty = true;
+}
+
+/*
  * Select pixel format function pointers and compute buffer dimensions.
  * Must be called after page->w, page->h, and page->rotate are set.
  */
 static void
-display_page_init_format(display_page_t *page, bool horizontal)
+display_page_init_format(display_page_t *page, pixel_format_t format)
 {
   if (page->rotate == 90 || page->rotate == 270) {
     page->buf_w = page->h;
@@ -115,16 +159,24 @@ display_page_init_format(display_page_t *page, bool horizontal)
     page->buf_w = page->w;
     page->buf_h = page->h;
   }
-  if (horizontal) {
-    page->pixel_format = PIXEL_FORMAT_MONO_H;
-    page->set_pixel = mono_h_page_set_pixel;
-    page->get_pixel = mono_h_page_get_pixel;
-    page->fill = mono_h_page_fill;
-  } else {
-    page->pixel_format = PIXEL_FORMAT_MONO;
-    page->set_pixel = mono_page_set_pixel;
-    page->get_pixel = mono_page_get_pixel;
-    page->fill = mono_page_fill;
+  page->pixel_format = format;
+  switch (format) {
+    case PIXEL_FORMAT_MONO_H:
+      page->set_pixel = mono_h_page_set_pixel;
+      page->get_pixel = mono_h_page_get_pixel;
+      page->fill = mono_h_page_fill;
+      break;
+    case PIXEL_FORMAT_GRAY8:
+      page->set_pixel = gray8_page_set_pixel;
+      page->get_pixel = gray8_page_get_pixel;
+      page->fill = gray8_page_fill;
+      break;
+    default:
+      page->pixel_format = PIXEL_FORMAT_MONO;
+      page->set_pixel = mono_page_set_pixel;
+      page->get_pixel = mono_page_get_pixel;
+      page->fill = mono_page_fill;
+      break;
   }
 }
 
@@ -225,7 +277,7 @@ display_erase(display_t *disp, int x, int y, int w, int h)
 
 static void
 display_draw_bytes(display_t *disp, int x, int y, int w, int h,
-                   const uint8_t *data, size_t data_size)
+                   const uint8_t *data, size_t data_size, uint32_t color)
 {
   int img_y = 0;
   while (img_y < h) {
@@ -237,7 +289,9 @@ display_draw_bytes(display_t *disp, int x, int y, int w, int h,
       if ((size_t)byte_idx < data_size) {
         pixel = (data[byte_idx] >> bit_idx) & 1;
       }
-      display_set_pixel(disp, x + img_x, y + img_y, pixel);
+      /* The source is one bit per pixel whatever the destination is, so a set
+       * bit takes the requested colour and a clear one is background. */
+      display_set_pixel(disp, x + img_x, y + img_y, pixel ? color : 0);
       img_x++;
     }
     img_y++;

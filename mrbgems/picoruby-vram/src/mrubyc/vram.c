@@ -36,10 +36,17 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Optional: layout (:vertical default, :horizontal for UC8151) */
+  /* Optional: layout (:vertical default, :horizontal for UC8151, :gray8 for
+   * a byte per pixel) */
   mrbc_value layout_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("layout")));
-  bool horizontal = (mrbc_type(layout_val) == MRBC_TT_SYMBOL) &&
-                    (layout_val.i == (int32_t)mrbc_str_to_symid("horizontal"));
+  pixel_format_t format = PIXEL_FORMAT_MONO;
+  if (mrbc_type(layout_val) == MRBC_TT_SYMBOL) {
+    if (layout_val.i == (int32_t)mrbc_str_to_symid("horizontal")) {
+      format = PIXEL_FORMAT_MONO_H;
+    } else if (layout_val.i == (int32_t)mrbc_str_to_symid("gray8")) {
+      format = PIXEL_FORMAT_GRAY8;
+    }
+  }
 
   /* Optional: invert (false default) */
   mrbc_value invert_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("invert")));
@@ -67,7 +74,7 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
   disp->h = h;
   disp->page_count = rows * cols;
 
-  size_t page_size = display_page_buffer_size(page_w, page_h, horizontal, rotate);
+  size_t page_size = display_page_buffer_size(page_w, page_h, format, rotate);
 
   for (int ty = 0; ty < rows; ty++) {
     for (int tx = 0; tx < cols; tx++) {
@@ -87,7 +94,7 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
       /* TODO: memory leak of page->buffer happens */
 
       page->dirty = false;
-      display_page_init_format(page, horizontal);
+      display_page_init_format(page, format);
       page->fill(page, 0);
     }
   }
@@ -267,7 +274,7 @@ c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
 
   display_draw_bytes(disp, x, y, width, height,
                      (const uint8_t *)data_val.string->data,
-                     (size_t)data_val.string->size);
+                     (size_t)data_val.string->size, 1);
 }
 
 /*

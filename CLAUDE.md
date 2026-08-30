@@ -234,6 +234,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
+- ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
 - ⬜ `/lib` への配布方法（[dev-docs/board-gems/](dev-docs/board-gems/) §3-2）
 - ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
 - ⬜ 基板用 build_config、実基板ブリングアップ

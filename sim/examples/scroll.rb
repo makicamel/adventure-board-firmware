@@ -5,10 +5,13 @@ require 'picorubykaigi01'
 text = "PicoRubyKaigi 第一回 ようこそ"
 x = 16
 
+# 文字の明るさ。draw_text は色を取らないので、pen で決める。
+matrix.pen = 0xC0
+
 while true
   matrix.clear_drawing
   matrix.draw_text(text, x, 0)
-  matrix.blit(on: 0xC0)
+  matrix.blit
   matrix.show
 
   x -= 1

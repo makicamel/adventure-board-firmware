@@ -3,15 +3,15 @@ class VRAM
   attr_accessor name: String
 
   def self.new: (w: Integer, h: Integer, cols: Integer, rows: Integer,
-                 ?layout: :vertical | :horizontal, ?invert: bool,
+                 ?layout: :vertical | :horizontal | :gray8, ?invert: bool,
                  ?rotate: 0 | 90 | 180 | 270) -> VRAM
   def pages: (?bool clear_dirty) -> Array[page_t]
   def dirty_pages: (?bool clear_dirty) -> Array[page_t]
   def set_pixel: (Integer x, Integer y, Integer color) -> self
   def draw_rect: (Integer x, Integer y, Integer w, Integer h, Integer color) -> self
   def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, Integer color) -> self
-  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> self
-  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> self
+  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer], ?color: Integer) -> self
+  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String, ?color: Integer) -> self
   def fill: (Integer color) -> self
   def erase: (Integer x, Integer y, Integer w, Integer h) -> self
 
@@ -20,8 +20,8 @@ class VRAM
     @height: Integer
     @vram: VRAM
     def set_pixel: (Integer x, Integer y, ?Integer color) -> void
-    def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
-    def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> nil
+    def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer], ?color: Integer) -> nil
+    def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String, ?color: Integer) -> nil
     def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> nil
     def draw_rect: (Integer x, Integer y, Integer w, Integer h, ?Integer color, ?bool fill) -> nil
   end

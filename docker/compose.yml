@@ -93,7 +93,9 @@ services:
       EMSDK: ${EMSDK_DIR:-/emsdk-not-set}
       EM_CONFIG: ${EMSDK_DIR:-/emsdk-not-set}/.emscripten
       PICO_SDK_PATH: /work/mrbgems/picoruby-r2p2/lib/pico-sdk
-    command: ["bash", "-lc", "source $EMSDK/emsdk_env.sh && emcc --version"]
+    # $$ so compose passes the variable through to the shell instead of
+    # interpolating it here.
+    command: ["bash", "-lc", "source $$EMSDK/emsdk_env.sh && emcc --version"]
 
   # Headless browser for the LED matrix simulator page. Its own image, because
   # nothing in the firmware build needs Node or Chromium.
