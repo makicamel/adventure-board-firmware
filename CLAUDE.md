@@ -120,11 +120,34 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   Array や Hash を渡すと `TypeError`。interop ドキュメントの型対応表は `[]=` の話。
   `JS::Bridge.to_js` は使えるが要素ごとに push するので呼び出し回数が増える
 - ブリッジは文字列を C 文字列として扱うので、**NUL を含むバイト列は途中で切れる**
+- **存在しない JS 関数を呼んでも例外にならない。** console に
+  `Method not found or not a function: ...` が出るだけなので、静かに失敗する
 - **`JS.global.fetch` は `.then` ではなくブロックを取る。** Promise 一般は `.await` / `.then`
+- **`addEventListener(..., sync: true)` の中では `await` できない**
+  （`Cannot use asynchronous Task API during synchronous execution`）。
+  autoplay ポリシー対応で同期リスナーが要るときは、await しない経路を選ぶ
 - 例外は `rescue Exception` で捕まえる。**構文エラーは `ScriptError`** なので
   `rescue => e` では捕まらず、タスクが黙って死ぬ
 - `require 'i2c'` のような組み込み gem 依存は、ブラウザや `bin/picoruby` では
   `LoadError` になる。`Kernel#require` を包んで握り潰す（picotest のランナーと同じ手）
+- **`Machine` は wasm ビルドに無い**（`core` gembox 由来で、
+  `build_config/picoruby-wasm.rb` は取り込んでいない）。`MIDIBASE::Router` などが
+  `Machine.uptime_us` を呼ぶので、`performance.now()` で代替する
+- 純 Ruby の gem（`picoruby-midibase` / `-mml` など）は**ソースを fetch して連結すれば
+  stock パッケージで動く**。C 拡張（`psg` / `gpio` / `pwm` / `vram` / `shinonome`）は動かない
+
+### Funicular（UI フレームワーク）
+
+- stock パッケージに同梱（`build_config/picoruby-wasm.rb`）。追加ビルド不要
+- **HTML タグ名はコンポーネントのメソッド名にできない**（`code` `audio` `select` など）
+- `pre` は**タグ DSL に無い**。`tag("pre", ...)` を使う
+- 子要素は**ブロックの戻り値ではなく副作用**で集まる（`ViewContext#capture`）。
+  ヘルパーの中でタグを呼べば足りる。配列を組んで返す必要はない
+- クラスメソッドからインスタンスを叩くなら `public :foo` が要る
+- **速く変わるものは state に置かない。** canvas / テキストエリア / ログは `ref` で持つ
+  （毎回 VDOM 差分が走る。テキストエリアを state にするとカーソルが飛ぶ）
+- **Funicular がマウントする要素を、スクリプト読み込み時に掴んではいけない。**
+  まだ存在しない。遅延取得する
 
 ### その他
 
@@ -162,8 +185,9 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 
 - ✅ Docker ビルド環境、`rake docker:*`、SWD 書き込み
 - ✅ `mrbgems/picoruby-is31fl3729`（20 テスト / 52 アサーション、実チップ未検証）
-- ✅ ブラウザシミュレータ Stage 1 と検証環境
-- ⬜ `/lib/picorubykaigi01.rb`（表示層。**gem にせず littlefs 上のソースにする** —
-  ユーザが読んで直せるように。[dev-docs/board-gems/](dev-docs/board-gems/) §3）
-- ⬜ サンプルプログラム群
+- ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
+- ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
+- ⬜ フォント描画（`picoruby-shinonome`）— **emsdk を入れて wasm を自前ビルドする必要あり**
+- ⬜ `/lib` への配布方法（[dev-docs/board-gems/](dev-docs/board-gems/) §3-2）
+- ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
 - ⬜ 基板用 build_config、実基板ブリングアップ
