@@ -155,7 +155,10 @@
   ];
   try {
     const texts = await Promise.all(SOURCES.map(async (path) => {
-      const res = await fetch(path);
+      // no-store, for the same reason the examples use it: a reload does not
+      // clear the cache for fetches the page makes itself, and these change
+      // constantly during development.
+      const res = await fetch(path, { cache: 'no-store' });
       if (!res.ok) throw new Error(path + ': ' + res.status + ' ' + res.statusText);
       return await res.text();
     }));
@@ -171,7 +174,7 @@
       // A plain GET rather than HEAD: the file is a few kilobytes and the
       // script tag below reads it from cache, while a HEAD for a URL that is
       // about to be loaded as a script gets reported as an aborted request.
-      const local = await fetch('vendor/init.iife.js');
+      const local = await fetch('vendor/init.iife.js', { cache: 'no-store' });
       if (local.ok) loaderSrc = 'vendor/init.iife.js';
     } catch (e) { /* fall through to the CDN */ }
 

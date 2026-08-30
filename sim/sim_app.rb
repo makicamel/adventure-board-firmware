@@ -371,7 +371,11 @@ class SimApp < Funicular::Component
   end
 
   def load_example(path)
-    JS.global.fetch("examples/#{path}") do |response|
+    # no-store: a hard reload only bypasses the cache for the document and what
+    # it loads directly. A fetch the page makes afterwards still goes through
+    # the HTTP cache, so an edited example would keep coming back stale however
+    # many times the page was reloaded.
+    JS.global.fetch("examples/#{path}", { cache: "no-store" }) do |response|
       begin
         if response[:ok]
           box = refs[:codebox]
