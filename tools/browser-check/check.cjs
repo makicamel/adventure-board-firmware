@@ -76,6 +76,37 @@ function show(label, rows) {
   rows.forEach((row, i) => console.log(String(i + 1).padStart(3, ' ') + ' ' + row));
 }
 
+// Hold a button down, let a few ticks go by, then let go. mousedown/mouseup
+// rather than click, because the board's buttons are momentary and the page
+// models that.
+async function press(page, selector, ms = 500, whileHeld = null) {
+  await page.hover(selector);
+  await page.mouse.down();
+  await page.waitForTimeout(ms);
+  // Anything that only shows while the button is down has to be read before
+  // letting go.
+  if (whileHeld) await whileHeld();
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+
+const INTERACTIVE = {
+  buttons: async (page) => {
+    await press(page, '[data-pin="20"]'); // right
+    show('buttons: after holding right', await readPanel(page));
+    await press(page, '[data-pin="18"]'); // down
+    show('buttons: after holding down', await readPanel(page));
+    await page.keyboard.down('ArrowLeft');
+    await page.waitForTimeout(500);
+    await page.keyboard.up('ArrowLeft');
+    await page.waitForTimeout(300);
+    show('buttons: after holding the left arrow key', await readPanel(page));
+    await press(page, '[data-pin="22"]', 500, async () => {
+      show('buttons: B held (cross)', await readPanel(page));
+    });
+  },
+};
+
 const messages = [];
 const errors = [];
 
@@ -149,6 +180,9 @@ async function main() {
       console.log(`\n# example: ${opt.label} (${opt.value})  [${code.length} bytes of code]`);
       console.log(`# status (${cls}): ${st}`);
       show(name, await readPanel(page));
+
+      // Examples that read the buttons need someone to press them.
+      if (INTERACTIVE[name]) await INTERACTIVE[name](page);
     }
   }
 

@@ -26,15 +26,22 @@ end
 # picoruby resolves a relative path through $LOAD_PATH, which bin/picoruby
 # leaves empty, so point it at the working directory.
 $LOAD_PATH = ["."]
-# sim_panel.rb first: it defines I2C and tolerates the driver's `require 'i2c'`.
+# sim_panel.rb first: it defines the I2C and GPIO stand-ins and tolerates the
+# driver's `require 'i2c'`. Then the real driver, then the board layer that
+# will also be loaded from /lib on the device.
 load "sim/sim_panel.rb"
 load "mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb"
+load "lib/picorubykaigi01.rb"
 
-# LedMatrix is what the page drives, so the test drives the same thing: the
-# real IS31FL3729 driver behind it, two virtual chips on one virtual bus.
+# The page boots the real board layer, so the test boots the same thing:
+# Board.boot raises SDB, builds LedMatrix on the virtual bus and the buttons on
+# the GPIO stand-in.
 def new_board(global_current: 0x20)
-  m = LedMatrix.new(global_current: global_current)
-  [m.panel, m.top, m.bottom, m]
+  GPIO.reset
+  panel = Panel.new
+  board = Board.boot(i2c: panel.i2c, global_current: global_current)
+  m = board.matrix
+  [panel, m.top, m.bottom, m, board]
 end
 
 def light(m, x, y, pwm = 0xFF)
@@ -43,7 +50,7 @@ def light(m, x, y, pwm = 0xFF)
 end
 
 puts "1. every one of the 256 pixels lights alone"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 wrong = nil
 y = 1
 while y <= 16 && wrong.nil?
@@ -70,19 +77,19 @@ check("all 256 pixels map one to one") { wrong.nil? }
 puts "     #{wrong.inspect}" if wrong
 
 puts "2. the bottom half really is column reversed"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 bottom.set_dot(1, 16, 0xFF) # CS16 on the second chip
 bottom.flush
 check("chip CS16 shows at x = 1, y = 9") { 0.0 < panel.brightness(1, 9) }
 check("and nowhere else on that row")    { panel.brightness(16, 9) == 0.0 }
 
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 top.set_dot(1, 16, 0xFF) # CS16 on the first chip
 top.flush
 check("chip CS16 shows at x = 16, y = 1 on the top half") { 0.0 < panel.brightness(16, 1) }
 
 puts "3. the chip boundary sits between rows 8 and 9"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 top.set_dot(8, 5, 0xFF); top.flush
 check("row 8 comes from the top chip")    { 0.0 < panel.brightness(5, 8) }
 check("row 9 is still dark")              { panel.brightness(5, 9) == 0.0 }
@@ -103,7 +110,7 @@ led.scaling_all = 0xFF
 check("with scaling too it lights")              { 0.0 < panel.brightness(1, 1) }
 
 puts "5. software shutdown blanks the panel"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 top.fill(0xFF); top.flush
 check("lit before shutdown") { 0.0 < panel.brightness(1, 1) }
 top.shutdown
@@ -112,7 +119,7 @@ top.resume
 check("lit again after resume") { 0.0 < panel.brightness(1, 1) }
 
 puts "6. an L drawn across the chip boundary looks like an L"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 # Vertical stroke down column 3 from row 2 to row 14, then along row 14.
 y = 2
 while y <= 14
@@ -148,7 +155,7 @@ unless panel.to_s == expected
 end
 
 puts "7. levels() hands over 256 values"
-panel, top, bottom, m = new_board
+panel, top, bottom, m, board = new_board
 light(m, 1, 1)
 levels = panel.levels
 check("256 entries")            { levels.size == 256 }
@@ -167,9 +174,67 @@ check("levels_hex agrees with levels") do
   ok
 end
 check("brightness follows GCC") do
-  _p2, _t2, _b2, m2 = new_board(global_current: 0x40)
+  p2, _t2, _b2, m2, _bd2 = new_board(global_current: 0x40)
   m2.set(1, 1); m2.show
-  levels[0].to_i < m2.panel.levels[0].to_i
+  levels[0].to_i < p2.levels[0].to_i
+end
+
+puts "8. SDB gates the whole panel"
+panel, top, bottom, m, board = new_board
+m.fill(0xFF); m.show
+check("lit while SDB is high") { 0.0 < panel.brightness(1, 1) }
+GPIO.write_at(Panel::SDB_PIN, 0)
+check("dark while SDB is low")  { panel.brightness(1, 1) == 0.0 }
+GPIO.write_at(Panel::SDB_PIN, 1)
+check("lit again")              { 0.0 < panel.brightness(1, 1) }
+
+puts "9. buttons read active low and debounce"
+_p, _t, _b, _m, board = new_board
+buttons = board.buttons
+buttons.update
+check("nothing pressed at rest") { !buttons.any? }
+
+GPIO.press(17) # up
+buttons.update  # first sample: seen, not yet believed
+check("one sample is not enough") { !buttons.pressed?(:up) }
+buttons.update  # second matching sample
+check("two samples settle it")    { buttons.pressed?(:up) }
+check("and only that one")        { !buttons.pressed?(:down) }
+check("edge is reported once")    { buttons.just_pressed?(:up) }
+buttons.update
+check("edge does not repeat")     { !buttons.just_pressed?(:up) && buttons.pressed?(:up) }
+
+GPIO.press(21) # a
+buttons.update
+buttons.update
+check("two at once")              { buttons.pressed?(:up) && buttons.pressed?(:a) }
+check("pressed lists both") do
+  names = buttons.pressed
+  names.size == 2 && names.include?(:up) && names.include?(:a)
+end
+
+GPIO.release(17)
+GPIO.release(21)
+buttons.update
+buttons.update
+check("released")                 { !buttons.any? }
+
+check("every name maps to a pin") do
+  ok = true
+  names = Buttons::NAMES
+  i = 0
+  while i < names.size
+    GPIO.reset
+    GPIO.write_at(Panel::SDB_PIN, 1)
+    pin = Board::BUTTON_PINS[i][1]
+    GPIO.press(pin)
+    b = Buttons.new
+    b.update
+    b.update
+    ok = false unless b.pressed?(names[i]) && b.pressed.size == 1
+    i += 1
+  end
+  ok
 end
 
 puts

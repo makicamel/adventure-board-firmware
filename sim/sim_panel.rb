@@ -76,6 +76,78 @@ class I2C
   end
 end
 
+# Stand-in for picoruby-gpio, which is a C extension with no wasm port. Pin
+# state lives in a class-level table so the page can press and release buttons
+# without reaching into whatever object happens to hold them.
+#
+# Unconnected pins read high, which is what the board's 10k pull-ups do.
+class GPIO
+  IN         = 1
+  OUT        = 2
+  HIGH_Z     = 4
+  PULL_UP    = 8
+  PULL_DOWN  = 16
+  OPEN_DRAIN = 32
+  ALT        = 64
+
+  def self.state
+    @state ||= {}
+  end
+
+  def self.reset
+    @state = {}
+    nil
+  end
+
+  def self.read_at(pin)
+    v = state[pin]
+    v.nil? ? 1 : v
+  end
+
+  def self.write_at(pin, value)
+    state[pin] = (value == 0) ? 0 : 1
+    0
+  end
+
+  # What the page calls: a press pulls the pin down, because the buttons are
+  # wired active low.
+  def self.press(pin)
+    write_at(pin, 0)
+  end
+
+  def self.release(pin)
+    write_at(pin, 1)
+  end
+
+  attr_reader :pin, :flags
+
+  def initialize(pin, flags = IN, alt_function = 0)
+    @pin = pin
+    @flags = flags
+  end
+
+  def setmode(flags, alt_function = 0)
+    @flags = flags
+    0
+  end
+
+  def read
+    GPIO.read_at(@pin)
+  end
+
+  def write(value)
+    GPIO.write_at(@pin, value)
+  end
+
+  def high?
+    read == 1
+  end
+
+  def low?
+    read == 0
+  end
+end
+
 # A virtual IS31FL3729. It holds the registers the driver actually writes and
 # reports a brightness per dot, so that leaving the chip half-initialised looks
 # on screen the way it would look on a bench: dark.
@@ -174,11 +246,13 @@ class VirtualIS31FL3729
   end
 end
 
-# The picorubykaigi01 panel: 16x16 from two chips.
+# The simulated panel: what the two chips add up to, seen from the front.
 #
-# Rows 1..8 are U10 at 0x34 and rows 9..16 are U11 at 0x35. U11 has its columns
-# wired in reverse, so its CS index is 17 - x. Both facts come from the r1
-# netlist; see dev-docs/led-matrix-gem/hardware.md section 4.
+# The coordinate composition here mirrors LedMatrix in lib/picorubykaigi01.rb
+# rather than being shared with it: LedMatrix drives the chips and this reads
+# them, so keeping the two independent is what makes the test meaningful. Rows
+# 1..8 are U10 at 0x34 and rows 9..16 are U11 at 0x35, whose columns are wired
+# in reverse. See dev-docs/led-matrix-gem/hardware.md section 4.
 class Panel
   WIDTH  = 16
   HEIGHT = 16
@@ -198,6 +272,11 @@ class Panel
     table
   end
 
+  # The enable pin both chips share. Modelled because it is easy to forget and
+  # the failure it causes on a bench — a panel that stays dark although every
+  # register is right — is exactly the one worth reproducing.
+  SDB_PIN = 24
+
   attr_reader :i2c, :top, :bottom
 
   def initialize
@@ -206,6 +285,10 @@ class Panel
     @bottom = VirtualIS31FL3729.new
     @i2c.attach(TOP_ADDRESS, @top)
     @i2c.attach(BOTTOM_ADDRESS, @bottom)
+  end
+
+  def enabled?
+    GPIO.read_at(SDB_PIN) == 1
   end
 
   # Which chip, row and column drive the pixel at (x, y). x and y are 1-based
@@ -221,6 +304,7 @@ class Panel
 
   def brightness(x, y)
     return 0.0 if x < 1 || WIDTH < x || y < 1 || HEIGHT < y
+    return 0.0 unless enabled?
     chip, sw, cs = locate(x, y)
     chip.brightness_at(sw, cs)
   end
@@ -286,75 +370,5 @@ class Panel
       y += 1
     end
     lines
-  end
-end
-
-# The 16x16 panel as the board layer will eventually expose it. Kept small on
-# purpose: this doubles as a sketch of the API that /lib/picorubykaigi01.rb is
-# going to have, so the samples written here should carry over.
-class LedMatrix
-  WIDTH  = Panel::WIDTH
-  HEIGHT = Panel::HEIGHT
-
-  attr_reader :panel
-
-  def initialize(global_current: 0x20)
-    @panel = Panel.new
-    @top = IS31FL3729.new(i2c: @panel.i2c, address: Panel::TOP_ADDRESS)
-    @bottom = IS31FL3729.new(i2c: @panel.i2c, address: Panel::BOTTOM_ADDRESS)
-    @global_current = global_current
-    @top.setup(global_current: global_current)
-    @bottom.setup(global_current: global_current)
-  end
-
-  # x and y are 1-based. The driver is handed the row and column of whichever
-  # chip owns that pixel, including the reversed columns of the bottom one.
-  def set(x, y, pwm = 0xFF)
-    return self if x < 1 || WIDTH < x || y < 1 || HEIGHT < y
-    if y <= 8
-      @top.set_dot(y, x, pwm)
-    else
-      @bottom.set_dot(y - 8, WIDTH + 1 - x, pwm)
-    end
-    self
-  end
-
-  def clear
-    @top.clear
-    @bottom.clear
-    self
-  end
-
-  def fill(pwm = 0xFF)
-    @top.fill(pwm)
-    @bottom.fill(pwm)
-    self
-  end
-
-  # Nothing reaches the chips until this runs, exactly as on hardware.
-  def show
-    @top.flush
-    @bottom.flush
-    self
-  end
-
-  def brightness=(value)
-    @global_current = value
-    @top.global_current = value
-    @bottom.global_current = value
-    value
-  end
-
-  def brightness
-    @global_current
-  end
-
-  # For code that wants the chips directly.
-  def top
-    @top
-  end
-
-  def bottom
-    @bottom
   end
 end
