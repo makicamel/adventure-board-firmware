@@ -3,6 +3,9 @@
 # 実機と同じ書き方。while true で回して sleep_ms で待つ。
 # ブラウザではこのコードが専用のタスクで走り、sleep_ms のあいだ
 # 画面に制御が戻るので固まらない。基板でもそのまま動く。
+
+require 'picorubykaigi01'
+
 t = 0
 
 while true

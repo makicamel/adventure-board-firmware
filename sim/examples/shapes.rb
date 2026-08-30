@@ -1,5 +1,8 @@
 # VRAM の描画 API。線と矩形。
 # VRAM は 1bit なので、明るさは blit の on: で決める。
+
+require 'picorubykaigi01'
+
 matrix.clear
 matrix.clear_drawing
 matrix.draw_rect(0, 0, 16, 16, 1)

@@ -179,6 +179,8 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   （`sleep_ms` はタスクを suspend してブラウザにイベントループを返すので固まらない）
 - ペリフェラルの生成だけは両者で本当に違うので、**サンプルの外**で行う
   （実機は `Board.boot` の既定値、シミュレータは `sim_app.rb` が `$board` を用意）
+- サンプルは `require 'picorubykaigi01'` から始める。実機では `/lib` から読み、
+  ブラウザでは連結済みなので require シムが握り潰す。両方で正しい
 
 ユーザのコードは `Task` で走らせ、Run のたびに前を `terminate` する。
 canvas はハートビートで仮想チップを映すので、コード側から再描画を指示しない。

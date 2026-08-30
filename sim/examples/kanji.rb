@@ -5,6 +5,9 @@
 #
 # ※ このサンプルは `rake sim:wasm` でビルドしたローカルの PicoRuby.wasm が
 #    必要。CDN の stock パッケージにはフォントの gem が入っていない。
+
+require 'picorubykaigi01'
+
 matrix.clear
 matrix.clear_drawing
 matrix.draw_text("宝")

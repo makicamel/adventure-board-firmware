@@ -1,4 +1,7 @@
 # 左から右へ暗→明のグラデーション。PWM がそのまま明るさに効く。
+
+require 'picorubykaigi01'
+
 matrix.clear
 y = 1
 while y <= 16

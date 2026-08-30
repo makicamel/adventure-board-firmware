@@ -8,4 +8,7 @@
 #
 #   t120  テンポ    o4  オクターブ    l8  既定の音符長
 #   >  オクターブ上げ    <  下げ    r  休符
+
+require 'picorubykaigi01'
+
 speaker.play_mml("t140 o4 l8 ccggaag4 ffeeddc4")

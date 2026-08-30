@@ -1,4 +1,7 @@
 # 市松模様。PWM を変えて明るさの差も見る。
+
+require 'picorubykaigi01'
+
 matrix.clear
 y = 1
 while y <= 16

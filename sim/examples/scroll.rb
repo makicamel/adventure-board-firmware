@@ -1,4 +1,7 @@
 # 文字を右から左へ流す。
+
+require 'picorubykaigi01'
+
 text = "PicoRubyKaigi 第一回 ようこそ"
 x = 16
 

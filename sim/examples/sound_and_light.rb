@@ -1,4 +1,7 @@
 # 音に合わせてマトリクスを光らせる。
+
+require 'picorubykaigi01'
+
 speaker.play_mml("t120 o4 l8 cdefgab>c<bagfedc", loop: true)
 
 t = 0
