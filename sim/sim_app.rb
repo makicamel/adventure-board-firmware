@@ -43,12 +43,6 @@ def speaker
   SimApp.speaker
 end
 
-# Repeat a block until the next Run. A Ruby task cannot simply loop in a
-# browser; it has to hand control back. The buttons are sampled before each
-# call, which is what a main loop on the board would do anyway.
-def every(ms, &block)
-  SimApp.start_loop(ms, &block)
-end
 
 class SimApp < Funicular::Component
   EXAMPLES = [
@@ -78,7 +72,7 @@ class SimApp < Funicular::Component
     "z" => 21, "Z" => 21, "x" => 22, "X" => 22
   }
 
-  MONITOR_MS = 150
+  MONITOR_MS = 50
 
   # --- the speaker and the run loop, which outlive any one render -----------
 
@@ -100,36 +94,30 @@ class SimApp < Funicular::Component
     def handle_midi(_event, _source, _priority, _timestamp_us); true; end
   end
 
-  # Re-armed after each call rather than setInterval, so a slow block cannot
-  # pile up.
-  def self.stop_loop
-    id = $loop_id
-    JS.global.clearTimeout(id) if id
-    $loop_id = nil
-    $loop_block = nil
+  # The code typed into the page runs in a task of its own, so it can be
+  # written exactly as it would be on the board — `while true` with `sleep_ms`,
+  # which suspends the task and hands the browser back its event loop. Nothing
+  # here is a simulator-only construct; a sample that runs on this page runs on
+  # the device unchanged.
+  def self.stop_task
+    task = $user_task
+    $user_task = nil
+    return nil unless task
+    begin
+      task.terminate
+    rescue Exception
+      nil # already finished
+    end
     nil
   end
 
-  def self.start_loop(ms, &block)
-    stop_loop
-    $loop_block = block
-    $loop_ms = ms
-    schedule
-    nil
-  end
-
-  def self.schedule
-    $loop_id = JS.global.setTimeout($loop_ms) do
-      block = $loop_block
-      if block
-        begin
-          block.call
-          $app.draw if $app
-          schedule if $loop_block
-        rescue Exception => e
-          stop_loop
-          $app.report("ループ", e) if $app
-        end
+  def self.start_task(source)
+    stop_task
+    $user_task = Task.new(name: "sim-user") do
+      begin
+        eval(source)
+      rescue Exception => e
+        $app.report("実行エラー", e) if $app
       end
     end
     nil
@@ -317,7 +305,7 @@ class SimApp < Funicular::Component
 
   def on_reset(_event)
     begin
-      SimApp.stop_loop
+      SimApp.stop_task
       $speaker.stop if $speaker
       $notelog.clear
       GPIO.reset
@@ -356,16 +344,14 @@ class SimApp < Funicular::Component
 
   def run(source)
     begin
-      SimApp.stop_loop
+      SimApp.stop_task
       $speaker.stop if $speaker
       $notelog.clear
-      eval(source)
-      draw
-      patch(status: "OK", kind: "ok")
+      SimApp.start_task(source)
+      patch(status: "実行中", kind: "ok")
     rescue Exception => e
       # Exception, not StandardError: a syntax error in the typed code is a
       # ScriptError and would otherwise kill the task without a word.
-      draw
       report("実行エラー", e)
     end
     nil
@@ -412,12 +398,15 @@ class SimApp < Funicular::Component
     nil
   end
 
-  # A melody plays over seconds in a task of its own while nothing else runs,
-  # so the log needs a heartbeat that Run cannot stop.
+  # The panel is redrawn on a heartbeat rather than by whoever changed it,
+  # which is what a real one does: the driver scans it continuously and the
+  # display shows whatever the chips currently hold. It means the code typed
+  # into the page never has to tell the simulator to repaint, and a melody
+  # playing in its own task still gets its notes shown.
   def start_monitor
     JS.global.setTimeout(MONITOR_MS) do
       begin
-        draw_notes
+        draw
       rescue Exception
         nil
       end

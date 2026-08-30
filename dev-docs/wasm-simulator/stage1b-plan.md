@@ -82,6 +82,8 @@ sim/sim_ui.rb              ← 画面
 PicoRuby.wasm は `JS.global.setTimeout(ms) { }` を持つ（`callback_id` を返す）。
 
 - `Board.every(ms) { }` のような形で再帰スケジュールする仕組みを 1 つ用意する
+  （**この判断は誤りだった。** 実機に無い構文を持ち込むとサンプルが移植できない。
+  実際には `while true` + `sleep_ms` がそのまま動く。stage1b-report.md 参照）
 - Run のたびに前のループを止める（`clearTimeout`）。**止め忘れると二重に走る**
 
 ⚠️ ここは未検証。**最初に小さく試して、動かなければ設計を変える**。

@@ -23,6 +23,22 @@ matrix.set(4, 5, 0x40)  # 3 番目の引数は PWM (0..255)
 matrix.show             # これを呼ぶまでチップには届かない
 ```
 
+**書き方は実機とまったく同じ。** シミュレータ専用の構文は無い。
+繰り返しは `while true` + `sleep_ms` で書く。ブラウザではこのコードが
+専用のタスクで走り、`sleep_ms` のあいだ画面に制御が戻るので固まらない。
+
+```ruby
+while true
+  matrix.clear
+  matrix.set(x, y)
+  matrix.show
+  sleep_ms 60
+end
+```
+
+canvas は 50ms ごとに仮想チップの中身を映しているので、
+「画面を更新しろ」と書く必要はない（実機のパネルが常時スキャンされているのと同じ）。
+
 `matrix.top` / `matrix.bottom` で `IS31FL3729` を直接触れる。
 `matrix.panel.i2c` は仮想バス。
 
