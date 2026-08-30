@@ -263,6 +263,34 @@ buttons.update
 buttons.update
 check("released")                 { !buttons.any? }
 
+puts "9-2. auto repeat: one step, a pause, then a steady rate"
+GPIO.reset
+GPIO.write_at(Panel::SDB_PIN, 1)
+b = Buttons.new(repeat_delay: 4, repeat_interval: 2)
+b.update                       # nothing pressed
+GPIO.press(Board::BUTTON_PINS[0][1])
+b.update                       # first sample: seen, not believed yet
+check("no step before the debounce settles") { !b.repeat?(:up) }
+b.update                       # settles, and that is step 1
+check("one step as it goes down") { b.repeat?(:up) }
+
+fired = []
+i = 0
+while i < 10
+  b.update
+  fired << i if b.repeat?(:up)
+  i += 1
+end
+# The settling update is step 1 (held == 1). With delay 4 the next step is at
+# held == 5, four quiet samples later, and then every second one.
+check("a pause, then every other sample") { fired == [3, 5, 7, 9] }
+check("still pressed throughout")         { b.pressed?(:up) }
+
+GPIO.release(Board::BUTTON_PINS[0][1])
+b.update
+b.update
+check("nothing repeats once released") { !b.repeat?(:up) && !b.pressed?(:up) }
+
 check("every name maps to a pin") do
   ok = true
   names = Buttons::NAMES

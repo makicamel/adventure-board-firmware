@@ -122,10 +122,14 @@ const INTERACTIVE = {
     show('sound_and_light: panel', await readPanel(page));
   },
   buttons: async (page) => {
-    await press(page, '[data-pin="20"]'); // right
-    show('buttons: after holding right', await readPanel(page));
-    await press(page, '[data-pin="18"]'); // down
-    show('buttons: after holding down', await readPanel(page));
+    // A tap should move exactly one cell: the point of the auto-repeat is that
+    // a short press is one step rather than however many loop ticks fit in it.
+    await press(page, '[data-pin="20"]', 120); // right, briefly
+    show('buttons: after a short tap on right (expect one step)', await readPanel(page));
+    await press(page, '[data-pin="20"]', 900); // right, held
+    show('buttons: after holding right (expect a few more)', await readPanel(page));
+    await press(page, '[data-pin="18"]', 120); // down, briefly
+    show('buttons: after a short tap on down', await readPanel(page));
     await page.keyboard.down('ArrowLeft');
     await page.waitForTimeout(500);
     await page.keyboard.up('ArrowLeft');

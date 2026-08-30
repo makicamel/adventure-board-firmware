@@ -314,18 +314,33 @@ end
 class Buttons
   NAMES = [:up, :down, :left, :right, :a, :b]
 
-  def initialize(pins: Board::BUTTON_PINS)
+  # Auto-repeat, counted in `update` calls rather than milliseconds so that no
+  # clock is needed. With a 60ms loop the defaults give one step, a pause of
+  # about a third of a second, then a step every ~120ms — the way a key
+  # repeats. Without this, holding a direction moves as fast as the loop runs,
+  # which is several cells before a finger comes off the button.
+  DEFAULT_REPEAT_DELAY = 6
+  DEFAULT_REPEAT_INTERVAL = 2
+
+  def initialize(pins: Board::BUTTON_PINS,
+                 repeat_delay: DEFAULT_REPEAT_DELAY,
+                 repeat_interval: DEFAULT_REPEAT_INTERVAL)
     @names = []
     @gpios = []
+    @held = []
     i = 0
     while i < pins.size
       @names << pins[i][0]
       @gpios << GPIO.new(pins[i][1], GPIO::IN | GPIO::PULL_UP)
+      @held << 0
       i += 1
     end
     @raw = 0
     @stable = 0
     @previous = 0
+    @repeated = 0
+    @repeat_delay = repeat_delay
+    @repeat_interval = (repeat_interval < 1) ? 1 : repeat_interval
   end
 
   # Sample the pins. Two matching readings in a row are needed before a change
@@ -346,7 +361,16 @@ class Buttons
       @previous = @stable
       @raw = bits
     end
+    update_repeat
     self
+  end
+
+  # Fires once when a button goes down, then again on a repeat tick. This is
+  # what a cursor should move on.
+  def repeat?(name)
+    index = index_of(name)
+    return false if index < 0
+    (@repeated & (1 << index)) != 0
   end
 
   def pressed?(name)
@@ -380,6 +404,35 @@ class Buttons
   end
 
   private
+
+  # How many consecutive samples each button has been down for, and which of
+  # them should act this time.
+  def update_repeat
+    repeated = 0
+    held = @held
+    stable = @stable
+    delay = @repeat_delay
+    interval = @repeat_interval
+    i = 0
+    size = held.size
+    while i < size
+      mask = 1 << i
+      if (stable & mask) == 0
+        held[i] = 0
+      else
+        n = held[i] + 1
+        held[i] = n
+        if n == 1
+          repeated |= mask
+        elsif delay < n && (n - delay - 1) % interval == 0
+          repeated |= mask
+        end
+      end
+      i += 1
+    end
+    @repeated = repeated
+    nil
+  end
 
   def index_of(name)
     names = @names
