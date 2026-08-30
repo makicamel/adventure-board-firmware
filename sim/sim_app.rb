@@ -93,6 +93,7 @@ class SimApp < Funicular::Component
       kind: "busy",
       gcc: 32,
       audio_on: false,
+      notes_visible: false,
       held: []
     }
   end
@@ -141,16 +142,23 @@ class SimApp < Funicular::Component
           select(id: "examples", onchange: :on_example) { example_options }
           button(id: "run", class: "primary", onclick: :on_run) { "Run" }
           button(id: "audio", onclick: :on_audio) { state[:audio_on] ? "音: 有効" : "音を有効にする" }
+          button(id: "notes-toggle", onclick: :on_notes_toggle) do
+            state[:notes_visible] ? "鳴った音を隠す" : "鳴った音を見る"
+          end
           button(id: "reset", onclick: :on_reset) { "Reset" }
         end
         textarea(ref: :codebox, id: "code", spellcheck: "false")
         div(id: "status", class: state[:kind]) { state[:status] }
-        div(class: "legend", style: "margin-top:12px") do
-          "鳴った音（音は聞こえなくてもここで確認できます）"
+        # Kept in the document even when hidden: it is how a melody can be
+        # checked without hearing it, and the browser harness reads it.
+        div(class: "legend", style: "margin-top:12px",
+            hidden: state[:notes_visible] ? nil : "hidden") do
+          "鳴った音"
         end
         # `pre` is not one of the DSL's tags, so it goes through the generic
         # helper.
-        tag("pre", ref: :notes, id: "notelog")
+        tag("pre", ref: :notes, id: "notelog",
+            hidden: state[:notes_visible] ? nil : "hidden")
       end
     end
   end
@@ -273,6 +281,11 @@ class SimApp < Funicular::Component
 
   # Synchronous on purpose: the browser only lifts its autoplay block for code
   # running on the gesture's own stack.
+  def on_notes_toggle(_event)
+    patch(notes_visible: !state[:notes_visible])
+    nil
+  end
+
   def on_audio(_event)
     begin
       unless $audio_sink.backend
