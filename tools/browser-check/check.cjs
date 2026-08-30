@@ -199,7 +199,9 @@ async function main() {
 
   await page.screenshot({ path: path.join(OUT, '00-startup.png') });
   try {
-    show('startup (self test: corners and a centre cross)', await readPanel(page));
+    // A board at rest shows nothing; the examples below are what prove the
+    // drawing path works.
+    show('startup (expected blank)', await readPanel(page));
   } catch (e) {
     console.log(`# could not read the panel: ${e.message}`);
   }
@@ -244,6 +246,7 @@ async function main() {
         await page.click('#audio');
         await page.waitForTimeout(300);
       }
+
 
       // Examples that read the buttons need someone to press them.
       if (INTERACTIVE[name]) await INTERACTIVE[name](page);

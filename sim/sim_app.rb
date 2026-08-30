@@ -101,9 +101,8 @@ class SimApp < Funicular::Component
     $app = self
     wire_keyboard
     start_monitor
-    self_test
-    patch(status: "描画テスト中: 四隅と中央の十字が光っていれば準備完了です。Run で上書きされます。",
-          kind: "ok")
+    draw
+    patch(status: "準備できました。Run を押してください。", kind: "ok")
     load_example(EXAMPLES[0][1])
     nil
   end
@@ -142,7 +141,6 @@ class SimApp < Funicular::Component
           select(id: "examples", onchange: :on_example) { example_options }
           button(id: "run", class: "primary", onclick: :on_run) { "Run" }
           button(id: "audio", onclick: :on_audio) { state[:audio_on] ? "音: 有効" : "音を有効にする" }
-          button(id: "selftest", onclick: :on_selftest) { "描画テスト" }
           button(id: "reset", onclick: :on_reset) { "Reset" }
         end
         textarea(ref: :codebox, id: "code", spellcheck: "false")
@@ -255,16 +253,6 @@ class SimApp < Funicular::Component
     nil
   end
 
-  def on_selftest(_event)
-    begin
-      self_test
-      patch(status: "描画テスト: 四隅と中央の十字が光っていれば描画とドライバは正常です。", kind: "ok")
-    rescue Exception => e
-      report("描画テスト", e)
-    end
-    nil
-  end
-
   def on_reset(_event)
     begin
       SimApp.stop_task
@@ -320,23 +308,6 @@ class SimApp < Funicular::Component
     message = "#{prefix}: #{e.class}: #{e.message}"
     patch(status: message, kind: "error")
     JS.global[:console].error(message)
-    nil
-  end
-
-  # Four corners plus a centre cross, driven through the real driver: if this
-  # shows up, both the rendering and the whole driver path are working.
-  def self_test
-    m = matrix
-    m.clear
-    m.set(1, 1); m.set(16, 1); m.set(1, 16); m.set(16, 16)
-    i = 6
-    while i <= 11
-      m.set(i, 8)
-      m.set(8, i)
-      i += 1
-    end
-    m.show
-    draw
     nil
   end
 
