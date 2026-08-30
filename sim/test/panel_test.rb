@@ -30,8 +30,52 @@ $LOAD_PATH = ["."]
 # driver's `require 'i2c'`. Then the real driver, then the board layer that
 # will also be loaded from /lib on the device.
 load "sim/sim_panel.rb"
+# midibase and its MML front end are pure Ruby, which is what lets the real
+# parser and router be tested here rather than only in a browser.
+%w[
+  mrbgems/picoruby-midibase/mrblib/midibase.rb
+  mrbgems/picoruby-midibase/mrblib/router.rb
+  mrbgems/picoruby-midibase/mrblib/parser.rb
+  mrbgems/picoruby-midibase/mrblib/clock.rb
+  mrbgems/picoruby-midibase/mrblib/session.rb
+  mrbgems/picoruby-midibase/mrblib/voice_allocator.rb
+  mrbgems/picoruby-midibase-mml/mrblib/clock.rb
+  mrbgems/picoruby-midibase-mml/mrblib/parser.rb
+  mrbgems/picoruby-midibase-mml/mrblib/sequence.rb
+  mrbgems/picoruby-midibase-mml/mrblib/player.rb
+].each { |f| load f }
 load "mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb"
 load "lib/picorubykaigi01.rb"
+
+# Router timestamps with Machine.uptime_us, which neither bin/picoruby nor the
+# wasm build provides. Defined before sim_audio.rb so that its own stand-in,
+# which needs a browser, is skipped.
+unless Object.const_defined?(:Machine)
+  module Machine
+    def self.uptime_us
+      0
+    end
+  end
+end
+
+# NoteLog lives here; the WebAudio parts of the file only touch JS inside their
+# methods, so it loads without a browser.
+load "sim/sim_audio.rb"
+
+# Records what a sink would have been asked to play.
+class RecordingSink
+  attr_reader :events
+  def initialize
+    @events = []
+  end
+  def handle(event, source: :mml, priority: 0, timestamp_us: nil, **_c)
+    handle_midi(event, source, priority, timestamp_us)
+  end
+  def handle_midi(event, _source, _priority, _timestamp_us)
+    @events << event
+    true
+  end
+end
 
 # The page boots the real board layer, so the test boots the same thing:
 # Board.boot raises SDB, builds LedMatrix on the virtual bus and the buttons on
@@ -236,6 +280,47 @@ check("every name maps to a pin") do
   end
   ok
 end
+
+puts "10. MML turns into the MIDI events the synth expects"
+seq = MIDIBASE::MML::Sequence.new(["t120 o4 l4 cde"])
+notes = []
+i = 0
+while i < 40
+  pair = seq.next_event
+  break unless pair
+  event = pair[1]
+  notes << event[2] if event[0] == :note_on && 0 < event[3].to_i
+  i += 1
+end
+check("the three notes come out as C4 D4 E4") { notes[0, 3] == [60, 62, 64] }
+
+puts "11. Speaker routes to its sink and drives the amplifier"
+GPIO.reset
+sink = RecordingSink.new
+speaker = Speaker.new(sink: sink)
+check("amplifier starts muted") { GPIO.read_at(Board::AMP_SD_PIN) == 0 }
+
+speaker.note_on(60, velocity: 90)
+check("note_on reaches the sink")  { sink.events[-1] == [:note_on, 0, 60, 90] }
+check("and unmutes the amplifier") { GPIO.read_at(Board::AMP_SD_PIN) == 1 }
+
+speaker.note_off(60)
+check("note_off reaches the sink") { sink.events[-1] == [:note_off, 0, 60] }
+
+speaker.stop
+check("stop sends all notes off") { sink.events[-1] == [:control_change, 0, 123, 0] }
+check("and mutes again")          { GPIO.read_at(Board::AMP_SD_PIN) == 0 }
+
+puts "12. the note log reads events back as names"
+log = NoteLog.new
+log.handle([:note_on, 0, 60, 100], timestamp_us: 0)
+log.handle([:note_on, 0, 72, 0], timestamp_us: 500_000)   # velocity 0 is a note off
+log.handle([:note_off, 0, 60], timestamp_us: 1_000_000)
+lines = log.entries
+check("three entries")        { lines.size == 3 }
+check("middle C is named C4") { lines[0].include?("C4") && lines[0].include?("on") }
+check("zero velocity is off") { lines[1].include?("off") && lines[1].include?("C5") }
+check("elapsed time is shown"){ lines[2].include?("1000ms") }
 
 puts
 puts "#{$checks - $failures}/#{$checks} checks passed"

@@ -90,7 +90,26 @@ async function press(page, selector, ms = 500, whileHeld = null) {
   await page.waitForTimeout(300);
 }
 
+async function showNotes(page, label) {
+  const text = await page.textContent('#notelog');
+  const lines = (text || '').trim().split('\n').filter((l) => l.length);
+  console.log(`--- ${label}: ${lines.length} note events ---`);
+  lines.slice(0, 14).forEach((l) => console.log('  ' + l));
+  if (lines.length > 14) console.log(`  ... and ${lines.length - 14} more`);
+  return lines;
+}
+
 const INTERACTIVE = {
+  melody: async (page) => {
+    // The player runs as its own task, so the notes arrive over time.
+    await page.waitForTimeout(2500);
+    await showNotes(page, 'melody');
+  },
+  sound_and_light: async (page) => {
+    await page.waitForTimeout(2000);
+    await showNotes(page, 'sound_and_light');
+    show('sound_and_light: panel', await readPanel(page));
+  },
   buttons: async (page) => {
     await press(page, '[data-pin="20"]'); // right
     show('buttons: after holding right', await readPanel(page));
@@ -180,6 +199,12 @@ async function main() {
       console.log(`\n# example: ${opt.label} (${opt.value})  [${code.length} bytes of code]`);
       console.log(`# status (${cls}): ${st}`);
       show(name, await readPanel(page));
+
+      // Audio has to be switched on from a user gesture before a synth exists.
+      if (i === 0) {
+        await page.click('#audio');
+        await page.waitForTimeout(300);
+      }
 
       // Examples that read the buttons need someone to press them.
       if (INTERACTIVE[name]) await INTERACTIVE[name](page);

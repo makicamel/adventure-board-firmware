@@ -7,6 +7,10 @@ require 'js'
 # The page boots the real board layer against the simulated peripherals, so the
 # code typed into it is the code that would run on the board.
 $panel = Panel.new
+$notelog = NoteLog.new
+# The synth is built lazily: creating an AudioContext before a user gesture
+# makes the browser complain, and not every session wants sound.
+$speaker_backend = nil
 $board = Board.boot(i2c: $panel.i2c)
 $matrix = $board.matrix
 
@@ -28,6 +32,13 @@ def panel
   $panel
 end
 
+# The speaker. Built on first use so that the AudioContext is only created once
+# someone has asked for sound; the note log is attached either way, so a melody
+# can be inspected even with audio switched off.
+def speaker
+  SimUI.speaker
+end
+
 # Repeat a block until the next Run. Games and animations need time to pass,
 # and a Ruby task cannot simply loop: it has to hand control back to the
 # browser. The buttons are sampled before each call, which is what a main loop
@@ -41,6 +52,8 @@ module SimUI
     ["1ドット", "one_dot.rb"],
     ["ボタンで動かす", "buttons.rb"],
     ["自動で動く（ループ確認）", "spinner.rb"],
+    ["MML でメロディ", "melody.rb"],
+    ["音に合わせて光る", "sound_and_light.rb"],
     ["L 字（チップ境界をまたぐ）", "l_shape.rb"],
     ["左端の縦一列（列反転の確認）", "left_column.rb"],
     ["初期化忘れ（光らない）", "forgot_setup.rb"],
@@ -49,8 +62,70 @@ module SimUI
     ["グラデーション", "gradient.rb"]
   ]
 
+  # The speaker outlives Run, so it is built once and kept.
+  def self.speaker
+    return $speaker if $speaker
+    $speaker = Speaker.new(sink: audio_sink, amp_sd_pin: Board::AMP_SD_PIN)
+    $speaker.router.connect(:mml, $notelog)
+    $speaker
+  end
+
+  # WebAudio if it has been enabled, otherwise a sink that swallows events so
+  # that a melody still reaches the note log.
+  def self.audio_sink
+    $speaker_backend || NullSink.new
+  end
+
+  class NullSink
+    def handle(event, source: :mml, priority: 0, timestamp_us: nil, **_context); true; end
+    def handle_midi(_event, _source, _priority, _timestamp_us); true; end
+  end
+
+  def self.enable_audio
+    return if $speaker_backend
+    $speaker_backend = WebAudioSpeaker.new
+    $speaker_backend.resume
+    # A speaker built before audio was enabled is still pointing at the null
+    # sink, so rebuild it against the synth.
+    if $speaker
+      $speaker.stop
+      $speaker = nil
+    end
+    speaker
+    nil
+  end
+
+  # A melody plays over seconds, in a task of its own, while nothing else is
+  # necessarily running: without a heartbeat the notes would arrive and never
+  # be shown. Separate from the user's `every` loop so that Run cannot stop it.
+  MONITOR_MS = 150
+
+  def self.start_monitor
+    $monitor_id = JS.global.setTimeout(MONITOR_MS) do
+      begin
+        render_notelog
+      rescue Exception
+        nil
+      end
+      start_monitor
+    end
+    nil
+  end
+
   def self.render
     JS.global.renderPanel($panel.levels_hex)
+    render_notelog
+    nil
+  end
+
+  def self.render_notelog
+    el = JS.document.getElementById('notelog')
+    return nil unless el
+    text = $notelog.to_s
+    return nil if text == $notelog_shown
+    $notelog_shown = text
+    el[:textContent] = text
+    el[:scrollTop] = el[:scrollHeight].to_i
     nil
   end
 
@@ -110,6 +185,8 @@ module SimUI
   def self.run(code)
     begin
       stop_loop
+      $speaker.stop if $speaker
+      $notelog.clear
       eval(code)
       render
       status("OK", "ok")
@@ -231,6 +308,16 @@ module SimUI
       run(JS.document.getElementById('code')[:value].to_s)
     end
 
+    JS.document.getElementById('audio').addEventListener('click', sync: true) do |_event|
+      begin
+        enable_audio
+        JS.document.getElementById('audio')[:textContent] = "音: 有効"
+        status("音を有効にしました。", "ok")
+      rescue Exception => e
+        report("音の有効化", e)
+      end
+    end
+
     JS.document.getElementById('selftest').addEventListener('click') do |_event|
       begin
         self_test
@@ -243,6 +330,8 @@ module SimUI
     JS.document.getElementById('reset').addEventListener('click') do |_event|
       begin
         stop_loop
+        $speaker.stop if $speaker
+        $notelog.clear
         GPIO.reset
         $panel = Panel.new
         $board = Board.boot(i2c: $panel.i2c,
@@ -276,6 +365,7 @@ module SimUI
     JS.document.getElementById('run')[:disabled] = false
     JS.document.getElementById('reset')[:disabled] = false
     JS.document.getElementById('selftest')[:disabled] = false
+    JS.document.getElementById('audio')[:disabled] = false
 
     # Draw something before anything can go wrong, so a blank panel from here on
     # means no light rather than no rendering.
@@ -283,6 +373,7 @@ module SimUI
     status("描画テスト中: 四隅と中央の十字が光っていれば準備完了です。Run で上書きされます。", "ok")
 
     # Last, and non-fatal: fetching an example must not take the page down.
+    start_monitor
     load_example(EXAMPLES[0][1])
     nil
   end

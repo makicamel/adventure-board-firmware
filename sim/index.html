@@ -38,6 +38,11 @@
   label { color: #8b95a5; }
   .legend { color: #8b95a5; font-size: 12px; margin-top: 10px; }
   code { background: #1b2029; padding: 1px 5px; border-radius: 3px; }
+  #notelog {
+    margin: 4px 0 0; padding: 8px 10px; height: 150px; overflow-y: auto;
+    background: #0f1116; border: 1px solid #2c313a; border-radius: 6px;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: #9fb6d0;
+  }
   .pad { display: flex; gap: 28px; align-items: center; margin: 14px 0 4px; }
   .dpad {
     display: grid; gap: 4px;
@@ -91,11 +96,14 @@
     <div class="controls">
       <select id="examples"></select>
       <button id="run" class="primary" disabled>Run</button>
+      <button id="audio" disabled>音を有効にする</button>
       <button id="selftest" disabled>描画テスト</button>
       <button id="reset" disabled>Reset</button>
     </div>
     <textarea id="code" spellcheck="false"></textarea>
     <div id="status" class="busy">PicoRuby.wasm を読み込んでいます…</div>
+    <div class="legend" style="margin-top:12px">鳴った音（音は聞こえなくてもここで確認できます）</div>
+    <pre id="notelog"></pre>
   </div>
 </div>
 
@@ -152,10 +160,25 @@
 // driver's `require 'i2c'`, which has no gem to resolve to in the browser.
 (async function () {
   const status = document.getElementById('status');
+  const M = '../mrbgems/';
   const SOURCES = [
     'sim_panel.rb',
-    '../mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb',
+    // picoruby-midibase and its MML front end are pure Ruby, so the real
+    // parser, sequencer and router run here. Only the sound generator is
+    // replaced: PSG is a C extension, WebAudio takes its place.
+    M + 'picoruby-midibase/mrblib/midibase.rb',
+    M + 'picoruby-midibase/mrblib/router.rb',
+    M + 'picoruby-midibase/mrblib/parser.rb',
+    M + 'picoruby-midibase/mrblib/clock.rb',
+    M + 'picoruby-midibase/mrblib/session.rb',
+    M + 'picoruby-midibase/mrblib/voice_allocator.rb',
+    M + 'picoruby-midibase-mml/mrblib/clock.rb',
+    M + 'picoruby-midibase-mml/mrblib/parser.rb',
+    M + 'picoruby-midibase-mml/mrblib/sequence.rb',
+    M + 'picoruby-midibase-mml/mrblib/player.rb',
+    M + 'picoruby-is31fl3729/mrblib/is31fl3729.rb',
     '../lib/picorubykaigi01.rb',
+    'sim_audio.rb',
     'sim_ui.rb'
   ];
   try {
