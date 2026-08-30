@@ -129,6 +129,15 @@ const INTERACTIVE = {
 const messages = [];
 const errors = [];
 
+function summary() {
+  console.log('\n# console output');
+  if (messages.length === 0) console.log('  (none)');
+  messages.forEach((m) => console.log('  ' + m));
+  console.log('\n# errors');
+  if (errors.length === 0) console.log('  (none)');
+  else errors.forEach((e) => console.log('  ' + e));
+}
+
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const server = await serve();
@@ -158,12 +167,25 @@ async function main() {
     console.log('# the page never became ready');
   }
 
-  const status = await page.textContent('#status');
-  const statusClass = await page.getAttribute('#status', 'class');
-  console.log(`# status (${statusClass}): ${status}`);
+  // Read what we can even when the page never came up: a status element that
+  // is missing is itself the finding, and the console output below is what
+  // says why.
+  try {
+    const status = await page.textContent('#status', { timeout: 2000 });
+    const statusClass = await page.getAttribute('#status', 'class', { timeout: 2000 });
+    console.log(`# status (${statusClass}): ${status}`);
+  } catch (e) {
+    console.log('# no #status element on the page');
+    const body = await page.evaluate(() => document.body.innerHTML.slice(0, 400));
+    console.log(`# body starts: ${body}`);
+  }
 
   await page.screenshot({ path: path.join(OUT, '00-startup.png') });
-  show('startup (self test: corners and a centre cross)', await readPanel(page));
+  try {
+    show('startup (self test: corners and a centre cross)', await readPanel(page));
+  } catch (e) {
+    console.log(`# could not read the panel: ${e.message}`);
+  }
 
   if (ready) {
     const options = await page.$$eval('#examples option', (els) =>
@@ -214,18 +236,9 @@ async function main() {
   await browser.close();
   server.close();
 
-  console.log('\n# console output');
-  if (messages.length === 0) console.log('  (none)');
-  messages.forEach((m) => console.log('  ' + m));
-
-  console.log('\n# errors');
-  if (errors.length === 0) {
-    console.log('  (none)');
-  } else {
-    errors.forEach((e) => console.log('  ' + e));
-  }
+  summary();
   console.log(`\n# screenshots in tmp/browser-check/`);
   process.exit(errors.length === 0 && ready ? 0 : 1);
 }
 
-main().catch((e) => { console.error(e); process.exit(2); });
+main().catch((e) => { console.error(e); summary(); process.exit(2); });

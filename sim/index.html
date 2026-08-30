@@ -66,46 +66,7 @@
   レジスタ書き込みを 16×16 に合成して描いています。
 </p>
 
-<div class="wrap">
-  <div class="panel-side">
-    <canvas id="panel" width="452" height="452"></canvas>
-    <div class="controls">
-      <label for="gcc">明るさ (GCC)</label>
-      <input type="range" id="gcc" min="0" max="64" value="32">
-      <span id="gcc-value">32</span>
-    </div>
-    <div class="pad">
-      <div class="dpad">
-        <button class="btn" data-pin="17" style="grid-area:up">↑</button>
-        <button class="btn" data-pin="19" style="grid-area:left">←</button>
-        <button class="btn" data-pin="20" style="grid-area:right">→</button>
-        <button class="btn" data-pin="18" style="grid-area:down">↓</button>
-      </div>
-      <div class="ab">
-        <button class="btn round" data-pin="21">A</button>
-        <button class="btn round" data-pin="22">B</button>
-      </div>
-    </div>
-    <div class="legend">
-      上半分 = U10 (0x34) / 下半分 = U11 (0x35、列が左右反転)<br>
-      ボタンはキーボードでも操作できます（矢印キー / Z=A / X=B）
-    </div>
-  </div>
-
-  <div class="code-side">
-    <div class="controls">
-      <select id="examples"></select>
-      <button id="run" class="primary" disabled>Run</button>
-      <button id="audio" disabled>音を有効にする</button>
-      <button id="selftest" disabled>描画テスト</button>
-      <button id="reset" disabled>Reset</button>
-    </div>
-    <textarea id="code" spellcheck="false"></textarea>
-    <div id="status" class="busy">PicoRuby.wasm を読み込んでいます…</div>
-    <div class="legend" style="margin-top:12px">鳴った音（音は聞こえなくてもここで確認できます）</div>
-    <pre id="notelog"></pre>
-  </div>
-</div>
+<div id="app"></div>
 
 <script>
 // Painting is the one thing left to JavaScript: a frame is 256 values handed
@@ -113,12 +74,25 @@
 // the Ruby/JS boundary.
 (function () {
   const CELL = 26, GAP = 2, PAD = 4;
-  const canvas = document.getElementById('panel');
-  const ctx = canvas.getContext('2d');
+  let canvas = null, ctx = null;
+
+  // Looked up on each call until found, rather than once at load: Funicular
+  // mounts the canvas after this script runs, so grabbing it here would find
+  // nothing, throw, and leave renderPanel undefined. A missing JS function does
+  // not raise on the Ruby side — it only logs — so that failure would be quiet.
+  function context() {
+    if (ctx) return ctx;
+    canvas = document.getElementById('panel');
+    if (!canvas) return null;
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+    return ctx;
+  }
 
   // Two hex digits per dot, 512 characters. See Panel#levels_hex for why the
   // frame crosses the boundary as a string rather than an array.
   window.renderPanel = function (hex) {
+    const ctx = context();
+    if (!ctx) return;
     ctx.fillStyle = '#0a0b0d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     for (let y = 0; y < 16; y++) {
@@ -146,7 +120,6 @@
       }
     }
   };
-  window.renderPanel('0'.repeat(512));
 })();
 </script>
 
@@ -179,7 +152,7 @@
     M + 'picoruby-is31fl3729/mrblib/is31fl3729.rb',
     '../lib/picorubykaigi01.rb',
     'sim_audio.rb',
-    'sim_ui.rb'
+    'sim_app.rb'
   ];
   try {
     const texts = await Promise.all(SOURCES.map(async (path) => {
