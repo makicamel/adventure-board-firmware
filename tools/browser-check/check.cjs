@@ -30,6 +30,9 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
+  // Without this the browser refuses to compile the module by streaming and
+  // falls back to an ArrayBuffer, which works but is slower and noisy.
+  '.wasm': 'application/wasm',
 };
 
 function serve() {
@@ -40,7 +43,15 @@ function serve() {
     if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
     fs.readFile(file, (err, data) => {
       if (err) { res.writeHead(404); res.end('not found: ' + url); return; }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+      const type = MIME[path.extname(file)] || 'application/octet-stream';
+      // The page probes for a local wasm build with HEAD; answering it with a
+      // body makes the browser abort the request.
+      if (req.method === 'HEAD') {
+        res.writeHead(200, { 'Content-Type': type, 'Content-Length': data.length });
+        res.end();
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': type });
       res.end(data);
     });
   });

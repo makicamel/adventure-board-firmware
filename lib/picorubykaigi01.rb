@@ -144,6 +144,84 @@ class LedMatrix
   def brightness
     @global_current
   end
+
+  # --- drawing ------------------------------------------------------------
+  #
+  # Everything above works dot by dot with 8-bit brightness. What follows goes
+  # through picoruby-vram, which is 1-bit only, so shapes and text are on or
+  # off and `blit` decides how bright "on" is. The two are deliberately
+  # separate: `set` for brightness, the VRAM for drawing.
+  #
+  # picoruby-shinonome carries the 16x16 JIS font, which is the whole reason
+  # this panel is 16x16 rather than 12x12.
+  begin
+    include Shinonome::Drawable
+  rescue NameError
+    # No picoruby-shinonome in this build; only the shape API is available.
+  end
+
+  # Built on first use: a board without picoruby-vram can still light dots.
+  def vram
+    @vram ||= VRAM.new(w: WIDTH, h: HEIGHT, cols: 1, rows: HEIGHT / 8)
+  end
+
+  # What BDFFont::Drawable calls, and so what makes draw_shinonome work.
+  def draw_bitmap(x:, y:, w:, h:, data:)
+    vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
+    nil
+  end
+
+  def draw_text(text, x = 0, y = 0, font: "go16")
+    draw_shinonome(font, x, y, text)
+    self
+  end
+
+  def set_pixel(x, y, color = 1)
+    vram.set_pixel(x, y, color)
+    self
+  end
+
+  def draw_line(x0, y0, x1, y1, color = 1)
+    vram.draw_line(x0, y0, x1, y1, color)
+    self
+  end
+
+  def draw_rect(x, y, w, h, color = 1)
+    vram.draw_rect(x, y, w, h, color)
+    self
+  end
+
+  def clear_drawing
+    vram.fill(0)
+    self
+  end
+
+  # Copy the 1-bit buffer onto the dots. VRAM is 0-based and organised in pages
+  # of eight rows, one byte per column, bit 0 at the top.
+  #
+  # This is 256 assignments per frame and the one place worth rewriting in C if
+  # it ever proves too slow; nothing else in the drawing path is per-pixel.
+  def blit(on: 0xFF, off: 0x00)
+    pages = vram.pages
+    pi = 0
+    while pi < pages.size
+      page = pages[pi]
+      row = page[1].to_i
+      data = page[2].to_s
+      x = 0
+      while x < WIDTH
+        byte = data.getbyte(x) || 0
+        b = 0
+        while b < 8
+          set(x + 1, row * 8 + b + 1, ((byte >> b) & 1) == 1 ? on : off)
+          b += 1
+        end
+        x += 1
+      end
+      pi += 1
+    end
+    self
+  end
 end
 
 # The speaker.

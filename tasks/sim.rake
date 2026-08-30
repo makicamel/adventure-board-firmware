@@ -35,6 +35,35 @@ namespace :sim do
     sh "HOST_UID=#{Process.uid} HOST_GID=#{Process.gid} docker compose -f #{Shellwords.escape("#{MRUBY_ROOT}/docker/compose.yml")} build browser"
   end
 
+  # The stock @picoruby/wasm-wasi has no VRAM, font or LED driver gems, so the
+  # simulator falls back to the CDN without this and cannot draw text. Building
+  # writes into the upstream npm directory, so the artifacts are copied out and
+  # that directory is put back the way it was.
+  desc "Build a PicoRuby.wasm with the drawing, font and LED gems into sim/vendor"
+  task :wasm do
+    emsdk = ENV["EMSDK_DIR"] || File.expand_path("~/emsdk")
+    unless File.exist?("#{emsdk}/emsdk_env.sh")
+      abort "emsdk not found at #{emsdk}. Set EMSDK_DIR to point at it."
+    end
+    compose = "docker compose -f #{Shellwords.escape("#{MRUBY_ROOT}/docker/compose.yml")}"
+    env = "HOST_UID=#{Process.uid} HOST_GID=#{Process.gid} EMSDK_DIR=#{Shellwords.escape(emsdk)}"
+    build = "source $EMSDK/emsdk_env.sh >/dev/null && " \
+            "PICOBOARD_WASM=1 CONFIG=picoruby-wasm rake"
+    sh %(#{env} #{compose} run --rm wasm bash -lc #{Shellwords.escape(build)})
+
+    dist = "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picoruby/dist"
+    vendor = "#{MRUBY_ROOT}/sim/vendor"
+    FileUtils.mkdir_p vendor
+    %w[init.iife.js picoruby.js picoruby.wasm].each do |name|
+      src = "#{dist}/#{name}"
+      abort "#{src} was not produced" unless File.exist?(src)
+      FileUtils.cp src, "#{vendor}/#{name}"
+    end
+    # The build writes into mrbgems/picoruby-wasm/npm, but everything it puts
+    # there is already git-ignored, so nothing has to be put back.
+    puts "sim/vendor is ready; the page will load it instead of the CDN."
+  end
+
   desc "Run the headless check of the simulator core"
   task :test do
     FileUtils.cd MRUBY_ROOT do

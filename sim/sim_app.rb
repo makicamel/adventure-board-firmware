@@ -52,6 +52,9 @@ end
 
 class SimApp < Funicular::Component
   EXAMPLES = [
+    ["漢字（要ローカル wasm）", "kanji.rb"],
+    ["文字スクロール（要ローカル wasm）", "scroll.rb"],
+    ["線と矩形（要ローカル wasm）", "shapes.rb"],
     ["1ドット", "one_dot.rb"],
     ["ボタンで動かす", "buttons.rb"],
     ["自動で動く（ループ確認）", "spinner.rb"],

@@ -72,6 +72,29 @@ services:
     tty: true
     stdin_open: true
 
+  # WebAssembly builds. Emscripten is not in the image: emsdk is a self
+  # contained toolchain that the host already has, so it is mounted instead of
+  # adding a second copy (and a gigabyte) to every firmware image. It is
+  # mounted read-write on purpose — emscripten caches its sysroot inside its
+  # own directory — and the container runs as the host user, who owns it.
+  wasm:
+    <<: *common
+    volumes:
+      - ..:/work
+      - bundle:/usr/local/bundle
+      # Mounted at the same path it has on the host: emscripten keys its cache
+      # on the SDK location and clears it whenever that changes, so a different
+      # mount point would throw the cache away on every switch.
+      # A default rather than a required variable: compose validates the whole
+      # file on every command, so `:?` here would break `run --rm build` too.
+      # `rake sim:wasm` sets it and checks the SDK is really there.
+      - ${EMSDK_DIR:-/emsdk-not-set}:${EMSDK_DIR:-/emsdk-not-set}
+    environment:
+      EMSDK: ${EMSDK_DIR:-/emsdk-not-set}
+      EM_CONFIG: ${EMSDK_DIR:-/emsdk-not-set}/.emscripten
+      PICO_SDK_PATH: /work/mrbgems/picoruby-r2p2/lib/pico-sdk
+    command: ["bash", "-lc", "source $EMSDK/emsdk_env.sh && emcc --version"]
+
   # Headless browser for the LED matrix simulator page. Its own image, because
   # nothing in the firmware build needs Node or Chromium.
   browser:

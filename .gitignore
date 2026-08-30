@@ -49,3 +49,6 @@ releases/
 
 ref/
 tmp/
+
+# Locally built PicoRuby.wasm for the simulator (rake sim:wasm)
+/sim/vendor

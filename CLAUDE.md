@@ -64,6 +64,7 @@ docker compose -f docker/compose.yml run --rm shell bundle exec steep check --lo
 [sim/README.md](sim/README.md) と [dev-docs/wasm-simulator/](dev-docs/wasm-simulator/)。
 
 ```console
+rake sim:wasm               # フォント・描画 gem 入りの PicoRuby.wasm を作る（要 emsdk）
 rake sim:test               # 中核のヘッドレス検証（ブラウザ不要）
 rake sim:check              # ヘッドレス Chromium でページを操作して結果を報告
 rake sim:check[l_shape]     # サンプル 1 つだけ
@@ -74,6 +75,11 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 目視ではなく機械的に判定できる。console 出力・ページエラーも報告し、
 スクリーンショットは `tmp/browser-check/`（git 管理外）に残る。
 ブラウザ用は**ファーム用とは別のイメージ**（`docker/browser.Dockerfile`）。
+
+漢字・図形を出すには `rake sim:wasm` でローカルの wasm が要る
+（stock の `@picoruby/wasm-wasi` に `picoruby-vram` / `-shinonome` が入っていないため）。
+**emsdk はホストの `~/emsdk` をコンテナにマウントして使う**（イメージには入れない）。
+`sim/vendor/` が無ければ CDN にフォールバックするので、ビルド無しでも動く。
 
 ## ハード仕様の正
 
@@ -149,6 +155,17 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **Funicular がマウントする要素を、スクリプト読み込み時に掴んではいけない。**
   まだ存在しない。遅延取得する
 
+### wasm の自前ビルド
+
+- **emsdk はホストと同じパスにマウントする。** 場所が変わると emscripten が
+  キャッシュを丸ごと捨てる（`config changed, clearing cache`）
+- **compose の `${VAR:?}` は使わない。** ファイル全体が検証されるので、
+  1 サービスのための必須変数が**全コマンド**を壊す
+- `brotli` がビルドの最後に要る（イメージに追加済み）
+- `mrbgems/picoruby-wasm/npm/` の成果物は全部 gitignore 済み。戻す必要はない
+- 静的サーバは `.wasm` に `application/wasm` を返すこと。
+  でないとストリーミングコンパイルが拒否される
+
 ### その他
 
 - `bin/picoruby` で相対パスを `load` するには `$LOAD_PATH = ["."]` が要る
@@ -187,7 +204,7 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - ✅ `mrbgems/picoruby-is31fl3729`（20 テスト / 52 アサーション、実チップ未検証）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
-- ⬜ フォント描画（`picoruby-shinonome`）— **emsdk を入れて wasm を自前ビルドする必要あり**
+- ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ⬜ `/lib` への配布方法（[dev-docs/board-gems/](dev-docs/board-gems/) §3-2）
 - ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
 - ⬜ 基板用 build_config、実基板ブリングアップ

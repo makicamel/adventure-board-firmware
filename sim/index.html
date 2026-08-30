@@ -165,8 +165,19 @@
     ruby.textContent = texts.join("\n");
     document.body.appendChild(ruby);
 
+    // A local build (rake sim:wasm) carries the drawing and font gems the stock
+    // package leaves out. Without it the page still works, minus text.
+    let loaderSrc = 'https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js';
+    try {
+      // A plain GET rather than HEAD: the file is a few kilobytes and the
+      // script tag below reads it from cache, while a HEAD for a URL that is
+      // about to be loaded as a script gets reported as an aborted request.
+      const local = await fetch('vendor/init.iife.js');
+      if (local.ok) loaderSrc = 'vendor/init.iife.js';
+    } catch (e) { /* fall through to the CDN */ }
+
     const loader = document.createElement('script');
-    loader.src = 'https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js';
+    loader.src = loaderSrc;
     loader.onerror = function () {
       status.className = 'error';
       status.textContent = 'PicoRuby.wasm を CDN から読み込めませんでした。ネットワークを確認してください。';

@@ -68,6 +68,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libhidapi-libusb0 \
       zip \
       unzip \
+      brotli \
     && rm -rf /var/lib/apt/lists/*
 
 # picotool needs the SDK headers to configure. The SDK copy here is only for
