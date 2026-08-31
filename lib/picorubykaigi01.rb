@@ -539,8 +539,9 @@ end
 # the page in the simulator. A program never has to know how the peripherals
 # were built, and the same source runs in both places.
 #
-# These are ordinary top-level methods, so they are private methods on Object
-# and are reachable from anywhere, including inside a Task.
+# Top-level defs, which land on Object. CRuby would make them private; mruby
+# leaves them public, and either way they are reachable from anywhere with an
+# implicit receiver, including inside a Task.
 
 def board
   $board ||= Board.boot
