@@ -197,8 +197,10 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 ### その他
 
 - `bin/picoruby` で相対パスを `load` するには `$LOAD_PATH = ["."]` が要る
-- **トップレベル `def` は public**（CRuby と違い private にならない）。
-  クラス内の `private` は効くが、`respond_to?` は可視性を見ず true を返す。
+- **トップレベル `def` は public**（CRuby は自動で private にするが mruby はしない）。
+  `private` を**明示すれば**効く。`private` / `private :name` / `private def` /
+  `protected` はいずれも呼び出しを止め、`send` は CRuby 同様に迂回できる。
+  ただし `respond_to?` は可視性を見ず private でも true を返し、
   `Object.private_method_defined?` は存在しない
 - ESM の `import` は `NODE_PATH` を見ない。`playwright install` は
   インストールしたユーザの HOME に置く（`PLAYWRIGHT_BROWSERS_PATH` で固定した）
