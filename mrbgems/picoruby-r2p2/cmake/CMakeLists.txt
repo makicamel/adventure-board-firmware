@@ -47,6 +47,19 @@ else()
   )
 endif()
 
+# The board library and the sample programs are carried in the firmware and
+# written to the filesystem on first boot (see ports/rp2040/system_files.c),
+# because the UF2 does not reach the littlefs region. Generated here, before
+# the glob below picks it up.
+execute_process(
+  COMMAND ruby ${PICORUBY_ROOT}/tools/gen_system_files.rb
+          ${PICORUBY_ROOT}/mrbgems/picoruby-r2p2/ports/rp2040/system_files_data.c
+  RESULT_VARIABLE PICORB_SYSTEM_FILES_RESULT
+)
+if(NOT PICORB_SYSTEM_FILES_RESULT EQUAL 0)
+  message(FATAL_ERROR "tools/gen_system_files.rb failed (${PICORB_SYSTEM_FILES_RESULT})")
+endif()
+
 file(GLOB SOURCE_FILES CONFIGURE_DEPENDS
   ${PICORUBY_ROOT}/mrbgems/*/ports/rp2040/*.c
   ${PICORUBY_ROOT}/mrbgems/*/ports/common/*.c

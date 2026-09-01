@@ -18,6 +18,7 @@
 #include <task.h> // mrb_task_value()
 #endif
 #include "hal.h" // in picoruby-machine
+#include "system_files.h"
 #include "main_task.c"
 
 #if !defined(PICORB_ALLOC_ESTALLOC)
@@ -189,6 +190,10 @@ main(void)
   board_init();
 
   gpio_init_safe();
+
+  /* Put the board library and samples on the filesystem if they are not there
+   * yet. Before the VM, so `require` can find them; see system_files.h. */
+  picorb_install_system_files();
 
   assert((uint8_t *)heap_pool + HEAP_SIZE <= (uint8_t *)__StackBottom
          && "heap_pool overlaps with C stack");

@@ -240,6 +240,6 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
-- ⬜ `/lib` への配布方法（[dev-docs/board-gems/](dev-docs/board-gems/) §3-2）
+- ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
 - ⬜ 基板用 build_config、実基板ブリングアップ
