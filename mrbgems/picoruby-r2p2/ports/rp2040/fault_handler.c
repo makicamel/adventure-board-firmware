@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
+#include "hardware/watchdog.h"
+#include "pico/stdio.h"
 #include "picoruby/debug.h"
 
 /* ARM Cortex-M fault handler with detailed debugging information */
@@ -35,10 +37,24 @@ get_PSP(void)
 void
 __attribute__((naked)) HardFault_Handler(void)
 {
+  /* Put the stack pointer back on solid ground before calling anything. A
+   * blown stack is one of the ways to get here, and the handler needs a frame
+   * of its own; without this it faults again on entry and the core locks up.
+   * Which stack top depends on the core, read from SIO CPUID. Either way the
+   * board is on its way to a reboot, so nothing below is coming back. */
   __asm volatile(
     "MRS r0, msp\n"
     "MRS r1, psp\n"
     "MOV r2, lr\n"
+    "LDR r3, =0xd0000000\n"       /* SIO CPUID */
+    "LDR r3, [r3]\n"
+    "CBZ r3, 1f\n"
+    "LDR r3, =__StackOneTop\n"
+    "B 2f\n"
+    "1:\n"
+    "LDR r3, =__StackTop\n"
+    "2:\n"
+    "MSR msp, r3\n"
     "B hardfault_handler_c\n"
   );
 }
@@ -120,8 +136,24 @@ hardfault_handler_c(uint32_t msp, uint32_t psp, uint32_t exc_return)
   }
 
   printf("\n");
+  stdio_flush();
 
+  /* `bkpt` only stops a debugger that is already halting the core. With none
+   * attached it escalates to a fault, and a fault inside the fault handler is
+   * a double fault: the core locks up and only unplugging the board brings it
+   * back. Production builds have no stdio either, so everything printed above
+   * went nowhere and there is nothing to stay alive for.
+   *
+   * So break only when someone is watching, and otherwise reboot. Through the
+   * watchdog rather than SYSRESETREQ, because that resets the peripherals too
+   * and the board comes back on USB by itself. */
+  uint32_t dhcsr = *(volatile uint32_t *)0xe000edf0;
+  if (dhcsr & 0x1) {   /* C_DEBUGEN */
+    while (1) {
+      __asm volatile("bkpt #0");
+    }
+  }
+  watchdog_reboot(0, 0, 0);
   while (1) {
-    __asm volatile("bkpt #0");
   }
 }
