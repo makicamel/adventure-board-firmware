@@ -16,9 +16,17 @@ ROOT = Pathname.new(File.expand_path("..", __dir__))
 # The board library goes to /lib, where $LOAD_PATH points, so that
 # `require 'picorubykaigi01'` finds it. The samples go under the home
 # directory, ready to run with `/home/examples/<name>.rb`.
-MANIFEST = [
-  ["lib/picorubykaigi01.rb", "/lib/picorubykaigi01.rb"],
-]
+# The library is a directory tree, not one file: the classes sit in
+# lib/picorubykaigi01/ so that each stays small enough for the device to
+# compile (dev-docs/device-bringup/require-memory.md), and `require` finds
+# them by the same relative path there as here.
+# Only our own tree: lib/ is also where upstream keeps its host-side build
+# code (lib/picoruby/build.rb), which has no business on the device.
+MANIFEST = []
+Dir.glob("#{ROOT}/lib/picorubykaigi01{.rb,/**/*.rb}").sort.each do |path|
+  relative = Pathname.new(path).relative_path_from(ROOT).to_s
+  MANIFEST << [relative, "/#{relative}"]
+end
 Dir.glob("#{ROOT}/sim/examples/*.rb").sort.each do |path|
   name = File.basename(path)
   MANIFEST << ["sim/examples/#{name}", "/home/examples/#{name}"]

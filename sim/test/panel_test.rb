@@ -24,8 +24,10 @@ rescue => e
 end
 
 # picoruby resolves a relative path through $LOAD_PATH, which bin/picoruby
-# leaves empty, so point it at the working directory.
-$LOAD_PATH = ["."]
+# leaves empty, so point it at the working directory. lib/ is on there too, so
+# that the board layer's own requires resolve exactly as they do on the device,
+# where $LOAD_PATH is ["/lib"].
+$LOAD_PATH = [".", "lib"]
 # sim_panel.rb first: it defines the I2C and GPIO stand-ins and tolerates the
 # driver's `require 'i2c'`. Then the real driver, then the board layer that
 # will also be loaded from /lib on the device.

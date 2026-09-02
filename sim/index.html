@@ -155,6 +155,14 @@
     M + 'picoruby-midibase-mml/mrblib/sequence.rb',
     M + 'picoruby-midibase-mml/mrblib/player.rb',
     M + 'picoruby-is31fl3729/mrblib/is31fl3729.rb',
+    // The board layer is a directory on the device and `require` pulls the
+    // parts in; there is no filesystem here, so the page lists them itself,
+    // ahead of the loader whose requires then find the classes already there.
+    '../lib/picorubykaigi01/board.rb',
+    '../lib/picorubykaigi01/led_matrix.rb',
+    '../lib/picorubykaigi01/speaker.rb',
+    '../lib/picorubykaigi01/status_led.rb',
+    '../lib/picorubykaigi01/buttons.rb',
     '../lib/picorubykaigi01.rb',
     'sim_audio.rb',
     'sim_app.rb'
