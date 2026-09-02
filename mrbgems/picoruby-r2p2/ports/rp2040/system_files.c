@@ -9,14 +9,27 @@
  * littlefs_ensure_mounted() formats a blank flash.
  *
  * This runs before the VM opens: core1 is not up and interrupts are not yet
- * being taken, which is the calmest moment for flash writes.
+ * being taken, which is the calmest moment for flash writes. It is also before
+ * USB, which means a board that hangs in here cannot be talked to at all --
+ * only BOOTSEL gets it back. A filesystem damaged by a crash mid-write is
+ * enough to do that: littlefs walks its directories as a linked list, and a
+ * broken tail pointer is a cycle. So the whole thing runs under a watchdog and
+ * gives up on itself if it ever comes back from one. Losing the samples is a
+ * bad boot; losing the board is a dead board.
  */
 
 #include <string.h>
 #include <stdio.h>
 
+#include "hardware/watchdog.h"
+
 #include "system_files.h"
 #include "../../../picoruby-littlefs/include/littlefs.h"
+
+/* Left in scratch[0] while the filesystem is being touched, and cleared once
+ * it is done. scratch[4..7] belong to watchdog_reboot(), so keep off those. */
+#define INSTALL_IN_PROGRESS 0x5f5f4c49  /* "IL__" */
+#define INSTALL_TIMEOUT_MS  8000
 
 /* Create every directory along the path, ignoring the ones already there. */
 static void
@@ -72,19 +85,37 @@ picorb_install_system_files(void)
   const picorb_system_file_t *entry = picorb_system_files;
   if (entry->path == NULL) return;
 
+  /* Came back from a watchdog with the flag still set: the last attempt did
+   * not finish. Do not try again -- boot to a shell instead, where the
+   * filesystem can be looked at and reformatted. */
+  if (watchdog_caused_reboot() &&
+      watchdog_hw->scratch[0] == INSTALL_IN_PROGRESS) {
+    watchdog_hw->scratch[0] = 0;
+    printf("[R2P2] system file install hung last boot; skipping\n");
+    return;
+  }
+
+  watchdog_hw->scratch[0] = INSTALL_IN_PROGRESS;
+  watchdog_enable(INSTALL_TIMEOUT_MS, 0);
+
   /* Formats a blank flash and mounts it. Ruby mounts the same instance later. */
   int err = littlefs_ensure_mounted();
   if (err != LFS_ERR_OK) {
     printf("[R2P2] filesystem not available (%d); skipping system files\n", err);
-    return;
-  }
-  lfs_t *lfs = littlefs_get_lfs();
-
-  while (entry->path != NULL) {
-    if (!file_exists(lfs, entry->path)) {
-      ensure_parent_dirs(lfs, entry->path);
-      write_file(lfs, entry);
+  } else {
+    lfs_t *lfs = littlefs_get_lfs();
+    while (entry->path != NULL) {
+      if (!file_exists(lfs, entry->path)) {
+        ensure_parent_dirs(lfs, entry->path);
+        write_file(lfs, entry);
+      }
+      /* Formatting a blank flash erases 512KB and every miss writes a file, so
+       * the budget is for the whole table rather than per entry. */
+      watchdog_update();
+      entry++;
     }
-    entry++;
   }
+
+  watchdog_disable();
+  watchdog_hw->scratch[0] = 0;
 }
