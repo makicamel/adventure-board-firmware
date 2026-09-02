@@ -15,6 +15,7 @@ Everything auto-attaches first, so a command right after a flash just works.
 """
 
 import argparse
+import glob
 import os
 import re
 import select
@@ -42,6 +43,7 @@ def _usbipd(*args, check=True):
 # resets, and flashing resets the target, so both are looked up the same way.
 BOARD_VID = "16c0"
 PROBE_ID = "2e8a:000c"
+BOOTSEL_ID = "2e8a:000f"   # the RP2350 ROM bootloader
 
 
 def find_device(vid_or_id):
@@ -261,6 +263,40 @@ def cmd_run(args):
         con.close()
 
 
+def cmd_recover(args):
+    """Erase the flash and reload from BOOTSEL, when SWD can no longer help.
+
+    A hung VM can leave the chip in a state where openocd examines the cores
+    but cannot read a single word of memory, so there is no way to reflash and
+    no way to erase the filesystem. The ROM bootloader always answers.
+    """
+    busid, desc = find_device(BOOTSEL_ID)
+    if not busid:
+        die("No RP2350 bootloader on the bus.\n"
+            "Hold BOOTSEL on the board while plugging its USB in, then retry.")
+    attach_busid(busid, desc)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    images = sorted(glob.glob(f"{root}/dist/*/R2P2*.uf2"),
+                    key=os.path.getmtime, reverse=True)
+    if not images:
+        die("No .uf2 under dist/. Build one first.")
+    image = args.image or images[0]
+    env = {**os.environ, "HOST_UID": str(os.getuid()),
+           "HOST_GID": str(os.getgid())}
+    compose = ["docker", "compose", "-f", f"{root}/docker/compose.yml", "run",
+               "--rm", "--entrypoint", "picotool", "flash"]
+    print(f"erasing the whole flash (this also clears the filesystem)")
+    subprocess.run(compose + ["erase", "--all"], env=env,
+                   stdout=subprocess.DEVNULL)
+    inside = "/work" + image[len(root):]
+    print(f"loading {os.path.basename(image)}")
+    r = subprocess.run(compose + ["load", "-x", inside], env=env,
+                       capture_output=True, text=True)
+    if r.returncode:
+        die(r.stderr.strip() or r.stdout.strip())
+    print(attach())
+
+
 def cmd_push(args):
     """Copy a local file onto the board, a line at a time through irb.
 
@@ -314,6 +350,10 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("port", help="print the console tty, attaching if needed")
     sub.add_parser("attach", help="put the probe and the board on the WSL bus")
+    rec = sub.add_parser("recover",
+                         help="erase and reload from BOOTSEL (last resort)")
+    rec.add_argument("image", nargs="?",
+                     help="path to a .uf2 (default: newest under dist/)")
     u = sub.add_parser("push", help="copy a local file onto the board")
     u.add_argument("local")
     u.add_argument("remote")
@@ -324,7 +364,8 @@ def main():
     sub.add_parser("reset", help="reset the target over SWD and re-attach")
     args = p.parse_args()
     {"port": cmd_port, "attach": cmd_attach, "push": cmd_push,
-     "run": cmd_run, "reset": cmd_reset}[args.cmd](args)
+     "run": cmd_run, "reset": cmd_reset,
+     "recover": cmd_recover}[args.cmd](args)
 
 
 if __name__ == "__main__":

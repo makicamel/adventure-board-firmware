@@ -95,7 +95,54 @@ R2P2 が標準で積んでいるスクリプトの最大は `sl.rb` の 8,382 �
 | `.mrb` にプリコンパイル | 「ユーザが読んで直せる」という設計目標を壊す |
 | core0 スタックを 16KB→24KB | ヒープを削る。NoMemoryError の方は直らない |
 
-## 分割してみた結果 — 直らなかった
+## 原因 — `require` 1 回が 22KB を持っていって返さない
+
+きれいなボード（フラッシュ全消し → ファーム書き込み）で、部品を 1 つずつ
+require したときのヒープ:
+
+| | used | free | max_free | frag |
+|---|---:|---:|---:|---:|
+| スクリプト開始 | 334,440 | 70,688 | 38,152 | 23 |
+| `status_led`（**764 バイト**）| 356,800 | 48,328 | 20,416 | 55 |
+| `speaker`（2,030 バイト）| **404,184** | **944** | 616 | 3 |
+
+**764 バイトのファイル 1 本で 22KB。** そして返ってこない。
+2 本目でヒープが尽きる。ファイルの大きさとほぼ無関係で、
+**`require` そのものの固定費**である。
+
+`Kernel#load_file`（`mrbgems/picoruby-require/mrblib/require.rb`）:
+
+```ruby
+sandbox = Sandbox.new('require')
+begin
+  sandbox.load_file(path)
+  err = sandbox.error and raise err
+  $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
+ensure
+  sandbox.terminate
+end
+```
+
+`Sandbox.new` は `mrc_ccontext_new`（Prism のコンパイラ文脈）と irep と
+タスクを作る。`Sandbox#load_file` はさらに `@code = rb` でファイル全体の
+String を保持する（`exec_mrb` がポインタしか持たないため意図的）。
+`terminate` はタスクを止めるだけで、`SandboxState` が解放されるのは
+Sandbox オブジェクトが GC されたとき。
+
+**GC が走らなければ、require するたびに 22KB ずつ失われる。**
+
+これなら全部説明がつく:
+
+- 15KB を 1 枚で require しても、5 枚に分けても、同じように落ちる
+- 1 行の `/lib/tiny.rb` は通る（1 回分の 22KB は払える）
+- 最大連続 93KB が空いていても 2 本目で尽きる
+
+### まだ確かめていないこと
+
+`GC.start` を挟めば戻るのか。戻るなら直し方は `require.rb` の `ensure` に
+一行足すだけだが、これも upstream ファイル。
+
+## 分割してみた結果 — サイズの問題ではなかった
 
 `lib/picorubykaigi01/` にクラスごとに分けた（最大 4.6KB、標準の `sl.rb` の
 半分強）。`Kernel#require` は `load_file` でファイルごとに `Sandbox` を作って
@@ -114,16 +161,10 @@ NoMemoryError (NoMemoryError)
 ローダの中の `require 'picorubykaigi01/board'`（4.6KB）まで含めても、
 93KB を要求する処理はどこにもない。
 
-つまり**サイズの問題ではない**。分割は無駄ではない（大きい 1 枚より確実に安全）が、
-原因は別にある。
-
-### 次に切り分けること
-
-1. `/lib/tiny.rb` に 1 行だけ置いて `require "tiny"` — **ファイルからの require が
-   そもそも通るのか**。R2P2 標準で `/lib` からファイルを require する経路は、
-   探した限りどこも使っていない（`require 'editor'` などは組み込み gem を引く
-   `extern` の方）。ここが通らなければサイズは無関係
-2. 通るなら、部品を 1 つずつ require して落ちる場所を特定する
+つまり**サイズの問題ではない**（上の「原因」を参照）。分割自体は残す価値がある
+——`require` は `Sandbox` をファイルごとに作るので、1 回あたりの上限は下がる
+——が、固定費が 22KB では枚数を増やすほど不利になる。**分割はむしろ逆効果**
+だった可能性がある。
 
 ### ファイルからの require そのものは通る
 
