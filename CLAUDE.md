@@ -202,8 +202,10 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   コンパイルにはソースの約 6 倍の**連続**領域が要り、常駐は約 5 倍。
   ボードライブラリは**使うときに初めて読む**（`Board.load_part` が
   require のあとに `GC.start`）
-- **ライブラリを直して焼き直してもデバイス上は古いまま。**
-  インストーラは「無ければ書く」だけ。`tools/r2p2dev.py wipefs` で消してから焼く
+- **ファームは変わったファイルだけ書く。** `/etc/picorubykaigi01-files` に
+  中身のハッシュを置いて比べる。`/lib` は更新されるが、
+  **`/home/examples` は一度置いたら二度と触らない**（ユーザの編集物なので）。
+  サンプルを直したら `tools/r2p2dev.py wipefs` で消してから焼く
 - **openocd の `reset` を使わない。** SYSRESETREQ はペリフェラルを戻さないので、
   USB が半死のまま R2P2 が起動してプロンプトまで来ない。
   `r2p2dev.py reset` はウォッチドッグで落とす
@@ -255,6 +257,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 | [dev-docs/board-gems/](dev-docs/board-gems/) | 基板の全機能を Ruby から触るための gem 棚卸し |
 | [dev-docs/led-matrix-gem/](dev-docs/led-matrix-gem/) | LED ドライバの実装計画とハード仕様 |
 | [dev-docs/wasm-simulator/](dev-docs/wasm-simulator/) | ブラウザシミュレータの計画と完了レポート |
+| [dev-docs/device-bringup/](dev-docs/device-bringup/) | 実機で踏んだ穴。WSL からの書き込みとデバッグ、`require` の費用 |
 | [docker/README.md](docker/README.md) | ビルド環境の詳細 |
 | [sim/README.md](sim/README.md) | シミュレータの使い方 |
 | [examples/](examples/) | **実機専用**サンプル（シミュレータに無いハードを使うもの） |
@@ -269,7 +272,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
-- ⬜ ファームを更新したときに `/lib` を配り直す仕組み（今は「無ければ書く」だけ）
+- ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
 - ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
 - ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）、実基板ブリングアップ

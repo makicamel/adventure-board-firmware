@@ -249,7 +249,7 @@ class Console:
         return out
 
 
-def open_console(attempts=4):
+def open_console(attempts=8):
     """A Console on the board, re-resolving the tty if it moved.
 
     A reboot re-enumerates the device, and for a moment /dev/serial/by-id
@@ -275,7 +275,9 @@ def open_console(attempts=4):
                 con.close()
             except OSError:
                 pass
-        time.sleep(1.5)
+        # A board that has just been flashed takes a few seconds to come back,
+        # and until it does the by-id link points at nothing.
+        time.sleep(2.0)
     die(f"Cannot talk to the board: {last}")
 
 
