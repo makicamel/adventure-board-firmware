@@ -6,7 +6,8 @@
  * cannot deliver files to it. Rather than ask for a second image or a transfer
  * over the wire, the files ride in the firmware and are written out here, on
  * the first boot that finds them missing — which is also the boot where
- * littlefs_ensure_mounted() formats a blank flash.
+ * littlefs_ensure_mounted() formats a blank flash — and again whenever the
+ * firmware carries a different set than the board is holding.
  *
  * This runs before the VM opens: core1 is not up and interrupts are not yet
  * being taken, which is the calmest moment for flash writes. It is also before
@@ -30,6 +31,10 @@
  * it is done. scratch[4..7] belong to watchdog_reboot(), so keep off those. */
 #define INSTALL_IN_PROGRESS 0x5f5f4c49  /* "IL__" */
 #define INSTALL_TIMEOUT_MS  8000
+
+/* Beside R2P2's own /etc/ruby-description, which is the same idea for /bin. */
+#define STAMP_PATH "/etc/picorubykaigi01-files"
+#define STAMP_MAX  32
 
 /* Create every directory along the path, ignoring the ones already there. */
 static void
@@ -58,25 +63,40 @@ file_exists(lfs_t *lfs, const char *path)
   return lfs_stat(lfs, path, &info) == LFS_ERR_OK;
 }
 
-static void
-write_file(lfs_t *lfs, const picorb_system_file_t *entry)
+static bool
+write_bytes(lfs_t *lfs, const char *path, const void *data, size_t size)
 {
   lfs_file_t file;
-  int err = lfs_file_open(lfs, &file, entry->path,
+  int err = lfs_file_open(lfs, &file, path,
                           LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
   if (err != LFS_ERR_OK) {
-    printf("[R2P2] open %s failed (%d)\n", entry->path, err);
-    return;
+    printf("[R2P2] open %s failed (%d)\n", path, err);
+    return false;
   }
-  lfs_ssize_t written = lfs_file_write(lfs, &file, entry->data,
-                                       (lfs_size_t)entry->size);
+  lfs_ssize_t written = lfs_file_write(lfs, &file, data, (lfs_size_t)size);
   lfs_file_close(lfs, &file);
-  if (written < 0 || (size_t)written != entry->size) {
-    printf("[R2P2] write %s failed (%ld)\n", entry->path, (long)written);
-  } else {
-    printf("[R2P2] installed %s (%u bytes)\n", entry->path,
-           (unsigned)entry->size);
+  if (written < 0 || (size_t)written != size) {
+    printf("[R2P2] write %s failed (%ld)\n", path, (long)written);
+    return false;
   }
+  printf("[R2P2] installed %s (%u bytes)\n", path, (unsigned)size);
+  return true;
+}
+
+/* True when the board already holds exactly what this firmware carries. */
+static bool
+stamp_matches(lfs_t *lfs)
+{
+  lfs_file_t file;
+  char buf[STAMP_MAX];
+  if (lfs_file_open(lfs, &file, STAMP_PATH, LFS_O_RDONLY) != LFS_ERR_OK) {
+    return false;
+  }
+  lfs_ssize_t n = lfs_file_read(lfs, &file, buf, sizeof(buf) - 1);
+  lfs_file_close(lfs, &file);
+  if (n <= 0) return false;
+  buf[n] = '\0';
+  return strcmp(buf, picorb_system_files_stamp) == 0;
 }
 
 void
@@ -104,15 +124,33 @@ picorb_install_system_files(void)
     printf("[R2P2] filesystem not available (%d); skipping system files\n", err);
   } else {
     lfs_t *lfs = littlefs_get_lfs();
+    if (stamp_matches(lfs)) {
+      /* Nothing has changed since the last boot that wrote these. */
+      watchdog_disable();
+      watchdog_hw->scratch[0] = 0;
+      return;
+    }
+    bool complete = true;
     while (entry->path != NULL) {
-      if (!file_exists(lfs, entry->path)) {
+      if (entry->refresh || !file_exists(lfs, entry->path)) {
         ensure_parent_dirs(lfs, entry->path);
-        write_file(lfs, entry);
+        if (!write_bytes(lfs, entry->path, entry->data, entry->size)) {
+          complete = false;
+        }
       }
       /* Formatting a blank flash erases 512KB and every miss writes a file, so
        * the budget is for the whole table rather than per entry. */
       watchdog_update();
       entry++;
+    }
+    /* Only claim the stamp if every file really landed; otherwise the next
+     * boot has to try again rather than trust it. */
+    if (complete) {
+      ensure_parent_dirs(lfs, STAMP_PATH);
+      write_bytes(lfs, STAMP_PATH, picorb_system_files_stamp,
+                  strlen(picorb_system_files_stamp));
+    } else {
+      lfs_remove(lfs, STAMP_PATH);
     }
   }
 

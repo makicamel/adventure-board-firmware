@@ -1,86 +1,49 @@
 # `tools/r2p2dev.py`
 
-WSL から実機の R2P2 を触る道具。手でやると毎回同じところで詰まるので束ねた。
+WSL から実機の R2P2 を触るコマンド。**なぜこれが要るのか**は
+[flashing-from-wsl.md](flashing-from-wsl.md) にある。ここは使い方。
 
 ```console
-tools/r2p2dev.py attach                 # プローブとボードを WSL のバスに載せる
-tools/r2p2dev.py port                   # コンソールの tty を出す
-tools/r2p2dev.py run 'ls /lib' 'free'   # シェルにコマンドを流して結果だけ返す
-tools/r2p2dev.py push local.rb /home/t.rb
-tools/r2p2dev.py reset                  # ウォッチドッグで再起動して繋ぎ直す
-tools/r2p2dev.py wipefs                 # ファイルシステムを消して再起動
-tools/r2p2dev.py recover                # BOOTSEL から全消し＋焼き直し
+tools/r2p2dev.py attach                     # プローブとボードを WSL のバスに載せる
+tools/r2p2dev.py port                       # コンソールの tty を出す
+tools/r2p2dev.py run 'ls /lib' 'free'       # シェルに流して結果だけ返す
+tools/r2p2dev.py push local.rb /home/t.rb   # ファイルを送る（小さいものだけ）
+tools/r2p2dev.py reset                      # ウォッチドッグで再起動して繋ぎ直す
+tools/r2p2dev.py wipefs                     # ファイルシステムを消して再起動
+tools/r2p2dev.py recover                    # BOOTSEL から全消し＋焼き直し
 ```
 
-## なぜ要ったか
+すべて最初にアタッチし直すので、焼いた直後にそのまま続けられる。
 
-**usbipd のアタッチはターゲットがリセットするたびに落ちる。** そして
-書き込みはリセットする。プローブ（7-3）とボード（7-4）の両方が落ちるので、
-焼くたびに 2 つ繋ぎ直すことになる。`bind` は管理者権限が要るので、
-必要なときだけ UAC を出す。
+## `run` — シェルに流す
 
-**再列挙のあと `usbipd list` から数秒消える**ので、待つ。
+行編集のエコーを剥がして、コマンドの出力だけを返す。
 
-**tty の番号は動く**（ボードが 3 本の CDC を出すので、順番次第で ttyACM1 にも
-ttyACM2 にもなる）。`/dev/serial/by-id/usb-PicoRuby_R2P2_*-if00` で引く。
+**表示される `$> ...` は道具が出している行で、ボードの応答ではない。**
+出力が空なら、それはボードが黙っているということ。
 
-**`stty` は使えない。** ポートを自分で開くので、ボードが固まっているとそこで
-ブロックしたまま帰ってこない。`O_NONBLOCK` で開いて termios を直接設定する。
+## `push` — 小さいファイルだけ
 
-**シェルの行編集がエコーを返す。** キーを 1 つ送るたびにプロンプト行を丸ごと
-描き直すので、素直に読むとエスケープシーケンスの山になる。コマンド全体の
-エコーを見つけて、その後ろだけを返す。プロンプト検出も、エコーの途中で
-`$> ` に引っかかるので、コマンドのエコーを見てからにする。
+irb 越しに `File#write` を並べる。**irb は最大連続 32KB しか持っていない**ので、
+少し長い行で `NoMemoryError` になり、**書きかけのファイルを開いたまま落ちる**。
+littlefs に中途半端な状態が残り、最悪ボードが起動しなくなる。
 
-## ライブラリを直したら `wipefs`
+大きいものはファームに載せて運ぶこと。git 管理外の `devtest/` を
+`tools/gen_system_files.rb` が拾って `/home/devtest/` に置く。
+焼き直しに数分かかるが、デバイス上に一切書かない。
 
-ファームは**無いファイルだけ**書く。ユーザが直したプログラムを毎起動で
-上書きしないためだが、裏を返すと**直したライブラリは既存のボードに届かない**。
-開発中は `wipefs` でファイルシステムごと消してから焼く。
+## `wipefs` — ライブラリを直したら
 
-littlefs は RP2350 で `0x10380000` から 512KB
-（`picoruby-littlefs/ports/rp2040/flash_hal.c`）。
-`cmake/CMakeLists.txt` の `FLASH_TARGET_OFFSET=0x00340000` は別用途なので
-間違えないこと。
+ファームは**変わったファイルだけ**書く（`/etc/picorubykaigi01-files` に
+中身のハッシュを置いて比べる）。サンプルは一度置いたら二度と触らないので、
+`sim/examples/` を直しても既存のボードには届かない。開発中は `wipefs` で
+ファイルシステムごと消してから焼く。
 
-## リセット直後の tty は開けても死んでいる
+## `recover` — 戻せなくなったら
 
-再列挙の一瞬、`/dev/serial/by-id` はまだ消えたノードを指している。
-open は成功して最初の write が EIO で返る。`open_console()` が引き直して掴み直す。
-
-## dist/ には最新の 1 本しか置かない
-
-イメージ名にコミットハッシュが入るので、`build/` にはビルドしたコミットの数だけ
-成果物が溜まる。`docker/build.sh` はそれを全部 `dist/` にコピーしていたので、
-**全ファイルの mtime が同じになり**、`flash.sh` の `ls -t` が「最新」として
-掴むのは実質シェルの気分次第だった。
-
-先週のファームを焼いて、直したはずの修正が効かないと 1 時間悩む種になる。
-今は最新の 1 組だけを、`dist/` を空にしてからコピーする。
-
-## openocd の `reset` は使わない
-
-openocd の `reset run` はコアを SYSRESETREQ で落とすだけで、**ペリフェラルは
-そのまま**残る。USB も生きたままなので、R2P2 が起動しなおすと中途半端な
-USB デバイスを相手にすることになり、プロンプトまで到達せずに止まる。
-
-**無言になったボードは、毎回この直後だった。** そして一度そうなると SWD から
-メモリが 1 ワードも読めなくなり、BOOTSEL 以外に戻す手段がなくなる。
-
-`r2p2dev.py reset` は代わりに、デバイス側の `watchdog_reboot()` と同じ手順を
-SWD 越しに踏む:
-
-```
-mww 0x40018008 0x01fffff3   # PSM_WDSEL: 発振器以外を全部リセット対象に
-mww 0x400d801c 0            # WATCHDOG_SCRATCH4: 通常のブート経路へ
-mww 0x400d8000 0x80000000   # WATCHDOG_CTRL: TRIGGER
-```
-
-## 復旧できなくなったら BOOTSEL
-
-コア0 が応答しない（`Examination failed`）状態になると SWD では何もできない。
-BOOTSEL を押しながら挿し直せば ROM のブートローダに入るので、そこからなら
-必ず焼き直せる。`picotool erase` でファイルシステム領域ごと消せる。
+コアが `Examination failed` になったり `pc: 00000000` になったら SWD では
+何もできない。BOOTSEL を押しながら USB を挿してから、これを実行する。
+`picotool` でフラッシュを全消しして、`dist/` の最新イメージを書き込む。
 
 ## MCP にするかどうか
 

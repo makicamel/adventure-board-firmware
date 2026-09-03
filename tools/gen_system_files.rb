@@ -11,11 +11,18 @@ require "pathname"
 
 ROOT = Pathname.new(File.expand_path("..", __dir__))
 
-# [source, destination on the device]
+# [source, destination on the device, refresh?]
 #
 # The board library goes to /lib, where $LOAD_PATH points, so that
 # `require 'picorubykaigi01'` finds it. The samples go under the home
 # directory, ready to run with `/home/examples/<name>.rb`.
+#
+# `refresh` says what happens when the firmware carries a different version of
+# a file than the board already has. The library is ours to keep correcting,
+# so a firmware update replaces it -- the same bargain R2P2 makes with /bin,
+# and it does mean an edit to /lib does not survive one. The samples are the
+# other way round: they are there to be taken apart, so once a board has them
+# they are its own.
 # The library is a directory tree, not one file: the classes sit in
 # lib/picorubykaigi01/ so that each stays small enough for the device to
 # compile (dev-docs/device-bringup/require-memory.md), and `require` finds
@@ -25,15 +32,15 @@ ROOT = Pathname.new(File.expand_path("..", __dir__))
 MANIFEST = []
 Dir.glob("#{ROOT}/lib/picorubykaigi01{.rb,/**/*.rb}").sort.each do |path|
   relative = Pathname.new(path).relative_path_from(ROOT).to_s
-  MANIFEST << [relative, "/#{relative}"]
+  MANIFEST << [relative, "/#{relative}", true]
 end
 Dir.glob("#{ROOT}/sim/examples/*.rb").sort.each do |path|
   name = File.basename(path)
-  MANIFEST << ["sim/examples/#{name}", "/home/examples/#{name}"]
+  MANIFEST << ["sim/examples/#{name}", "/home/examples/#{name}", false]
 end
 Dir.glob("#{ROOT}/examples/*.rb").sort.each do |path|
   name = File.basename(path)
-  MANIFEST << ["examples/#{name}", "/home/examples/#{name}"]
+  MANIFEST << ["examples/#{name}", "/home/examples/#{name}", false]
 end
 # Scratch scripts for bring-up, git-ignored and usually absent. Writing files
 # on the device means going through irb, which has so little memory left that
@@ -41,7 +48,7 @@ end
 # them in the firmware costs a reflash and never touches the filesystem.
 Dir.glob("#{ROOT}/devtest/*.rb").sort.each do |path|
   name = File.basename(path)
-  MANIFEST << ["devtest/#{name}", "/home/devtest/#{name}"]
+  MANIFEST << ["devtest/#{name}", "/home/devtest/#{name}", true]
 end
 
 def c_identifier(destination)
@@ -56,9 +63,21 @@ end
 
 output = ARGV[0] or abort "usage: gen_system_files.rb <output.c>"
 
+# FNV-1a over every path and its bytes. The firmware leaves this on the board
+# and compares it on the next boot, so that files are rewritten exactly when
+# what they should contain has changed -- not on every rebuild, which would
+# make the check useless, and not never, which is how a fix fails to reach a
+# board that already booted once.
+stamp = 0xcbf29ce484222325
+fnv = lambda do |bytes|
+  bytes.each_byte do |b|
+    stamp = ((stamp ^ b) * 0x100000001b3) & 0xffffffffffffffff
+  end
+end
+
 entries = []
 body = +""
-MANIFEST.each do |source, destination|
+MANIFEST.each do |source, destination, refresh|
   path = ROOT + source
   unless path.file?
     warn "gen_system_files: skipping missing #{source}"
@@ -66,9 +85,11 @@ MANIFEST.each do |source, destination|
   end
   data = path.binread
   name = c_identifier(destination)
+  fnv.call(destination)
+  fnv.call(data)
   body << "/* #{source} */\n"
   body << "static const unsigned char sysfile_#{name}[] = {\n#{c_bytes(data)}\n};\n\n"
-  entries << [destination, name, data.bytesize]
+  entries << [destination, name, data.bytesize, refresh]
 end
 
 File.write(output, <<~C)
@@ -78,11 +99,14 @@ File.write(output, <<~C)
 
   #{body.strip}
 
+  const char picorb_system_files_stamp[] = "#{format("%016x", stamp)}";
+
   const picorb_system_file_t picorb_system_files[] = {
-  #{entries.map { |dest, name, size| %(  { "#{dest}", sysfile_#{name}, #{size} },) }.join("\n")}
-    { NULL, NULL, 0 }
+  #{entries.map { |dest, name, size, refresh| %(  { "#{dest}", sysfile_#{name}, #{size}, #{refresh ? "true" : "false"} },) }.join("\n")}
+    { NULL, NULL, 0, false }
   };
 C
 
 total = entries.sum { |_, _, size| size }
-warn "gen_system_files: #{entries.size} files, #{total} bytes -> #{output}"
+warn "gen_system_files: #{entries.size} files, #{total} bytes, " \
+     "stamp #{format("%016x", stamp)} -> #{output}"

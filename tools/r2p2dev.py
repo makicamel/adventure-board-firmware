@@ -223,7 +223,7 @@ class Console:
         text = re.sub(r"\n?(?:\$|irb)> ?$", "", text)
         return text.strip("\n")
 
-    def sync(self, timeout=8.0):
+    def sync(self, timeout=8.0):  # noqa: C901
         """Get to a known prompt, leaving irb if we are in it.
 
         Right after a reset the board is still printing its banner, so this
@@ -240,6 +240,14 @@ class Console:
                 return True
         return False
 
+    def ask(self, cmd, wait=8.0):
+        """command(), but printed the way a session reads."""
+        print(f"$> {cmd}")
+        out = self.command(cmd, wait=wait)
+        if out:
+            print(out)
+        return out
+
 
 def open_console(attempts=4):
     """A Console on the board, re-resolving the tty if it moved.
@@ -251,17 +259,23 @@ def open_console(attempts=4):
     last = None
     for _ in range(attempts):
         path = attach()
+        con = None
         try:
             con = Console(path)
-            con._write(b"\r", timeout=1.0)
-            return con
+            # Getting a prompt back is the only proof the node is the live
+            # one; a write alone can succeed against the node that is on its
+            # way out and fail on the next call instead.
+            if con.sync(timeout=6.0):
+                return con
+            last = "no prompt"
         except OSError as e:
             last = e
+        if con:
             try:
                 con.close()
-            except Exception:
+            except OSError:
                 pass
-            time.sleep(1.0)
+        time.sleep(1.5)
     die(f"Cannot talk to the board: {last}")
 
 
