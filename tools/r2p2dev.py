@@ -329,15 +329,35 @@ def cmd_attach(args):
     print(attach())
 
 
+# A full chip reset, driven through the watchdog rather than openocd's own
+# `reset`. openocd resets the core with SYSRESETREQ, which leaves the
+# peripherals -- USB among them -- exactly as they were, and R2P2 starting up
+# against a half-live USB device hangs before it reaches a prompt. Every board
+# that went silent on us went silent right after one of those. This is the
+# sequence watchdog_reboot() runs on the device: tell the power-on state
+# machine to reset everything but the oscillators, clear the scratch register
+# that would otherwise redirect the boot, and pull the trigger.
+WATCHDOG_CTRL = 0x400d8000
+WATCHDOG_SCRATCH4 = 0x400d801c
+PSM_WDSEL = 0x40018008
+PSM_WDSEL_ALL_BUT_OSC = 0x01fffff3   # PSM_WDSEL_BITS & ~(ROSC | XOSC)
+WATCHDOG_TRIGGER = 0x80000000
+
+
 def cmd_reset(args):
-    """Reset over SWD, then put the board back on the USB bus."""
+    """Reboot the board the way its own firmware would, then reconnect."""
     attach_probe()
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run(
         ["docker", "compose", "-f", f"{root}/docker/compose.yml", "run",
          "--rm", "--entrypoint", "openocd", "flash",
          "-f", "interface/cmsis-dap.cfg", "-f", "target/rp2350.cfg",
-         "-c", "adapter speed 5000", "-c", "init; reset run; exit"],
+         "-c", "adapter speed 5000",
+         "-c", (f"init; halt;"
+                f" mww {PSM_WDSEL:#x} {PSM_WDSEL_ALL_BUT_OSC:#x};"
+                f" mww {WATCHDOG_SCRATCH4:#x} 0;"
+                f" mww {WATCHDOG_CTRL:#x} {WATCHDOG_TRIGGER:#x};"
+                f" exit")],
         check=False, capture_output=True, text=True,
         env={**os.environ, "HOST_UID": str(os.getuid()),
              "HOST_GID": str(os.getgid())})

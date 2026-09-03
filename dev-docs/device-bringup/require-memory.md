@@ -137,10 +137,20 @@ Sandbox オブジェクトが GC されたとき。
 - 1 行の `/lib/tiny.rb` は通る（1 回分の 22KB は払える）
 - 最大連続 93KB が空いていても 2 本目で尽きる
 
-### まだ確かめていないこと
+### GC を走らせれば戻る（実測）
 
-`GC.start` を挟めば戻るのか。戻るなら直し方は `require.rb` の `ensure` に
-一行足すだけだが、これも upstream ファイル。
+```
+開始           used 317,408   free 87,720
+require 後     used 346,184   free 58,944    (+28,776)
+GC.start 後    used 309,264   free 95,864    ← 開始より低い
+```
+
+**リークではない。誰も回収していないだけ。**
+（`max_free` は 37,680 のまま戻らないので、断片化は残る）
+
+直し方は `picoruby-require/mrblib/require.rb` の `load_file` で、
+Sandbox を手放してから GC を促すこと。`ensure` の中では `sandbox` という
+ローカルがまだ生きているので、そこで `GC.start` を呼んでも回収されない。
 
 ## 分割してみた結果 — サイズの問題ではなかった
 

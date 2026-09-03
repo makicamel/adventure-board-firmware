@@ -40,6 +40,24 @@ ttyACM2 にもなる）。`/dev/serial/by-id/usb-PicoRuby_R2P2_*-if00` で引く
 先週のファームを焼いて、直したはずの修正が効かないと 1 時間悩む種になる。
 今は最新の 1 組だけを、`dist/` を空にしてからコピーする。
 
+## openocd の `reset` は使わない
+
+openocd の `reset run` はコアを SYSRESETREQ で落とすだけで、**ペリフェラルは
+そのまま**残る。USB も生きたままなので、R2P2 が起動しなおすと中途半端な
+USB デバイスを相手にすることになり、プロンプトまで到達せずに止まる。
+
+**無言になったボードは、毎回この直後だった。** そして一度そうなると SWD から
+メモリが 1 ワードも読めなくなり、BOOTSEL 以外に戻す手段がなくなる。
+
+`r2p2dev.py reset` は代わりに、デバイス側の `watchdog_reboot()` と同じ手順を
+SWD 越しに踏む:
+
+```
+mww 0x40018008 0x01fffff3   # PSM_WDSEL: 発振器以外を全部リセット対象に
+mww 0x400d801c 0            # WATCHDOG_SCRATCH4: 通常のブート経路へ
+mww 0x400d8000 0x80000000   # WATCHDOG_CTRL: TRIGGER
+```
+
 ## 復旧できなくなったら BOOTSEL
 
 コア0 が応答しない（`Examination failed`）状態になると SWD では何もできない。
