@@ -119,31 +119,49 @@ class GroveLink
         @lines << @partial
         @partial = ""
       elsif char != "\r"
-        @partial += char
+        # Append in place. `@partial += char` builds a new string every byte,
+        # which turns a long line into quadratic work and was most of why this
+        # ran at a fifth of the line rate.
+        @partial << char
       end
     end
     nil
   end
 
+  CHUNK = 4
+
   # Sending eight bytes fills the transmit FIFO, and on a loopback -- or when
   # the other board answers immediately -- the receive side fills at the same
-  # rate. So empty it as we go.
+  # rate. So empty it as we go, in chunks: byte at a time paid for a string
+  # object per byte, and half the receive FIFO is margin enough.
   def write(string)
     i = 0
-    while i < string.length
-      @tx.put_bytes(string[i])
+    length = string.length
+    while i < length
+      @tx.put_bytes(string[i, CHUNK])
       pump
-      i += 1
+      i += CHUNK
     end
-    string.length
+    length
   end
 
   def puts(string)
     write(string + "\n")
   end
 
-  # One raw byte, taken before lines are assembled, or nil. A program uses
-  # this or #gets, not both.
+  # --- the raw pair --------------------------------------------------------
+  #
+  # write_raw and read_byte leave the line buffer alone. write/puts/gets use
+  # it. Pick one pair and stay there: write() empties the receive FIFO into
+  # the line buffer as it goes, so a program that writes with it and reads
+  # with read_byte will find its own sends eating the other board's bytes.
+
+  def write_raw(string)
+    @tx.put_bytes(string)
+    string.length
+  end
+
+  # One byte straight from the hardware, or nil.
   def read_byte
     word = @rx.get_nonblocking
     return nil unless word
