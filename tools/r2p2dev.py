@@ -394,6 +394,37 @@ LITTLEFS_ADDR = 0x10380000
 LITTLEFS_SIZE = 0x00080000
 
 
+def settle(timeout=25.0):
+    """Wait until the board is sitting at a prompt.
+
+    A board that has just been flashed is still booting, and this firmware
+    writes files to flash on the way up. Erasing or halting through SWD while
+    it is doing that leaves the filesystem half-written and, once, left the
+    USB device unable to answer a descriptor request at all. Waiting for a
+    prompt is proof that boot finished, which a sleep is not.
+    """
+    end = time.time() + timeout
+    while time.time() < end:
+        path = console_path()
+        if path:
+            con = None
+            try:
+                con = Console(path)
+                if con.sync(timeout=4.0):
+                    return True
+            except OSError:
+                pass
+            finally:
+                if con:
+                    try:
+                        con.close()
+                    except OSError:
+                        pass
+        time.sleep(1.0)
+    print("board never reached a prompt; continuing anyway", file=sys.stderr)
+    return False
+
+
 def _openocd(tcl):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return subprocess.run(
@@ -409,6 +440,8 @@ def _openocd(tcl):
 def cmd_reset(args):
     """Reboot the board the way its own firmware would, then reconnect."""
     attach_probe()
+    attach()
+    settle()
     _openocd("init; halt; " + REBOOT_TCL + " exit")
     print(attach())
 
@@ -416,13 +449,13 @@ def cmd_reset(args):
 def cmd_wipefs(args):
     """Erase the device filesystem, so the next boot rebuilds it.
 
-    The firmware only writes a file that is not already there, which is what
-    keeps a program someone edited from being overwritten on every boot. The
-    other side of that is that a corrected library never reaches a board that
-    already has the old one, so during development this is how a change gets
-    across.
+    The firmware replaces a file it carries a newer copy of and leaves the
+    samples alone once a board has them, so a change to an example only
+    reaches a board this way.
     """
     attach_probe()
+    attach()
+    settle()
     r = _openocd(f"init; reset init;"
                  f" flash erase_address {LITTLEFS_ADDR:#x} {LITTLEFS_SIZE:#x};"
                  f" exit")

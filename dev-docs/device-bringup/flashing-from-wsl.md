@@ -97,6 +97,36 @@ mww 0x400d8000 0x80000000   # WATCHDOG_CTRL: TRIGGER
 
 （RP2350 の番地。`PSM_WDSEL_BITS & ~(ROSC|XOSC)` = `0x01fffff3`）
 
+## 書き込みの直後に SWD でフラッシュを触らない
+
+焼いた直後のボードはまだ起動中で、**ファーム自身がフラッシュに書いている**
+（このファームは `/lib` とサンプルを起動時に書き出す）。その最中に SWD から
+`reset init` して消しにいくと、書きかけのファイルシステムが残る。
+
+一度、それで USB が
+`0000:0002 不明な USB デバイス (デバイス記述子要求の失敗)` になった。
+SWD は生きていたので `watchdog_reboot` 相当で復帰できたが、
+**運が悪ければ BOOTSEL 行き**だった。
+
+sleep で凌がないこと。**シェルのプロンプトが返るまで待つ**のが唯一の確証で、
+それは「起動が終わってファームがフラッシュから手を離した」ことを意味する。
+
+```python
+def settle(timeout=25.0):
+    while ...:
+        con = Console(console_path())
+        if con.sync(timeout=4.0):
+            return True
+```
+
+同じ理屈で、**フラッシュ操作の直後に同じ openocd セッションでメモリを書かない**。
+`flash erase_address` のあとにウォッチドッグを叩こうとすると
+`Failed to write memory at 0x00000000` になる。セッションを分ける。
+
+そして**消したあとの最初の起動は長い**。littlefs のフォーマット（512KB の消去）に
+続けてファイルを全部書くので、プロンプトが返るまで数十秒かかることがある。
+黙っているからといって、そこで畳みかけないこと。
+
 ## 戻せなくなったら BOOTSEL + picotool
 
 コアが `Examination failed` になったり、`pc: 00000000 / BOOT ROM not found` に

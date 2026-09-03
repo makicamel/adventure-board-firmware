@@ -217,6 +217,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - **prod は stdio が丸ごと無効**（`pico_enable_stdio_usb 0` / `_uart 0`）。
   `printf` はどこにも出ない
 - **`r2p2dev.py` が出す `$> ...` はボードの応答ではない。** 出力が空＝ボードが無言
+- **書き込みの直後に SWD でフラッシュを触らない。** 起動中のファームが
+  `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
+  `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
 - 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
 
 ### その他

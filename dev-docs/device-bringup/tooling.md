@@ -15,6 +15,11 @@ tools/r2p2dev.py recover                    # BOOTSEL から全消し＋焼き�
 
 すべて最初にアタッチし直すので、焼いた直後にそのまま続けられる。
 
+`reset` と `wipefs` は、**ボードがプロンプトを返すまで待ってから**
+SWD を叩く。焼いた直後のボードはまだ起動中で、ファーム自身が `/lib` と
+サンプルをフラッシュに書いている。その最中に消しにいくと書きかけが残り、
+一度は USB がディスクリプタを返さなくなった。
+
 ## `run` — シェルに流す
 
 行編集のエコーを剥がして、コマンドの出力だけを返す。
@@ -44,6 +49,18 @@ littlefs に中途半端な状態が残り、最悪ボードが起動しなく�
 コアが `Examination failed` になったり `pc: 00000000` になったら SWD では
 何もできない。BOOTSEL を押しながら USB を挿してから、これを実行する。
 `picotool` でフラッシュを全消しして、`dist/` の最新イメージを書き込む。
+
+## ブラウザのコンソールに渡す
+
+R2P2 は WebSerial のコンソールを持っている（https://picoruby.org/terminal）。
+Windows 側のブラウザから使うには、**WSL から外す**:
+
+```console
+usbipd.exe detach --busid 7-4
+```
+
+`usbipd list` が `Attached` から `Shared` に戻れば Windows のもの。
+シェルは 1 本目の CDC（`-if00`）。戻すときは `tools/r2p2dev.py attach`。
 
 ## MCP にするかどうか
 
