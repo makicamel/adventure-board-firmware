@@ -323,6 +323,46 @@ NoMemoryError (NoMemoryError)
    `board` と `led_matrix` の 2 本。今日の実機でも通る
 4. **ライブラリ自体を削る**
 
+## 直した結果（2026-09-03）
+
+### 1. ビルド構成を痩せさせた
+
+`build_config/r2p2-picoruby-pico2_w.rb` から `networking` gembox、
+`picoruby-ble`、`picoruby-ble-uart`、`picoruby-keyboard` を外した。
+LED・音・ボタン・GROVE の学習用基板には要らない。
+
+| 起動直後 | used | free | **max_free** | T_PROC |
+|---|---:|---:|---:|---:|
+| 従来 | 290,880 | 114,248 | 80,072 | 1,996 |
+| 痩せた版 | **220,608** | **184,520** | **160,912** | **1,423** |
+
+**70KB 空き、最大連続が倍。** これだけで `require 'picorubykaigi01'` が通るようになった
+（5 本全部読んで `free 98,776 / max_free 41,208` が残る。GC を挟んだ場合）。
+
+`USE_WIFI` はまだ外していない。`tasks/picoruby/r2p2.rake` がボード名で
+`-D USE_WIFI=1` を決め打ちしているため、基板用のボード名を足すときに一緒に外す。
+
+### 2. 使うときに初めて読む
+
+`require 'picorubykaigi01'` はローダと `Board` だけを読み、
+ペリフェラルは**最初に触られたとき**にクラスごと require する。
+ステータス LED を光らせるだけのプログラムが LED マトリクスをコンパイルしない。
+
+`Board.load_part` は require のあとに `GC.start` を呼ぶ。upstream の
+`require.rb` には触らずに、28KB の置き土産をその場で回収する。
+
+実機（Pico 2 W、LED ドライバなし）:
+
+```
+require 'picorubykaigi01'   used 296,152 → 300,584   (+4,432)
+board.status_led → true     used 280,368   ← GC で開始時より下がる
+buttons.pressed?(:a)        used 301,928
+speaker → Speaker           used 321,272   free 83,856
+```
+
+**LED マトリクスは一度も読まれないので、チップの無いボードでも I2C エラーが出ない。**
+`/home/examples/status_led.rb` がそのまま走る。
+
 ## 実機で試すときの作法（痛い目を見て決めた）
 
 - **irb でファイルを書かない。** `tools/r2p2dev.py push` は irb 越しに
@@ -334,6 +374,9 @@ NoMemoryError (NoMemoryError)
   焼き直しに 4 分かかるが、デバイス上に一切書かないので確実
 - `$> ...` の行は `r2p2dev.py` が自分で表示している。**ボードの応答ではない。**
   出力が空なら、それはボードが黙っているということ
+- **ライブラリを直して焼き直しても、デバイス上は古いまま。** インストーラは
+  「無ければ書く」だけなので、既にあるファイルは触らない。
+  `tools/r2p2dev.py wipefs` でファイルシステムを消してから焼く
 
 ## 残る宿題
 

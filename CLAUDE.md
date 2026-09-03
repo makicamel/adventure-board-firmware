@@ -194,6 +194,24 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   ループの速さに関係なく 1 回の押しが 1 回として届く
 - オートリピートは `Buttons` に入れずループ側で作る
 
+### 実機（Pico 2 W）
+
+痛い目を見た順。詳細は [dev-docs/device-bringup/](dev-docs/device-bringup/)。
+
+- **`require` 1 回の固定費が約 28KB**で、GC を呼ばないと返ってこない。
+  コンパイルにはソースの約 6 倍の**連続**領域が要り、常駐は約 5 倍。
+  ボードライブラリは**使うときに初めて読む**（`Board.load_part` が
+  require のあとに `GC.start`）
+- **ライブラリを直して焼き直してもデバイス上は古いまま。**
+  インストーラは「無ければ書く」だけ。`tools/r2p2dev.py wipefs` で消してから焼く
+- **openocd の `reset` を使わない。** SYSRESETREQ はペリフェラルを戻さないので、
+  USB が半死のまま R2P2 が起動してプロンプトまで来ない。
+  `r2p2dev.py reset` はウォッチドッグで落とす
+- **prod は stdio が丸ごと無効**（`pico_enable_stdio_usb 0` / `_uart 0`）。
+  `printf` はどこにも出ない
+- **`r2p2dev.py` が出す `$> ...` はボードの応答ではない。** 出力が空＝ボードが無言
+- 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
+
 ### その他
 
 - `bin/picoruby` で相対パスを `load` するには `$LOAD_PATH = ["."]` が要る
@@ -212,6 +230,15 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 
 - `Rakefile` — `tasks/docker.rake` と `tasks/sim.rake` の load 2 行
 - `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1 行
+- `build_config/r2p2-picoruby-pico2_w.rb` — `networking` / `picoruby-ble` /
+  `picoruby-ble-uart` / `picoruby-keyboard` を**外した**。これで起動直後のヒープが
+  290KB → 220KB になり、ボードライブラリが読めるようになる
+  （[dev-docs/device-bringup/require-memory.md](dev-docs/device-bringup/require-memory.md)）
+- `mrbgems/picoruby-r2p2/ports/rp2040/fault_handler.c` — フォールト時に
+  ロックアップせず再起動する
+- `mrbgems/picoruby-r2p2/ports/rp2040/main.c` / `cmake/CMakeLists.txt` — `/lib` と
+  `/home/examples` を書き出す処理の呼び出しと生成ステップ
+- `docker/build.sh` — dist に最新の 1 本だけ置く
 
 新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`sim/`、`dev-docs/`、
 `tools/`、`docker/`）は追加なので衝突しない。
@@ -241,5 +268,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
+- ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
+- ⬜ ファームを更新したときに `/lib` を配り直す仕組み（今は「無ければ書く」だけ）
 - ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
-- ⬜ 基板用 build_config、実基板ブリングアップ
+- ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の
+  ボード名ループに手を入れる必要がある）、実基板ブリングアップ

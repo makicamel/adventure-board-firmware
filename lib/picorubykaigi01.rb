@@ -11,18 +11,13 @@
 # which is machine-extracted from the board. docs/gpio_assignment.md is older
 # and disagrees; do not use it.
 #
-# The classes live in picorubykaigi01/ beside this file, one per class. That
-# split is not decoration: PicoRuby compiles Ruby source on the device, and
-# Kernel#require gives each file its own Sandbox which is torn down afterwards,
-# so the compiler's memory is returned between files. As one 15KB file this
-# library ran the board out of contiguous heap and hard-faulted it; see
-# dev-docs/device-bringup/require-memory.md.
+# The classes live in picorubykaigi01/ beside this file, one per class, and
+# only Board is loaded here. The rest arrive when a program first asks for
+# them, because on the device compiling Ruby is expensive enough that loading
+# the LED matrix to blink the status LED can cost the program its memory.
+# The measurements are in dev-docs/device-bringup/require-memory.md.
 
 require 'picorubykaigi01/board'
-require 'picorubykaigi01/led_matrix'
-require 'picorubykaigi01/speaker'
-require 'picorubykaigi01/status_led'
-require 'picorubykaigi01/buttons'
 
 # --- what a program calls ----------------------------------------------------
 #

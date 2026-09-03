@@ -241,6 +241,30 @@ class Console:
         return False
 
 
+def open_console(attempts=4):
+    """A Console on the board, re-resolving the tty if it moved.
+
+    A reboot re-enumerates the device, and for a moment /dev/serial/by-id
+    still points at the node that went away: opening it succeeds and the
+    first write comes back EIO. Resolve again and try once more.
+    """
+    last = None
+    for _ in range(attempts):
+        path = attach()
+        try:
+            con = Console(path)
+            con._write(b"\r", timeout=1.0)
+            return con
+        except OSError as e:
+            last = e
+            try:
+                con.close()
+            except Exception:
+                pass
+            time.sleep(1.0)
+    die(f"Cannot talk to the board: {last}")
+
+
 def die(msg):
     print(msg, file=sys.stderr)
     sys.exit(1)
@@ -251,7 +275,7 @@ def cmd_port(args):
 
 
 def cmd_run(args):
-    con = Console(attach())
+    con = open_console()
     try:
         con.sync()
         for cmd in args.command:
@@ -303,7 +327,7 @@ def cmd_push(args):
     Slow, but it needs nothing on the device beyond File, which means it works
     on a stock R2P2. For anything big, put the file in the firmware instead.
     """
-    con = Console(attach())
+    con = open_console()
     try:
         con.sync()
         con.command("irb", wait=4.0)
@@ -344,23 +368,51 @@ PSM_WDSEL_ALL_BUT_OSC = 0x01fffff3   # PSM_WDSEL_BITS & ~(ROSC | XOSC)
 WATCHDOG_TRIGGER = 0x80000000
 
 
-def cmd_reset(args):
-    """Reboot the board the way its own firmware would, then reconnect."""
-    attach_probe()
+REBOOT_TCL = (f"mww {PSM_WDSEL:#x} {PSM_WDSEL_ALL_BUT_OSC:#x};"
+              f" mww {WATCHDOG_SCRATCH4:#x} 0;"
+              f" mww {WATCHDOG_CTRL:#x} {WATCHDOG_TRIGGER:#x};")
+
+# The littlefs region on RP2350: FLASH_TARGET_OFFSET 0x00380000, 128 blocks of
+# 4096. The firmware ends more than a megabyte below it.
+LITTLEFS_ADDR = 0x10380000
+LITTLEFS_SIZE = 0x00080000
+
+
+def _openocd(tcl):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run(
+    return subprocess.run(
         ["docker", "compose", "-f", f"{root}/docker/compose.yml", "run",
          "--rm", "--entrypoint", "openocd", "flash",
          "-f", "interface/cmsis-dap.cfg", "-f", "target/rp2350.cfg",
-         "-c", "adapter speed 5000",
-         "-c", (f"init; halt;"
-                f" mww {PSM_WDSEL:#x} {PSM_WDSEL_ALL_BUT_OSC:#x};"
-                f" mww {WATCHDOG_SCRATCH4:#x} 0;"
-                f" mww {WATCHDOG_CTRL:#x} {WATCHDOG_TRIGGER:#x};"
-                f" exit")],
+         "-c", "adapter speed 5000", "-c", tcl],
         check=False, capture_output=True, text=True,
         env={**os.environ, "HOST_UID": str(os.getuid()),
              "HOST_GID": str(os.getgid())})
+
+
+def cmd_reset(args):
+    """Reboot the board the way its own firmware would, then reconnect."""
+    attach_probe()
+    _openocd("init; halt; " + REBOOT_TCL + " exit")
+    print(attach())
+
+
+def cmd_wipefs(args):
+    """Erase the device filesystem, so the next boot rebuilds it.
+
+    The firmware only writes a file that is not already there, which is what
+    keeps a program someone edited from being overwritten on every boot. The
+    other side of that is that a corrected library never reaches a board that
+    already has the old one, so during development this is how a change gets
+    across.
+    """
+    attach_probe()
+    r = _openocd(f"init; reset init;"
+                 f" flash erase_address {LITTLEFS_ADDR:#x} {LITTLEFS_SIZE:#x};"
+                 f" {REBOOT_TCL} exit")
+    if "erased" not in (r.stdout + r.stderr).lower():
+        die((r.stdout + r.stderr).strip()[-800:] or "erase failed")
+    print(f"erased {LITTLEFS_SIZE // 1024}KB at {LITTLEFS_ADDR:#x}")
     print(attach())
 
 
@@ -370,6 +422,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("port", help="print the console tty, attaching if needed")
     sub.add_parser("attach", help="put the probe and the board on the WSL bus")
+    sub.add_parser("wipefs",
+                   help="erase the device filesystem and reboot")
     rec = sub.add_parser("recover",
                          help="erase and reload from BOOTSEL (last resort)")
     rec.add_argument("image", nargs="?",
@@ -384,7 +438,7 @@ def main():
     sub.add_parser("reset", help="reset the target over SWD and re-attach")
     args = p.parse_args()
     {"port": cmd_port, "attach": cmd_attach, "push": cmd_push,
-     "run": cmd_run, "reset": cmd_reset,
+     "run": cmd_run, "reset": cmd_reset, "wipefs": cmd_wipefs,
      "recover": cmd_recover}[args.cmd](args)
 
 

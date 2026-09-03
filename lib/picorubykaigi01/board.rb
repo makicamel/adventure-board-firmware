@@ -1,7 +1,15 @@
 # The board itself: which peripheral is on which pin, and how to bring them up.
 #
 # Everything a program touches hangs off one Board instance. `Board.boot`
-# builds the default set; the simulator hands in its own stand-ins instead.
+# builds this board's own peripherals; the simulator hands in stand-ins
+# instead, and everything below that point is the same either way.
+#
+# Nothing is built until it is asked for, and each peripheral's class is
+# required at that moment rather than up front. On the device that is not
+# tidiness: compiling Ruby costs about six times the source size in contiguous
+# heap and leaves about five times it resident, so loading all five classes to
+# blink one LED is the difference between a program that runs and one that
+# does not. See dev-docs/device-bringup/require-memory.md.
 
 class Board
   # --- pins ---------------------------------------------------------------
@@ -34,25 +42,26 @@ class Board
   # pulling it low.
   SDB_SETTLE_MS = 1
 
-  attr_reader :i2c, :matrix, :buttons, :speaker, :status_led
-
-  # Brings the board up. Called with no arguments it builds this board's own
-  # peripherals; the simulator hands in stand-ins instead. Everything below
-  # this method is the same either way.
+  # Brings the board up. Nothing touches hardware yet; the peripherals below
+  # build themselves the first time they are asked for.
   def self.boot(i2c: nil, speaker_backend: nil, global_current: 0x20)
-    i2c ||= default_i2c
-    speaker_backend ||= default_speaker_backend
-    sdb = GPIO.new(LED_SDB_PIN, GPIO::OUT)
-    sdb.write(1)
-    settle
-    new(
-      sdb: sdb,
-      i2c: i2c,
-      matrix: LedMatrix.new(i2c: i2c, global_current: global_current),
-      buttons: Buttons.new,
-      speaker: speaker_backend && Speaker.new(sink: speaker_backend),
-      status_led: StatusLed.new
-    ).tap { start_irq }
+    new(i2c: i2c, speaker_backend: speaker_backend,
+        global_current: global_current)
+  end
+
+  # Pulls in one peripheral's class.
+  #
+  # The collection is the point. Kernel#require compiles each file in its own
+  # Sandbox and only stops its task afterwards, so the compiler it built --
+  # about 28KB of it -- stays on the heap until something collects it, and
+  # nothing here otherwise would. Without this, bringing up the third
+  # peripheral runs the board out of memory.
+  def self.load_part(name)
+    require "picorubykaigi01/#{name}"
+    GC.start
+  rescue NameError, NoMethodError
+    # No GC to call, or already loaded by whoever concatenated the sources.
+    nil
   end
 
   # I2C0, the bus the two LED drivers sit on.
@@ -91,13 +100,66 @@ class Board
     nil
   end
 
-  def initialize(sdb:, i2c:, matrix:, buttons:, speaker: nil, status_led: nil)
-    @sdb = sdb
-    @i2c = i2c
-    @matrix = matrix
-    @buttons = buttons
-    @speaker = speaker
-    @status_led = status_led
+  def initialize(i2c: nil, speaker_backend: nil, global_current: 0x20)
+    @given_i2c = i2c
+    @given_speaker_backend = speaker_backend
+    @global_current = global_current
+  end
+
+  # --- the peripherals ------------------------------------------------------
+
+  # I2C0, the bus the two LED drivers sit on.
+  def i2c
+    @i2c ||= @given_i2c || self.class.default_i2c
+  end
+
+  # SDB carries 0.2uF, so it needs the settle time before anything is said to
+  # the drivers. Raised here rather than at boot, so a program that never uses
+  # the matrix leaves the drivers shut down.
+  def sdb
+    @sdb ||= begin
+      pin = GPIO.new(LED_SDB_PIN, GPIO::OUT)
+      pin.write(1)
+      self.class.settle
+      pin
+    end
+  end
+
+  def matrix
+    @matrix ||= begin
+      self.class.load_part("led_matrix")
+      sdb
+      LedMatrix.new(i2c: i2c, global_current: @global_current)
+    end
+  end
+
+  def buttons
+    @buttons ||= begin
+      self.class.load_part("buttons")
+      self.class.start_irq
+      Buttons.new
+    end
+  end
+
+  # nil on a build with no sound generator, so this remembers that it tried
+  # rather than asking again on every call.
+  def speaker
+    unless @speaker_built
+      @speaker_built = true
+      backend = @given_speaker_backend || self.class.default_speaker_backend
+      if backend
+        self.class.load_part("speaker")
+        @speaker = Speaker.new(sink: backend)
+      end
+    end
+    @speaker
+  end
+
+  def status_led
+    @status_led ||= begin
+      self.class.load_part("status_led")
+      StatusLed.new
+    end
   end
 
   # GROVE-B as UART0, for talking to another board.
@@ -130,10 +192,13 @@ class Board
     )
   end
 
+  # Only touches what was actually brought up.
   def shutdown
     @speaker.stop if @speaker
-    self.class.settle
-    @sdb.write(0)
+    if @sdb
+      self.class.settle
+      @sdb.write(0)
+    end
     nil
   end
 end

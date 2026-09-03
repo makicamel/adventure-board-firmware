@@ -7,7 +7,9 @@ tools/r2p2dev.py attach                 # プローブとボードを WSL のバ
 tools/r2p2dev.py port                   # コンソールの tty を出す
 tools/r2p2dev.py run 'ls /lib' 'free'   # シェルにコマンドを流して結果だけ返す
 tools/r2p2dev.py push local.rb /home/t.rb
-tools/r2p2dev.py reset                  # SWD でリセットして繋ぎ直す
+tools/r2p2dev.py reset                  # ウォッチドッグで再起動して繋ぎ直す
+tools/r2p2dev.py wipefs                 # ファイルシステムを消して再起動
+tools/r2p2dev.py recover                # BOOTSEL から全消し＋焼き直し
 ```
 
 ## なぜ要ったか
@@ -29,6 +31,22 @@ ttyACM2 にもなる）。`/dev/serial/by-id/usb-PicoRuby_R2P2_*-if00` で引く
 描き直すので、素直に読むとエスケープシーケンスの山になる。コマンド全体の
 エコーを見つけて、その後ろだけを返す。プロンプト検出も、エコーの途中で
 `$> ` に引っかかるので、コマンドのエコーを見てからにする。
+
+## ライブラリを直したら `wipefs`
+
+ファームは**無いファイルだけ**書く。ユーザが直したプログラムを毎起動で
+上書きしないためだが、裏を返すと**直したライブラリは既存のボードに届かない**。
+開発中は `wipefs` でファイルシステムごと消してから焼く。
+
+littlefs は RP2350 で `0x10380000` から 512KB
+（`picoruby-littlefs/ports/rp2040/flash_hal.c`）。
+`cmake/CMakeLists.txt` の `FLASH_TARGET_OFFSET=0x00340000` は別用途なので
+間違えないこと。
+
+## リセット直後の tty は開けても死んでいる
+
+再列挙の一瞬、`/dev/serial/by-id` はまだ消えたノードを指している。
+open は成功して最初の write が EIO で返る。`open_console()` が引き直して掴み直す。
 
 ## dist/ には最新の 1 本しか置かない
 

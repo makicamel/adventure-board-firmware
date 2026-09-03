@@ -52,7 +52,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   conf.gembox "shell"
   conf.gembox "peripherals"
   conf.gembox "peripheral_utils"
-  conf.gembox "networking"
   conf.gem core: 'picoruby-is31fl3729'
   conf.gem core: 'picoruby-psg'
   unless ENV['PICORB_DEBUG']
@@ -63,7 +62,4 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   conf.gem core: 'picoruby-midibase-looper'
   conf.gem core: 'picoruby-uart-midi'
   conf.gem core: 'picoruby-usb-cdc-midi'
-  conf.gem core: 'picoruby-ble'
-  conf.gem core: 'picoruby-ble-uart'
-  conf.gem core: 'picoruby-keyboard'
 end
