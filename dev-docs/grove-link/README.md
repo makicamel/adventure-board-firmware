@@ -11,9 +11,17 @@
 実装: `lib/picorubykaigi01/grove_link.rb`、
 [`examples/grove_link_chat.rb`](../../examples/grove_link_chat.rb)。
 
+使うのは**普通の `UART`** で、ユニットに `:PIO_UART0` を渡すだけ。
+
+```ruby
+UART.new(unit: :PIO_UART0, txd_pin: 28, rxd_pin: 29, baudrate: 115_200)
+```
+
+`gets` も `irq` も同じメソッドが動く。この基板で覚えたことが素の R2P2 でも
+そのまま通じるようにするため、別クラスにはしなかった。
 受信は [`mrbgems/picoruby-pio-uart`](../../mrbgems/picoruby-pio-uart/) が
 **DMA のリングバッファ**で受ける。プロセッサを通らないので、ループが遅れても
-データは失われない。
+データは失われない。upstream への変更は [../upstream-changes.md](../upstream-changes.md)。
 
 **実機ループバックで検証済み**（500ms 放置しても 200 バイト無傷、
 全バイト値が誤り 0 で往復、送信は 11,712 バイト/秒）。

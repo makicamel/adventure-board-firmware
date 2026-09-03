@@ -25,6 +25,8 @@
 
 #include <string.h>
 
+#include "pico/time.h"
+
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
@@ -84,6 +86,7 @@ static struct {
   uint tx_pin, rx_pin;
   int rx_chan, rx_reload_chan;
   uint32_t read_pos;
+  uint32_t bit_us;
   bool overflowed;
 } link;
 
@@ -227,6 +230,7 @@ PIO_UART_open(uint8_t tx_pin, uint8_t rx_pin, uint32_t baudrate)
   link.tx_offset = pio_add_program(pio, &tx_program);
   link.rx_offset = pio_add_program(pio, &rx_program);
 
+  link.bit_us = (baudrate == 0) ? 1 : (1000000u / baudrate) + 1;
   setup_tx(baudrate);
   setup_rx(baudrate);
   setup_rx_dma();
@@ -257,6 +261,37 @@ bool
 PIO_UART_is_open(void)
 {
   return link.open;
+}
+
+/* UART#initialize opens first and sets the baud rate straight afterwards, so
+ * this has to be changeable on a running pair of state machines. */
+uint32_t
+PIO_UART_set_baudrate(uint32_t baudrate)
+{
+  if (!link.open || baudrate == 0) return 0;
+  float div = (float)clock_get_hz(clk_sys) / (float)(baudrate * CYCLES_PER_BIT);
+  pio_sm_set_clkdiv(link.pio, link.tx_sm, div);
+  pio_sm_set_clkdiv(link.pio, link.rx_sm, div);
+  return baudrate;
+}
+
+bool
+PIO_UART_is_writable(void)
+{
+  if (!link.open) return false;
+  return !pio_sm_is_tx_fifo_full(link.pio, link.tx_sm);
+}
+
+/* Wait for the FIFO to drain and for the byte in the shift register to finish
+ * on the wire. Ten bit times covers a start bit, eight data bits and a stop. */
+void
+PIO_UART_flush(void)
+{
+  if (!link.open) return;
+  while (!pio_sm_is_tx_fifo_empty(link.pio, link.tx_sm)) {
+    tight_loop_contents();
+  }
+  busy_wait_us(link.bit_us * 10);
 }
 
 size_t

@@ -18,6 +18,9 @@ typedef enum {
 } pio_uart_error_t;
 
 int    PIO_UART_open(uint8_t tx_pin, uint8_t rx_pin, uint32_t baudrate);
+uint32_t PIO_UART_set_baudrate(uint32_t baudrate);
+bool   PIO_UART_is_writable(void);
+void   PIO_UART_flush(void);
 void   PIO_UART_close(void);
 bool   PIO_UART_is_open(void);
 

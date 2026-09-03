@@ -67,7 +67,8 @@ enum {
   /* -- RP2040 / RP2350: two hardware UARTs ------------------------ */
   IRQ_SRC_UART0 = IRQ_SRC_COMMON_END_,  /* one per unit: a reader of */
   IRQ_SRC_UART1,                        /* UART0 should not wake for */
-  IRQ_SRC_UART_END_,                    /* traffic on UART1 */
+  IRQ_SRC_UART2,                        /* traffic on UART1. UART2 is  */
+  IRQ_SRC_UART_END_,                    /* the PIO one, when built in  */
   IRQ_SRC_PLATFORM_END_ = IRQ_SRC_UART_END_,
 #elif defined(PICORB_PLATFORM_POSIX)
   /* -- POSIX host: the single stub UART the tests drive ----------- */

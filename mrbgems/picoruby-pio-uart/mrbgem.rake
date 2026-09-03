@@ -1,10 +1,9 @@
 MRuby::Gem::Specification.new('picoruby-pio-uart') do |spec|
   spec.license = 'MIT'
   spec.author  = 'picorubykaigi01-board'
-  spec.summary = 'A UART on PIO, received into a DMA ring buffer'
+  spec.summary = 'PIO + DMA engine behind UART\'s PIO_UART0 unit'
 
-  # GPIO for the receive pin's pull-up. picoruby-pio is deliberately not a
-  # dependency: this gem drives the state machines itself, because the buffer
-  # has to be filled by DMA rather than by anything Ruby does.
-  spec.add_dependency 'picoruby-gpio'
+  # No Ruby side and no gem dependencies: this is the engine that
+  # picoruby-uart's RP2 port calls when it is asked for the PIO unit.
+  # Everything a program sees is UART.
 end

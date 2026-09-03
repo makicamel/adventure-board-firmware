@@ -1,15 +1,22 @@
 # picoruby-pio-uart
 
-A UART built out of PIO, with the receive side filled by DMA.
+The PIO + DMA engine behind `UART`'s `PIO_UART0` unit. **It has no Ruby side**:
+everything a program sees is `UART`.
 
 ```ruby
-uart = PIOUART.new(tx_pin: 28, rx_pin: 29, baudrate: 115_200)
+uart = UART.new(unit: :PIO_UART0, txd_pin: 28, rxd_pin: 29, baudrate: 115_200)
 uart.write("hello\n")
-while (chunk = uart.read)
+while (line = uart.gets)
   # ...
 end
-puts "fell behind" if uart.rx_overflow?
+uart.irq(UART::RX_RECEIVE) { |u, _event| ... }
 ```
+
+A class of its own was the obvious thing and the wrong one. Someone who learns
+serial on a board that needs PIO should be able to take what they learned to a
+board that does not, so this is a unit of the same class rather than a second
+one to learn. picoruby-uart's RP2 port calls in here through weak symbols; a
+build without this gem links and reports the unit as unavailable.
 
 ## Why not the hardware UART
 
@@ -43,8 +50,20 @@ because we set the pace. 57 bytes at 115200 takes about 5ms.
 ## Limits
 
 - **One instance.** The buffer is static and aligned to its own size, which is
-  what lets the DMA wrap it. A second `PIOUART.new` raises.
+  what lets the DMA wrap it. A second open reports the unit as busy.
+- **8N1 only, and no flow control.** `set_format` and `set_flow_control` on
+  this unit do nothing; the PIO programs are 8N1 and PIO carries data and
+  nothing else. `UART#break` is not there either.
 - **RP2040 / RP2350 only.** It is PIO and DMA.
+
+## The producer
+
+A hardware UART fills the ring from its receive interrupt. DMA raises nothing
+until a transfer ends and this one never does, so picoruby-uart's port moves
+bytes from the DMA ring into UART's own ring on a 1ms hardware alarm and
+signals the event bridge -- which is what makes `UART#irq` behave the same
+here. A millisecond is latency, not loss: the DMA ring holds its 512 bytes
+whether or not anything comes to collect them.
 
 ## Careful
 

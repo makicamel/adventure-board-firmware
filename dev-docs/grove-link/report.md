@@ -235,16 +235,20 @@ byte sweep 1..255: 0 wrong
 write 200 bytes: 17076us = 11,712 bytes/s  ← ほぼ回線速度（11,520）
 ```
 
-`devtest/link_message.rb`（57 バイトのゲーム状態）:
+`devtest/link_message.rb`（57 バイトのゲーム状態、`UART` ユニット経由）:
 
 ```
-state: intact                                    ← 送信後 200ms 誰も読まなくても無傷
-send took 4978us for 57 bytes                    ← 送信は 5ms
-10 messages sent unread: 8 arrived, lost: true   ← 580 > 512 で溢れ、報告される
+unit is a UART                                  ← 普通の UART
+state: intact                                   ← 送信後 200ms 誰も読まなくても無傷
+send took 4979us for 57 bytes                   ← 送信は 5ms
+lost: 0
+10 messages sent unread: 10 arrived, lost: 0    ← 580 バイトを誰も読まずに全部
+irq delivered: ["through-irq"]                  ← UART#irq がそのまま動く
 ```
 
 **512 バイトは、この 57 バイトの状態なら 9 フレームぶんの猶予**にあたる。
-毎フレーム読むプログラムなら溜まりようがない。溢れたときは `lost?` が言う。
+毎フレーム読むプログラムなら溜まりようがない。溢れたときは
+`UART#rx_overflow_count`（`GroveLink#lost`）が言う。
 
 ### ポーリング版との差
 
@@ -254,7 +258,8 @@ send took 4978us for 57 bytes                    ← 送信は 5ms
 | 誰も読まずに 500ms 放置 | 8 バイトだけ残る | **無傷** |
 | 落としたときの通知 | **無い（黙って消える）** | `lost?` が true |
 | 送信速度 | 2,453 B/s | **11,712 B/s** |
-| ジッター耐性 | 実質なし | 512 バイトぶん |
+| ジッター耐性 | 実質なし | DMA 512 + UART 1024 バイト |
+| API | 独自 | **普通の `UART`**（`gets` / `irq` 込み） |
 
 ---
 

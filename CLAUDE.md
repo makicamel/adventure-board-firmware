@@ -241,7 +241,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 ## upstream との関係
 
 このリポジトリは picoruby のフォークなので、**upstream のファイルへの変更は最小限に**。
-現状の変更は次だけ:
+
+**全部の一覧と理由は [dev-docs/upstream-changes.md](dev-docs/upstream-changes.md)。**
+以下は要約:
 
 - `Rakefile` — `tasks/docker.rake` と `tasks/sim.rake` の load 2 行
 - `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1〜2 行
@@ -254,7 +256,11 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   ロックアップせず再起動する
 - `mrbgems/picoruby-r2p2/ports/rp2040/main.c` / `cmake/CMakeLists.txt` — `/lib` と
   `/home/examples` を書き出す処理の呼び出しと生成ステップ
-- `docker/build.sh` — dist に最新の 1 本だけ置く
+- `mrbgems/picoruby-uart/{include/uart.h,ports/rp2040/uart.c}` と
+  `mrbgems/picoruby-irq/include/irq.h` — **`UART` に PIO のユニットを足した**
+  （`UART.new(unit: :PIO_UART0, ...)`）。別クラスにしないのは、この基板で
+  覚えたことが素の R2P2 で通じるようにするため
+- `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
 
 新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、
 `sim/`、`dev-docs/`、
@@ -282,7 +288,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 
 - ✅ Docker ビルド環境、`rake docker:*`、SWD 書き込み
 - ✅ `mrbgems/picoruby-is31fl3729`（20 テスト / 52 アサーション、実チップ未検証）
-- ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA の UART。実機ループバックで検証済み）
+- ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA のエンジン。`UART` の `:PIO_UART0`
+  ユニットとして見える。`gets` / `irq` まで実機ループバックで検証済み）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
@@ -290,8 +297,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
-- ✅ GROVE-B の基板間リンク — `mrbgems/picoruby-pio-uart`（PIO の UART を
-  **DMA のリングバッファで受ける**）。ストレートケーブルで繋がる。
+- ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
+  受信は DMA のリングバッファ。ストレートケーブルで繋がる。
   ループバック検証済み、2 枚での確認は基板待ち
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の

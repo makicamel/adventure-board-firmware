@@ -4,8 +4,51 @@
 #include "hardware/gpio.h"
 #include "hardware/uart.h"
 #include "pico/stdlib.h"
+#include "hardware/irq.h"
+#include "hardware/sync.h"
+#include "hardware/timer.h"
 
 #include "../../include/uart.h"
+
+/*
+ * The PIO unit.
+ *
+ * The function mux fixes a hardware UART's roles by pin number, so two
+ * identical boards joined by a straight cable put TX against TX. A UART built
+ * out of PIO can put either role on either pin. It is a unit here rather than
+ * a class of its own so that a program is written against UART either way:
+ * someone who learns on a board that needs it should not have to unlearn
+ * anything to use a board that does not.
+ *
+ * The engine lives in the picoruby-pio-uart gem. These are weak, so a build
+ * without that gem links and reports the unit as unavailable; the gem's own
+ * definitions override them when it is present.
+ */
+__attribute__((weak)) int
+PIO_UART_open(uint8_t tx_pin, uint8_t rx_pin, uint32_t baudrate)
+{
+  (void)tx_pin; (void)rx_pin; (void)baudrate;
+  return -1;
+}
+__attribute__((weak)) void   PIO_UART_close(void) {}
+__attribute__((weak)) bool   PIO_UART_is_open(void) { return false; }
+__attribute__((weak)) size_t PIO_UART_write(const uint8_t *d, size_t n)
+{ (void)d; return 0; }
+__attribute__((weak)) size_t PIO_UART_available(void) { return 0; }
+__attribute__((weak)) size_t PIO_UART_read(uint8_t *o, size_t n)
+{ (void)o; (void)n; return 0; }
+__attribute__((weak)) void   PIO_UART_clear(void) {}
+__attribute__((weak)) bool   PIO_UART_take_overflow(void) { return false; }
+__attribute__((weak)) uint32_t PIO_UART_set_baudrate(uint32_t b)
+{ (void)b; return 0; }
+__attribute__((weak)) bool   PIO_UART_is_writable(void) { return false; }
+__attribute__((weak)) void   PIO_UART_flush(void) {}
+
+static inline bool
+is_pio_unit(int unit_num)
+{
+  return unit_num == PICORB_UART_PIO_UART0;
+}
 
 #define UNIT_SELECT() \
   do { \
@@ -58,6 +101,8 @@ UART_unit_name_to_unit_num(const char *name)
     return PICORB_UART_RP2040_UART0;
   } else if (strcmp(name, "RP2040_UART1") == 0) {
     return PICORB_UART_RP2040_UART1;
+  } else if (strcmp(name, "PIO_UART0") == 0) {
+    return PICORB_UART_PIO_UART0;
   } else {
     return UART_ERROR_INVALID_UNIT;
   }
@@ -97,6 +142,9 @@ int
 UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin)
 {
   int candidate = -1;
+  if (unit_name && strcmp(unit_name, "PIO_UART0") == 0) {
+    return PICORB_UART_PIO_UART0;
+  }
   if (0 <= txd_pin) {
     int u = pin_to_unit(uart0_tx_pins, uart1_tx_pins, txd_pin);
     if (u < 0) {
@@ -119,6 +167,11 @@ UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin)
     if (name_unit < 0) {
       return UART_ERROR_INVALID_UNIT;
     }
+    /* Any pin can carry either role on PIO, so the table above says nothing
+     * about it and a mismatch against it means nothing either. */
+    if (is_pio_unit(name_unit)) {
+      return name_unit;
+    }
     if (0 <= candidate && candidate != name_unit) {
       return UART_ERROR_UNIT_MISMATCH;
     }
@@ -130,12 +183,88 @@ UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin)
   return candidate;
 }
 
+/*
+ * The PIO unit's producer.
+ *
+ * A hardware UART has an interrupt that fills the ring; PIO has DMA instead,
+ * and DMA raises nothing until a transfer ends, which this one never does. So
+ * a timer moves bytes from the DMA ring into the ring UART reads from, and
+ * signals the event bridge so that UART#irq behaves the same as it does on a
+ * hardware unit.
+ *
+ * A millisecond is latency, not loss: the DMA ring holds 512 bytes whether or
+ * not anything comes to collect them, which was the whole reason for it.
+ */
+/* Driven from a hardware alarm through the timer registers, the same way
+ * picoruby-machine drives its millisecond tick. Whichever alarm is free: 0 is
+ * that tick, 1 and 2 go to picoruby-psg, and 3 is the SDK's default alarm
+ * pool -- claiming a taken one panics, so ask for an unused one. */
+#define PIO_PRODUCER_INTERVAL_US 1000
+
+static int pio_producer_alarm = -1;
+
+static void
+pio_producer_rearm(void)
+{
+  timer_hw->alarm[pio_producer_alarm] =
+    timer_hw->timerawl + PIO_PRODUCER_INTERVAL_US;
+  hw_clear_bits(&timer_hw->intr, 1u << pio_producer_alarm);
+}
+
+static void
+pio_producer(void)
+{
+  pio_producer_rearm();
+
+  RingBuffer *rx = UART_unit_rx(PICORB_UART_PIO_UART0);
+  uint8_t chunk[64];
+  bool stored = false;
+
+  size_t n;
+  while (0 < (n = PIO_UART_read(chunk, sizeof(chunk)))) {
+    uint32_t now = time_us_32();
+    for (size_t i = 0; i < n; i++) {
+      /* Read it out of the DMA ring either way: leaving it there only means
+       * losing something newer instead. */
+      if (rx && UART_pushBufferAt(rx, chunk[i], now)) {
+        stored = true;
+      }
+    }
+    if (n < sizeof(chunk)) break;
+  }
+  if (stored) {
+    UART_signal_rx(PICORB_UART_PIO_UART0);
+  }
+}
+
+static void
+pio_producer_start(void)
+{
+  if (0 <= pio_producer_alarm) return;
+  int alarm = hardware_alarm_claim_unused(false);
+  if (alarm < 0) return;   /* no alarm left: the unit then never delivers */
+  pio_producer_alarm = alarm;
+  uint irq = timer_hardware_alarm_get_irq_num(timer_hw, (uint)alarm);
+  hw_set_bits(&timer_hw->inte, 1u << alarm);
+  irq_set_exclusive_handler(irq, pio_producer);
+  irq_set_enabled(irq, true);
+  pio_producer_rearm();
+}
+
 void
 UART_open(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
 {
   uart_inst_t *unit = NULL;
 
-  if (unit_num < 0 || 2 <= unit_num) {
+  if (is_pio_unit(unit_num)) {
+    if (PIO_UART_open((uint8_t)txd_pin, (uint8_t)rxd_pin, DEFAULT_BAUDRATE)
+          == 0) {
+      pio_producer_start();
+    }
+    return;
+  }
+
+  if (unit_num < 0 || PICORB_UART_PIO_UART0 <= unit_num) {
     return;
   }
   UNIT_SELECT();
@@ -170,6 +299,9 @@ UART_open(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
 uint32_t
 UART_set_baudrate(int unit_num, uint32_t baudrate)
 {
+  if (is_pio_unit(unit_num)) {
+    return PIO_UART_set_baudrate(baudrate);
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_set_baudrate(unit, baudrate);
@@ -178,6 +310,11 @@ UART_set_baudrate(int unit_num, uint32_t baudrate)
 void
 UART_set_flow_control(int unit_num, bool cts, bool rts)
 {
+  /* PIO carries data and nothing else: no RTS, no CTS. */
+  if (is_pio_unit(unit_num)) {
+    (void)cts; (void)rts;
+    return;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_hw_flow(unit, cts, rts);
@@ -186,6 +323,12 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
 void
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
+  /* The PIO programs are 8N1 and only 8N1, which is what UART#initialize
+   * asks for by default. Another format is quietly not applied. */
+  if (is_pio_unit(unit_num)) {
+    (void)data_bits; (void)stop_bits; (void)parity;
+    return;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_format(unit, data_bits, stop_bits, (uart_parity_t)parity);
@@ -200,6 +343,9 @@ UART_set_function(uint32_t pin)
 bool
 UART_is_writable(int unit_num)
 {
+  if (is_pio_unit(unit_num)) {
+    return PIO_UART_is_writable();
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_is_writable(unit);
@@ -208,6 +354,10 @@ UART_is_writable(int unit_num)
 void
 UART_write_blocking(int unit_num, const uint8_t *src, size_t len)
 {
+  if (is_pio_unit(unit_num)) {
+    PIO_UART_write(src, len);
+    return;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_write_blocking(unit, src, len);
@@ -216,6 +366,12 @@ UART_write_blocking(int unit_num, const uint8_t *src, size_t len)
 bool
 UART_is_readable(int unit_num)
 {
+  /* Everything that arrived is in the ring already: the producer above
+   * emptied the DMA buffer into it. Reading from here as well would take
+   * bytes out from under it. */
+  if (is_pio_unit(unit_num)) {
+    return false;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_is_readable(unit);
@@ -224,6 +380,10 @@ UART_is_readable(int unit_num)
 size_t
 UART_read_nonblocking(int unit_num, uint8_t *dst, size_t maxlen)
 {
+  if (is_pio_unit(unit_num)) {
+    (void)dst; (void)maxlen;
+    return 0;
+  }
   size_t actual_len = 0;
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
@@ -239,6 +399,11 @@ UART_read_nonblocking(int unit_num, uint8_t *dst, size_t maxlen)
 void
 UART_break(int unit_num, uint32_t interval)
 {
+  /* The PIO transmit program has no way to hold the line low. */
+  if (is_pio_unit(unit_num)) {
+    (void)interval;
+    return;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_break(unit, true);
@@ -249,6 +414,10 @@ UART_break(int unit_num, uint32_t interval)
 void
 UART_flush(int unit_num)
 {
+  if (is_pio_unit(unit_num)) {
+    PIO_UART_flush();
+    return;
+  }
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_tx_wait_blocking(unit);
@@ -258,6 +427,10 @@ void
 UART_clear_rx_buffer(int unit_num)
 {
   uart_inst_t *unit = NULL;
+  if (is_pio_unit(unit_num)) {
+    PIO_UART_clear();
+    return;
+  }
   UNIT_SELECT();
   while (uart_is_readable(unit)) {
     uart_getc(unit);

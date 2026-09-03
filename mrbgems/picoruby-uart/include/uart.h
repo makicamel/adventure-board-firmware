@@ -29,6 +29,13 @@ extern "C" {
 
 #define PICORB_UART_RP2040_UART0      0
 #define PICORB_UART_RP2040_UART1      1
+/*
+ * A UART built out of PIO rather than the hardware block, so that either pin
+ * can take either role -- which the function mux does not allow. Implemented
+ * by the picoruby-pio-uart gem; a build without it still compiles, and asking
+ * for the unit reports it as unavailable.
+ */
+#define PICORB_UART_PIO_UART0         2
 
 /*
  * Size of the shared unit table. This is an upper bound, not a
@@ -37,7 +44,7 @@ extern "C" {
  * limit in UART_open() as well.
  */
 #if defined(PICORB_PLATFORM_RP2)
-#define UART_UNIT_MAX 2
+#define UART_UNIT_MAX 3   /* two hardware units and the PIO one */
 #elif defined(PICORB_PLATFORM_ESP32)
 #define UART_UNIT_MAX 3
 #else
