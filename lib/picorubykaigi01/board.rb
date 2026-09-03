@@ -162,6 +162,23 @@ class Board
     )
   end
 
+  # GROVE-B as a link to another one of these boards, over PIO rather than the
+  # hardware UART so that a straight Grove cable works. :a keeps the pins as
+  # UART0 has them, :b swaps them; the two boards take one role each.
+  #
+  # Built on request, like grove_uart, because these pins are also ADC2 and
+  # ADC3 and asking for either gives up the other.
+  def grove_link(role: :a, baudrate: GroveLink::DEFAULT_BAUDRATE)
+    @grove_link ||= begin
+      tx, rx = if role == :b
+        [GROVE_B_RX_PIN, GROVE_B_TX_PIN]
+      else
+        [GROVE_B_TX_PIN, GROVE_B_RX_PIN]
+      end
+      GroveLink.new(tx_pin: tx, rx_pin: rx, baudrate: baudrate)
+    end
+  end
+
   # GROVE-A as I2C1, for sensors and displays.
   def grove_i2c(frequency: 100_000)
     @grove_i2c ||= I2C.new(
