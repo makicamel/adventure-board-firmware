@@ -87,6 +87,10 @@ USB が生きたままファームが起動しなおすと、中途半端なデ�
 メモリが 1 ワードも読めなくなり（コアの examine は通るのに `mdw` が無反応）、
 BOOTSEL 以外に戻す手段がなくなる。
 
+**書き込みの最後の `reset` も同じ。** `program ... verify reset exit` の
+`reset` がこれなので、焼くたびに賭けをしていることになる。
+`docker/flash.sh` は `verify exit` で止めて、別セッションでウォッチドッグを叩く。
+
 デバイス側の `watchdog_reboot()` と同じ手順を SWD 越しに踏めばよい:
 
 ```
@@ -95,7 +99,9 @@ mww 0x400d801c 0            # WATCHDOG_SCRATCH4: 通常のブート経路へ
 mww 0x400d8000 0x80000000   # WATCHDOG_CTRL: TRIGGER
 ```
 
-（RP2350 の番地。`PSM_WDSEL_BITS & ~(ROSC|XOSC)` = `0x01fffff3`）
+RP2040 なら `PSM_BASE 0x40010000` / `WATCHDOG_BASE 0x40058000`、
+`PSM_WDSEL_BITS & ~(ROSC|XOSC)` = `0x0001fffc`。
+RP2350 は `0x40018000` / `0x400d8000`、`0x01fffff3`。
 
 ## 書き込みの直後に SWD でフラッシュを触らない
 
