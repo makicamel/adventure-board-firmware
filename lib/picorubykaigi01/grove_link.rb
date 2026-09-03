@@ -72,34 +72,69 @@ class GroveLink
     # board is unplugged.
     GPIO.new(rx_pin, GPIO::IN | GPIO::PULL_UP)
 
+    # Each state machine has a pair of four-word FIFOs and uses only one of
+    # them, so give each the other's. Eight bytes is not much, but it is twice
+    # as much, and it is all the buffering there is: nothing on this side runs
+    # between polls to empty it.
     @tx = PIO::StateMachine.new(
       pio: pio, sm: tx_sm, program: self.class.tx_program, freq: freq,
       out_pins: tx_pin, out_pin_count: 1,
       sideset_pins: tx_pin,
-      out_shift_right: true, out_shift_autopull: false, out_shift_threshold: 32
+      out_shift_right: true, out_shift_autopull: false, out_shift_threshold: 32,
+      fifo_join: PIO::FIFO_JOIN_TX
     )
     @rx = PIO::StateMachine.new(
       pio: pio, sm: rx_sm, program: self.class.rx_program, freq: freq,
       in_pins: rx_pin,
-      in_shift_right: true, in_shift_autopush: true, in_shift_threshold: 8
+      in_shift_right: true, in_shift_autopush: true, in_shift_threshold: 8,
+      fifo_join: PIO::FIFO_JOIN_RX
     )
 
     @tx.exec(self.class.drive_high)
     @tx.start
     @rx.start
-    @line = ""
+    @lines = []
+    @partial = ""
     flush_input
   end
 
   # Whatever arrived while the other board was starting up is not a message.
   def flush_input
     @rx.clear_fifos
-    @line = ""
+    @lines = []
+    @partial = ""
     nil
   end
 
+  # Move everything the hardware has into Ruby, where there is room for it.
+  #
+  # Call this often. The receive FIFO holds eight bytes and there is no
+  # interrupt behind it, so anything that arrives while it is full is simply
+  # gone -- a program that sleeps between polls has to keep its messages
+  # shorter than that.
+  def pump
+    while (word = @rx.get_nonblocking)
+      char = ((word >> 24) & 0xFF).chr
+      if char == "\n"
+        @lines << @partial
+        @partial = ""
+      elsif char != "\r"
+        @partial += char
+      end
+    end
+    nil
+  end
+
+  # Sending eight bytes fills the transmit FIFO, and on a loopback -- or when
+  # the other board answers immediately -- the receive side fills at the same
+  # rate. So empty it as we go.
   def write(string)
-    @tx.put_bytes(string)
+    i = 0
+    while i < string.length
+      @tx.put_bytes(string[i])
+      pump
+      i += 1
+    end
     string.length
   end
 
@@ -107,8 +142,8 @@ class GroveLink
     write(string + "\n")
   end
 
-  # One byte, or nil if none has arrived. Autopush shifts right into a 32 bit
-  # word, so the byte ends up at the top.
+  # One raw byte, taken before lines are assembled, or nil. A program uses
+  # this or #gets, not both.
   def read_byte
     word = @rx.get_nonblocking
     return nil unless word
@@ -116,18 +151,10 @@ class GroveLink
   end
 
   # A whole line, or nil if one has not finished arriving. Never blocks: a
-  # program loops on this the same way it polls its buttons.
+  # program calls this in its loop the same way it polls its buttons.
   def gets
-    while (byte = read_byte)
-      char = byte.chr
-      if char == "\n"
-        line = @line
-        @line = ""
-        return line
-      end
-      @line += char unless char == "\r"
-    end
-    nil
+    pump
+    @lines.shift
   end
 
   def close

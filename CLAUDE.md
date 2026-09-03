@@ -266,6 +266,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 | [dev-docs/led-matrix-gem/](dev-docs/led-matrix-gem/) | LED ドライバの実装計画とハード仕様 |
 | [dev-docs/wasm-simulator/](dev-docs/wasm-simulator/) | ブラウザシミュレータの計画と完了レポート |
 | [dev-docs/device-bringup/](dev-docs/device-bringup/) | 実機で踏んだ穴。WSL からの書き込みとデバッグ、`require` の費用 |
+| [dev-docs/grove-link/](dev-docs/grove-link/) | 基板 2 枚を GROVE-B で繋ぐ。PIO で UART を作る |
 | [docker/README.md](docker/README.md) | ビルド環境の詳細 |
 | [sim/README.md](sim/README.md) | シミュレータの使い方 |
 | [examples/](examples/) | **実機専用**サンプル（シミュレータに無いハードを使うもの） |
@@ -281,6 +282,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
-- ⬜ GROVE / ステータス LED、サンプルプログラムの拡充
+- ✅ GROVE-B の基板間リンク（PIO で UART を作る。ストレートケーブルで繋がる）。
+  ループバック検証済み、2 枚での確認は基板待ち
+- ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）、実基板ブリングアップ

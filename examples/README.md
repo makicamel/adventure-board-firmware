@@ -8,15 +8,22 @@
 
 | ファイル | 使うもの | 必要なもの |
 |---|---|---|
-| [grove_uart_chat.rb](grove_uart_chat.rb) | GROVE-B（UART0） | **基板 2 枚 + クロスケーブル** |
+| [grove_link_chat.rb](grove_link_chat.rb) | GROVE-B（PIO で作った UART） | 基板 2 枚。**ケーブルはストレートでよい** |
+| [grove_uart_chat.rb](grove_uart_chat.rb) | GROVE-B（ハードウェア UART0） | **基板 2 枚 + クロスケーブル** |
+
+2 枚を繋ぐなら `grove_link_chat.rb` の方を使う。ケーブルを選ばない。
+`grove_uart_chat.rb` は**ハードウェア UART の使い方**として残してある。
 
 ## 動かし方
 
 R2P2 のシェルから直接:
 
 ```
-/home/grove_uart_chat.rb
+/home/examples/grove_link_chat.rb
 ```
+
+シェルはパスで実行する。`grove_link_chat.rb` とだけ打っても、`PATH` は
+`/bin` しか見ないので見つからない。
 
 ファイルを送るには、ブラウザから WebSerial で（`dev-docs/webserial-console/`）か、
 シェルの `vim` で書く。
@@ -28,6 +35,10 @@ GPIO28 は UART0 TX、GPIO29 は UART0 RX にしかなれない
 28%4=0 が TX、29%4=1 が RX で、入れ替える選択肢が無い）。
 
 したがって**同じ基板 2 枚をストレートケーブルで繋ぐと TX 同士がぶつかる**。
+
+これを避けるために `grove_link_chat.rb` は PIO で UART を作り、片方の基板だけ
+TX と RX を入れ替える。ピンの役割を選べるのが PIO の取り柄で、そのぶん
+ケーブルを選ばない。設計は [dev-docs/grove-link/](../dev-docs/grove-link/)。
 信号 2 本を入れ替えたケーブルが要る。
 
 - Seeed **Grove - UART Crossover Cable 4Pin**（SS100052406）

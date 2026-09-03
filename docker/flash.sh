@@ -68,10 +68,21 @@ openocd \
   -c "program \"${elf}\" verify exit"
 
 # A separate session: after a flash operation the target is somewhere these
-# writes cannot reach.
+# writes cannot reach. The probe can take a moment to come back between the
+# two, especially over usbip, so give it a few tries -- and if it never does,
+# say so rather than failing a flash that already verified.
 echo "Rebooting through the watchdog"
-exec openocd \
-  -f interface/cmsis-dap.cfg \
-  -f "$target_cfg" \
-  -c "adapter speed ${ADAPTER_SPEED}" \
-  -c "init; halt; mww ${psm_wdsel} ${wdsel_value}; mww ${wd_scratch4} 0; mww ${wd_ctrl} 0x80000000; exit"
+for attempt in 1 2 3; do
+  if openocd \
+      -f interface/cmsis-dap.cfg \
+      -f "$target_cfg" \
+      -c "adapter speed ${ADAPTER_SPEED}" \
+      -c "init; halt; mww ${psm_wdsel} ${wdsel_value}; mww ${wd_scratch4} 0; mww ${wd_ctrl} 0x80000000; exit"; then
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Flashed and verified, but could not reboot the board." >&2
+echo "Power-cycle it, or run: tools/r2p2dev.py reset" >&2
+exit 0
