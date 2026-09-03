@@ -226,6 +226,14 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   バッファは埋まるのにカウンタが 0 のままになる。`0x0fffffff` を使う
 - **PIO のピン方向はステートマシン間で共有される。** 受信側で pindirs を
   入力にすると、同じピンを使う送信側の出力が消える
+- **埋まっているハードウェアアラームを `hardware_alarm_claim()` すると panic する。**
+  0 は `picoruby-machine` のティック、1 と 2 は `picoruby-psg`、
+  3 は SDK の既定アラームプール。`hardware_alarm_claim_unused()` で取る
+- **GCC の "two or more data types in declaration specifiers" が健全な `bool` を
+  指したら、手前の宣言が閉じていない。** 「未知の型」に見えるエラーも同じ。
+  同じファイルの別の場所で同じ型が通っているなら、型の問題ではない
+- **Ruby 側の無い gem でも `_gem_init` / `_gem_final` は要る**（リンクで落ちる）。
+  `ports/rp2040/*.c` は CMake が自動で拾うので `CMakeLists.txt` は触らなくてよい
 
 ### その他
 

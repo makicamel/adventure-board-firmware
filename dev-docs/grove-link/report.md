@@ -186,9 +186,15 @@ dma_channel_configure(rx_chan, &d, rx_buffer,
 
 ---
 
-## 5. 実装で踏んだ 2 つのバグ
+## 5. 実装で詰まったところ
 
-### PIO のピン方向はステートマシン間で共有される
+順に。**ハードの罠 4 つ、自分の誤診 1 つ、ビルドの作法 2 つ。**
+ハードの罠はどれも「世の中の例をそのまま持ってくると外れる」もので、
+誤診はエラーメッセージの読み方を間違えたもの。
+
+### ハードの罠（PIO + DMA 編）
+
+**PIO のピン方向はステートマシン間で共有される。**
 
 参照実装をまねて受信側で
 `pio_sm_set_consecutive_pindirs(pio, rx_sm, rx_pin, 1, false)` を呼んだら、
@@ -199,7 +205,7 @@ dma_channel_configure(rx_chan, &d, rx_buffer,
 参照実装は別ピン前提だったので踏まなかった罠。`pio_gpio_init` の後は
 既定で入力なので、**この行はそもそも要らない**。外した。
 
-### RP2350 の `TRANS_COUNT` は上位 4 ビットが MODE
+**RP2350 の `TRANS_COUNT` は上位 4 ビットが MODE。**
 
 外してもまだ受信できなかった。原因はこれ。
 
@@ -221,6 +227,96 @@ DMA_CH0_TRANS_COUNT_COUNT_BITS         0x0fffffff
 RP2040 でも同じコードで動く（ただ上限が小さくなるだけ）。
 
 ---
+
+### ハードの罠（`UART` ユニット編）
+
+**埋まっているハードウェアアラームを `hardware_alarm_claim()` すると panic する。**
+プロデューサに 3 番を決め打ちしたら、スクリプトが 1 行目も出さずに固まった。
+0 は `picoruby-machine` のティック、1 と 2 は `picoruby-psg`、
+**3 は SDK の既定アラームプール**。`hardware_alarm_claim_unused()` で取る。
+
+**`UART` のリングは既定 256 バイトで、DMA リング（512）より小さい。**
+渡さないと、ハードが受け取ったものが Ruby へ渡る途中で落ちる——
+10 通送って 4 通しか届かず、`rx_overflow_count` が 325 になった。
+リングが 2 段になったのだから**上流より下流を細くしてはいけない**。
+`GroveLink` は 1024 を渡す。
+
+### 自分の誤診 — 「型が無い」で 2 回作り直した
+
+`UART` のユニットを書いているとき、プロデューサのタイマでこう出た:
+
+```
+error: expected '=', ',', ';', 'asm' or '__attribute__' before '*' token
+  200 | static alarm_pool_t *pio_producer_pool;
+```
+
+`alarm_pool_t` が見えていない、と読んだ。`pico/time.h` は include してあり、
+同じ型を使う `picoruby-psg` は通っている。include 順を疑い、**SDK の既定
+アラームプールを使う形に書き換えた**（プール型を使わずに済むので）。
+
+次はこう出た:
+
+```
+error: expected '=', ',', ';', 'asm' or '__attribute__' before 'pio_producer_timer'
+  202 | static repeating_timer_t pio_producer_timer;
+```
+
+`repeating_timer_t` も見えていない。SDK のタイマ API を諦めて、
+**`picoruby-machine` と同じタイマレジスタ直叩きに書き換えた**。
+
+三度目はこう出た:
+
+```
+error: two or more data types in declaration specifiers
+  209 | static bool pio_producer_running;
+      |        ^~~~
+error: variable or field 'pio_producer_running' declared void
+```
+
+**`bool` が「型が 2 つ」で、変数が `void` で宣言されている。**
+`bool` は同じファイルの 63 行目で問題なく使われている。ここでようやく
+「型が無い」のではなく**その手前が閉じていない**と気づいた。
+
+原因は私の編集だった。挿入位置が `UART_open` の**戻り値型 `void` と関数名の間**で、
+宙に浮いた `void` が次の宣言に食い込んでいた。
+
+```c
+void          ← これ
+/* 私が挿入したコメントと関数 */
+...
+void
+UART_open(int unit_num, ...)
+```
+
+`void static alarm_pool_t *x;` が「`*` の前に `=` が要る」、
+`void static bool x;` が「型が 2 つ」。**3 つのエラーは全部同じ 1 つの原因**で、
+API を 2 回書き換えたのは無駄だった（しかも同じ間違いを 2 箇所でやっていて、
+1 つ直したらもう 1 つが出た）。
+
+**教訓。** GCC の "two or more data types in declaration specifiers" が
+健全な `bool` を指したら、**指された行ではなく手前を読む**。
+「未知の型」に見えるエラーも、直前の宣言が閉じていないだけのことがある。
+症状に合わせて実装方針を変える前に、**同じファイルの別の場所で同じ型が
+通っているか**を見る——通っていれば、型の問題ではない。
+
+（結果として残った「タイマレジスタ直叩き」は `picoruby-machine` と同じ手で
+悪くないので、そのままにしてある。理由付けが間違っていただけ。）
+
+### ビルドの作法
+
+**Ruby 側の無い gem でも gem のフックは要る。** C だけの gem にしたら
+リンクで落ちた:
+
+```
+undefined reference to `mrb_picoruby_pio_uart_gem_init'
+```
+
+`src/pio_uart.c` に空の `_gem_init` / `_gem_final` を置いた。
+同じ理由で、`src/` にファイルが 1 つも無い gem も避けた
+（このファイルはホスト側でもコンパイルされるので、PIO も DMA も参照できない）。
+
+**`ports/rp2040/*.c` は CMake が自動で拾う。** `mrbgems/*/ports/rp2040/*.c` の
+glob があるので、新しい gem のポートを足すのに `CMakeLists.txt` を触る必要は無い。
 
 ## 6. 結果
 
