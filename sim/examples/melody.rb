@@ -9,7 +9,11 @@
 #   t120  テンポ    o4  オクターブ    l8  既定の音符長
 #   >  オクターブ上げ    <  下げ    r  休符
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/speaker'
+GC.start
 
 speaker.play_mml("t140 o4 l8 ccggaag4 ffeeddc4")

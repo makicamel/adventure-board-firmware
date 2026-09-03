@@ -1,7 +1,11 @@
 # 外周の枠と対角線。向きと縦横の入れ替わりが一目で分かる。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 matrix.clear
 

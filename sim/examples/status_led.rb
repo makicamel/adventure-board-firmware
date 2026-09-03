@@ -5,10 +5,16 @@
 #
 # A を押している間は点きっぱなし、それ以外は 1 秒周期で点滅する。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 require 'picorubykaigi01/buttons'
+GC.start
 require 'picorubykaigi01/status_led'
+GC.start
 
 led = board.status_led
 

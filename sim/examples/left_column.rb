@@ -2,8 +2,12 @@
 # ここが左端に真っ直ぐ 1 本に見えれば cs = 17 - x の向きが正しい。
 # 下半分だけ右端に出たら反転の向きが逆。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 matrix.clear
 y = 1

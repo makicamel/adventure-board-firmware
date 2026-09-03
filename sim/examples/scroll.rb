@@ -1,7 +1,11 @@
 # 文字を右から左へ流す。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 text = "PicoRubyKaigi 第一回 ようこそ"
 x = 16

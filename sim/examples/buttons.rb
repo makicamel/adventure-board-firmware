@@ -13,9 +13,14 @@
 # オートリピート（押しっぱなしで連続）はここで作る。
 # 押した瞬間の 1 歩はキューから、その後の連続は pressed? を数えて。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 require 'picorubykaigi01/buttons'
+GC.start
 
 DELAY = 6      # 最初の 1 歩のあと、これだけ待ってから
 INTERVAL = 2   # この間隔で繰り返す（ループ 1 周が単位）

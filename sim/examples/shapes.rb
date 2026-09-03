@@ -3,8 +3,12 @@
 # VRAM は 8bit なので、色にそのまま明るさ (0..255) を渡せる。
 # 何も指定しなければ matrix.pen の値が使われる。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 matrix.clear
 matrix.clear_drawing

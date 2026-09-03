@@ -9,9 +9,14 @@
 #
 # シミュレータでは動かない（相手の基板が無い）。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 require 'picorubykaigi01/buttons'
+GC.start
 
 uart = board.grove_uart(baudrate: 115200)
 

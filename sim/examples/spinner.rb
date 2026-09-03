@@ -4,8 +4,12 @@
 # ブラウザではこのコードが専用のタスクで走り、sleep_ms のあいだ
 # 画面に制御が戻るので固まらない。基板でもそのまま動く。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 t = 0
 

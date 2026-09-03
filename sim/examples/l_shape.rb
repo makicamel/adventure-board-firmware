@@ -2,8 +2,12 @@
 # 上下でチップが変わり、下半分は列が左右反転して配線されているので、
 # ここが真っ直ぐ縦に見えれば座標変換が正しいことになる。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 
 matrix.clear
 

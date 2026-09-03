@@ -1,8 +1,13 @@
 # 音に合わせてマトリクスを光らせる。
 
+# require したファイルは、コンパイラをヒープに残していく。
+# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start
 require 'picorubykaigi01/led_matrix'
+GC.start
 require 'picorubykaigi01/speaker'
+GC.start
 
 speaker.play_mml("t120 o4 l8 cdefgab>c<bagfedc", loop: true)
 
