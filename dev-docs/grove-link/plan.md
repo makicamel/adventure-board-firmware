@@ -189,11 +189,18 @@ GROVE-B は ADC2/ADC3 でもあるので、リンクを開くまでアナログ�
    どうするか決める。クロスケーブル版として残す価値はある
    （**ハードウェア UART の使い方**という別の教材になる）
 
-## 実装と検証
+## この計画から変わったところ
 
-実装は `lib/picorubykaigi01/grove_link.rb` と
-[`examples/grove_link_chat.rb`](../../examples/grove_link_chat.rb)。
-Pico 2 W 1 枚での検証結果は [report.md](report.md) にある。
+**受信を `picoruby-pio` の Ruby ポーリングでやる前提は捨てた。**
 
-計画時に「未確認」と書いた 4 点はすべて想定どおりだった。想定していなかったのは
-**受信 FIFO が 4 ワードしかない**ことで、そこは実装で吸収した。
+計画が見落としていたのは、PIO の FIFO が 4 ワード（寄せて 8 バイト）しか
+なく、その後ろに何も無いこと。Ruby がそれを守るには数 ms ごとに見に来る
+必要があり、GC ひとつで落ちる。しかも PIO に overflow フラグは無いので
+**黙って落ちる**。
+
+受信は [`mrbgems/picoruby-pio-uart`](../../mrbgems/picoruby-pio-uart/) が
+**DMA で 512 バイトのリングに書く**形にした。PIO プログラムそのものは
+この計画のまま（命令語も一致を確認済み）で、変わったのは「誰が FIFO を
+汲むか」だけ。
+
+そこに至る経緯と、実装で踏んだ RP2350 固有の罠は [report.md](report.md)。
