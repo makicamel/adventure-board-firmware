@@ -127,42 +127,47 @@ LED・音・ボタン・GROVE の学習用基板には要らない。
 `USE_WIFI` はまだ外していない。`tasks/picoruby/r2p2.rake` がボード名で
 `-D USE_WIFI=1` を決め打ちしているので、基板用のボード名を足すときに一緒に外す。
 
-### 2. 使うときに初めて読む
+### 2. 使うものだけ読む
 
-`require 'picorubykaigi01'` はローダと `Board` だけを読む。
-ペリフェラルのクラスは、**最初に触られたとき**に `Board.load_part` が
-require する。ステータス LED を光らせるだけのプログラムが
-LED マトリクスをコンパイルしない。
+`require 'picorubykaigi01'` はローダと `Board`（ピンと起こし方）だけ。
+**ペリフェラルのクラスはプログラムが自分で require する。**
 
 ```ruby
-def self.load_part(name)
-  require "picorubykaigi01/#{name}"
-  GC.start
-rescue NameError, NoMethodError
-  nil
-end
+require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 ```
 
-`GC.start` はここで呼ぶ。`require.rb` の `ensure` の中では `sandbox` という
-ローカルがまだ生きているので、そこで呼んでも回収されない。
-**upstream に触らずに 28KB を回収できる場所がここだった。**
+一度これを `Board` のアクセサに隠して、触られたときに require する形にした。
+撤回した。**サンプルが何を読み込んでいるかは、サンプルが教えることの一部**で、
+このデバイスではそれが実費でもある。隠す理由がない。
 
-実機（Pico 2 W、LED ドライバなし）:
+`Board` 側に残したのは**構築**の遅延だけ。LED マトリクスを使わないプログラムは
+ドライバを開かず、SDB も上げない（全点灯＋音声で USB 500mA を超える基板なので、
+使わないハードを起こさないことには実利がある）。
 
-```
-require 'picorubykaigi01'   used 296,152 → 300,584   (+4,432)
-board.status_led → true     used 280,368   ← GC で開始時より下がる
-buttons.pressed?(:a)        used 301,928
-speaker → Speaker           used 321,272   free 83,856
-```
+一番重いサンプル（`status_led.rb`、3 つ使う）を実機で測った:
 
-**LED マトリクスを一度も読まないので、チップの無いボードでも I2C エラーが出ない。**
-`/home/examples/status_led.rb` がそのまま走る。
+| | used | free | max_free |
+|---|---:|---:|---:|
+| 開始 | 258,240 | 146,888 | 133,328 |
+| `picorubykaigi01` | 297,288 | 107,840 | 25,800 |
+| `led_matrix` | 339,216 | 65,912 | 21,328 |
+| `buttons` | 307,888 | 97,240 | 11,280 |
+| `status_led` | 329,992 | 75,136 | 11,280 |
+| `board.status_led.on` | 331,432 | 73,696 | 11,280 |
+
+通る。`GC.start` を最後に呼ぶと used は 308,064 まで戻るが、
+**max_free は 11,280 のまま**——断片化は戻らない。
+
+`melody.rb`（`speaker` だけ）も走る。`one_dot.rb` は `I2C write failed` で
+落ちるが、これは LED ドライバの載っていない Pico 2 W なので正しい失敗。
 
 ## 残っている宿題
 
 - **`require.rb` が GC を呼ばない**のは upstream の問題として残っている。
-  `load_file` を抜けてから回収を促す必要があり、`ensure` の中では遅い
+  require を並べるサンプルでは 1 本あたり 28KB の置き土産が積み上がる。
+  `load_file` を抜けてから回収を促す必要があり、`ensure` の中では
+  `sandbox` ローカルがまだ生きているので遅い
 - **断片化**は estalloc の性質で、こちらから打てる手が少ない。
   読み込む数を減らすのが唯一効いた対策だった
 - ボードライブラリはこれ以上大きくしにくい。機能を足すなら、
@@ -174,6 +179,7 @@ speaker → Speaker           used 321,272   free 83,856
 | | |
 |---|---|
 | ボードライブラリ | `lib/picorubykaigi01.rb` + `lib/picorubykaigi01/*.rb` → デバイスの `/lib` |
-| 遅延読み込み | `Board.load_part` / `Board#matrix` などのアクセサ |
+| 構築の遅延 | `Board#matrix` などのアクセサ |
+| サンプルが読むもの | 各 `examples/*.rb` の先頭 |
 | ビルド構成 | `build_config/r2p2-picoruby-pico2_w.rb` |
 | 配布 | `tools/gen_system_files.rb` → `picoruby-r2p2/ports/rp2040/system_files.c` |

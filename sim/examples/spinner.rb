@@ -5,6 +5,7 @@
 # 画面に制御が戻るので固まらない。基板でもそのまま動く。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 t = 0
 

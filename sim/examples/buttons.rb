@@ -14,6 +14,8 @@
 # 押した瞬間の 1 歩はキューから、その後の連続は pressed? を数えて。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/buttons'
 
 DELAY = 6      # 最初の 1 歩のあと、これだけ待ってから
 INTERVAL = 2   # この間隔で繰り返す（ループ 1 周が単位）

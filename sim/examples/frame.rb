@@ -1,6 +1,7 @@
 # 外周の枠と対角線。向きと縦横の入れ替わりが一目で分かる。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 

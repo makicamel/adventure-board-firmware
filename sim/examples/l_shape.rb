@@ -3,6 +3,7 @@
 # ここが真っ直ぐ縦に見えれば座標変換が正しいことになる。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 

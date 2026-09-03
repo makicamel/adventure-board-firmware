@@ -4,6 +4,7 @@
 # PWM をいくら書いても 1 個も光らない。実機で必ず一度はハマるところ。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 led = IS31FL3729.new(i2c: board.i2c, address: LedMatrix::TOP_ADDRESS)
 led.reset

@@ -1,6 +1,7 @@
 # 文字を右から左へ流す。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 text = "PicoRubyKaigi 第一回 ようこそ"
 x = 16

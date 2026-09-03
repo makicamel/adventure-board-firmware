@@ -3,6 +3,7 @@
 # 下半分だけ右端に出たら反転の向きが逆。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 y = 1

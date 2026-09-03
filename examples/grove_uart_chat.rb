@@ -10,6 +10,8 @@
 # シミュレータでは動かない（相手の基板が無い）。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/buttons'
 
 uart = board.grove_uart(baudrate: 115200)
 

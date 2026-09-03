@@ -1,6 +1,7 @@
 # 左から右へ暗→明のグラデーション。PWM がそのまま明るさに効く。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 y = 1

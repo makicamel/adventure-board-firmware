@@ -6,6 +6,9 @@
 # A を押している間は点きっぱなし、それ以外は 1 秒周期で点滅する。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/buttons'
+require 'picorubykaigi01/status_led'
 
 led = board.status_led
 

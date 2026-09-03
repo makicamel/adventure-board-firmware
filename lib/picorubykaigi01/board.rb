@@ -4,12 +4,11 @@
 # builds this board's own peripherals; the simulator hands in stand-ins
 # instead, and everything below that point is the same either way.
 #
-# Nothing is built until it is asked for, and each peripheral's class is
-# required at that moment rather than up front. On the device that is not
-# tidiness: compiling Ruby costs about six times the source size in contiguous
-# heap and leaves about five times it resident, so loading all five classes to
-# blink one LED is the difference between a program that runs and one that
-# does not. See dev-docs/device-bringup/require-memory.md.
+# A peripheral is built the first time it is asked for, so a program that
+# never touches the LED matrix never opens the drivers and never pulls SDB up.
+# The classes themselves are required by the program, not from in here: what a
+# sample loads is part of what it teaches, and on this device it is not free
+# either. See dev-docs/device-bringup/require-memory.md.
 
 class Board
   # --- pins ---------------------------------------------------------------
@@ -47,21 +46,6 @@ class Board
   def self.boot(i2c: nil, speaker_backend: nil, global_current: 0x20)
     new(i2c: i2c, speaker_backend: speaker_backend,
         global_current: global_current)
-  end
-
-  # Pulls in one peripheral's class.
-  #
-  # The collection is the point. Kernel#require compiles each file in its own
-  # Sandbox and only stops its task afterwards, so the compiler it built --
-  # about 28KB of it -- stays on the heap until something collects it, and
-  # nothing here otherwise would. Without this, bringing up the third
-  # peripheral runs the board out of memory.
-  def self.load_part(name)
-    require "picorubykaigi01/#{name}"
-    GC.start
-  rescue NameError, NoMethodError
-    # No GC to call, or already loaded by whoever concatenated the sources.
-    nil
   end
 
   # I2C0, the bus the two LED drivers sit on.
@@ -127,7 +111,6 @@ class Board
 
   def matrix
     @matrix ||= begin
-      self.class.load_part("led_matrix")
       sdb
       LedMatrix.new(i2c: i2c, global_current: @global_current)
     end
@@ -135,7 +118,6 @@ class Board
 
   def buttons
     @buttons ||= begin
-      self.class.load_part("buttons")
       self.class.start_irq
       Buttons.new
     end
@@ -148,8 +130,7 @@ class Board
       @speaker_built = true
       backend = @given_speaker_backend || self.class.default_speaker_backend
       if backend
-        self.class.load_part("speaker")
-        @speaker = Speaker.new(sink: backend)
+          @speaker = Speaker.new(sink: backend)
       end
     end
     @speaker
@@ -157,7 +138,6 @@ class Board
 
   def status_led
     @status_led ||= begin
-      self.class.load_part("status_led")
       StatusLed.new
     end
   end

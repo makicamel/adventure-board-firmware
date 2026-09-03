@@ -4,6 +4,7 @@
 # 何も指定しなければ matrix.pen の値が使われる。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 matrix.clear_drawing

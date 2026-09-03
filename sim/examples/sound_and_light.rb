@@ -1,6 +1,8 @@
 # 音に合わせてマトリクスを光らせる。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/speaker'
 
 speaker.play_mml("t120 o4 l8 cdefgab>c<bagfedc", loop: true)
 

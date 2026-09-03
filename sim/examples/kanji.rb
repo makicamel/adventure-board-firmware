@@ -7,6 +7,7 @@
 #    必要。CDN の stock パッケージにはフォントの gem が入っていない。
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/led_matrix'
 
 matrix.clear
 matrix.clear_drawing

@@ -11,11 +11,17 @@
 # which is machine-extracted from the board. docs/gpio_assignment.md is older
 # and disagrees; do not use it.
 #
-# The classes live in picorubykaigi01/ beside this file, one per class, and
-# only Board is loaded here. The rest arrive when a program first asks for
-# them, because on the device compiling Ruby is expensive enough that loading
-# the LED matrix to blink the status LED can cost the program its memory.
-# The measurements are in dev-docs/device-bringup/require-memory.md.
+# This file brings in Board, which is the pins and how to bring them up. The
+# peripherals live one class per file beside it, and a program requires the
+# ones it uses:
+#
+#   require 'picorubykaigi01'
+#   require 'picorubykaigi01/led_matrix'
+#
+# That is not ceremony. Compiling Ruby on the device costs about six times the
+# source size in contiguous heap and leaves about five times it resident, so
+# loading the LED matrix in order to blink the status LED is a real price a
+# program pays. Measurements in dev-docs/device-bringup/require-memory.md.
 
 require 'picorubykaigi01/board'
 

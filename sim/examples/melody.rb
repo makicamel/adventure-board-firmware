@@ -10,5 +10,6 @@
 #   >  オクターブ上げ    <  下げ    r  休符
 
 require 'picorubykaigi01'
+require 'picorubykaigi01/speaker'
 
 speaker.play_mml("t140 o4 l8 ccggaag4 ffeeddc4")

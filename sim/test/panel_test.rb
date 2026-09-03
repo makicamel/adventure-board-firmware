@@ -48,9 +48,11 @@ load "sim/sim_panel.rb"
 ].each { |f| load f }
 load "mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb"
 load "lib/picorubykaigi01.rb"
-# Board pulls each peripheral in on first use; the tests reach for the classes
-# directly, so they ask for them the same way it would.
-%w[led_matrix speaker status_led buttons].each { |part| Board.load_part(part) }
+# A program requires the peripherals it uses; these tests use all of them.
+require "picorubykaigi01/led_matrix"
+require "picorubykaigi01/speaker"
+require "picorubykaigi01/status_led"
+require "picorubykaigi01/buttons"
 
 # Router timestamps with Machine.uptime_us, which neither bin/picoruby nor the
 # wasm build provides. Defined before sim_audio.rb so that its own stand-in,

@@ -425,10 +425,13 @@ def cmd_wipefs(args):
     attach_probe()
     r = _openocd(f"init; reset init;"
                  f" flash erase_address {LITTLEFS_ADDR:#x} {LITTLEFS_SIZE:#x};"
-                 f" {REBOOT_TCL} exit")
+                 f" exit")
     if "erased" not in (r.stdout + r.stderr).lower():
         die((r.stdout + r.stderr).strip()[-800:] or "erase failed")
     print(f"erased {LITTLEFS_SIZE // 1024}KB at {LITTLEFS_ADDR:#x}")
+    # Rebooting needs its own session: openocd leaves the target somewhere the
+    # plain memory writes below cannot reach after a flash operation.
+    _openocd("init; halt; " + REBOOT_TCL + " exit")
     print(attach())
 
 
