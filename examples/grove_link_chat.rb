@@ -94,5 +94,9 @@ while true
     matrix.show
   end
 
+  # 一周ぶん（512 バイト）溜まる前に読みに来られなかったら、それは落ちている。
+  # DMA が受けているので普通は起きないが、起きたら黙っていない。
+  puts "受信が追いついていない" if link.lost?
+
   sleep_ms 20
 end

@@ -221,6 +221,11 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
   `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
 - 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
+- **RP2350 の DMA `TRANS_COUNT` は上位 4 ビットが MODE。** RP2040 の例が書く
+  `0xffffffff` は RP2350 では **ENDLESS**（カウントを減らさない）になり、
+  バッファは埋まるのにカウンタが 0 のままになる。`0x0fffffff` を使う
+- **PIO のピン方向はステートマシン間で共有される。** 受信側で pindirs を
+  入力にすると、同じピンを使う送信側の出力が消える
 
 ### その他
 
@@ -239,7 +244,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 現状の変更は次だけ:
 
 - `Rakefile` — `tasks/docker.rake` と `tasks/sim.rake` の load 2 行
-- `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1 行
+- `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1〜2 行
+  （`picoruby-is31fl3729` と `picoruby-pio-uart`）
 - `build_config/r2p2-picoruby-pico2_w.rb` — `networking` / `picoruby-ble` /
   `picoruby-ble-uart` / `picoruby-keyboard` を**外した**。これで起動直後のヒープが
   290KB → 220KB になり、ボードライブラリが読めるようになる
@@ -250,7 +256,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `/home/examples` を書き出す処理の呼び出しと生成ステップ
 - `docker/build.sh` — dist に最新の 1 本だけ置く
 
-新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`sim/`、`dev-docs/`、
+新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、
+`sim/`、`dev-docs/`、
 `tools/`、`docker/`）は追加なので衝突しない。
 `mrbgems/` **自体はサブモジュールではない**（サブモジュールは中の特定 gem だけ）。
 
@@ -275,6 +282,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 
 - ✅ Docker ビルド環境、`rake docker:*`、SWD 書き込み
 - ✅ `mrbgems/picoruby-is31fl3729`（20 テスト / 52 アサーション、実チップ未検証）
+- ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA の UART。実機ループバックで検証済み）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
@@ -282,7 +290,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
-- ✅ GROVE-B の基板間リンク（PIO で UART を作る。ストレートケーブルで繋がる）。
+- ✅ GROVE-B の基板間リンク — `mrbgems/picoruby-pio-uart`（PIO の UART を
+  **DMA のリングバッファで受ける**）。ストレートケーブルで繋がる。
   ループバック検証済み、2 枚での確認は基板待ち
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の

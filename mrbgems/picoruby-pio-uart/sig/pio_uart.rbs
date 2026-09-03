@@ -1,0 +1,13 @@
+class PIOUART
+  DEFAULT_BAUDRATE: Integer
+
+  def initialize: (tx_pin: Integer, rx_pin: Integer, ?baudrate: Integer) -> void
+  def _open: (Integer, Integer, Integer) -> self
+  def close: () -> nil
+  def write: (String) -> Integer
+  def read: (?Integer) -> String?
+  def bytes_available: () -> Integer
+  def clear_rx_buffer: () -> nil
+  def rx_overflow?: () -> bool
+  def buffer_size: () -> Integer
+end
