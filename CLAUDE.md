@@ -3,7 +3,10 @@
 PicoRuby のフォーク。**picorubykaigi01-board**（RP2350A / 16×16 LED マトリクス /
 音声 / ボタン / GROVE、PicoRubyKaigi の学習用配布基板）のファームウェアを作る。
 
-基板は製造中。当面の開発機は **Raspberry Pi Pico 2 W**。
+試作基板 r1 が手元にある（**Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド）。
+r1 は USB が死んでいるので J2 から SWD / UART で触る
+（[dev-docs/device-bringup/r1-board.md](dev-docs/device-bringup/r1-board.md)）。
+基板が来るまでの開発機は **Raspberry Pi Pico 2 W** だった。
 
 ライブラリ実装そのものの規約（サブモジュール、ブロック反復の回避、メモ化、
 WebAssembly の注意）は [AGENTS.md](AGENTS.md) にある。こちらは**この repo 固有の
@@ -85,6 +88,7 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 
 | 順位 | 資料 |
 |---|---|
+| 1 | `tmp/picorubykaigi01-board/`（基板リポジトリの clone。`.kicad_pcb` / production / docs） |
 | 1 | `ref/picorubykaigi01-board/production/r1/`（netlist / positions / 回路図 / BOM） |
 | 1 | `ref/.../docs/PicoBoard_BOM_pin_assignment_20260824.xlsx`（`.kicad_pcb` から機械抽出） |
 | 2 | `ref/external_info/data_sheet/IS31FL3729.pdf` |
@@ -309,5 +313,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
   ループバック検証済み、2 枚での確認は基板待ち
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
-- ⬜ 基板用 build_config（`USE_WIFI` を外す。`tasks/picoruby/r2p2.rake` の
-  ボード名ループに手を入れる必要がある）、実基板ブリングアップ
+- ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
+- ⬜ R2P2 コンソールを UART に出す（r1 は USB が死んでいるので必須）
+- ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
+  ボード名ループに手を入れる必要がある）
