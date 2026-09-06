@@ -332,6 +332,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   ループバック検証済み、2 枚での確認は基板待ち
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
+- ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
 - ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
