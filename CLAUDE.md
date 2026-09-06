@@ -53,6 +53,25 @@ usbipd attach --wsl --busid <BUSID>
 PicoProbe を使うにはピンヘッダを自分で付ける。BOOTSEL は実装されるので
 UF2 のドラッグ&ドロップは常に使える。
 
+### USB の無い基板を Debug Probe だけで触る（r1 の標準手順）
+
+手順書は [dev-docs/device-bringup/probe-workflow.md](dev-docs/device-bringup/probe-workflow.md)。要約:
+
+```console
+usbipd attach --wsl --busid 1-5                              # Windows 側。挿すたびに 1 回
+R2P2_CONSOLE_UART=1 rake docker:r2p2:picoruby:pico2:debug   # シェルを J2 の UART にも出す
+rake docker:flash:picoruby:pico2:debug
+export R2P2_PORT=/dev/ttyACM0                                # 以後 r2p2dev.py はこの tty を使う
+tools/r2p2dev.py watch 30                                    # 起動ログ。Starting shell... まで何も送らない
+tools/r2p2dev.py run 'ls /lib' 'free'
+tools/r2p2dev.py push local.rb /home/devtest/x.rb            # dfucli 経由。irb は使わない
+```
+
+- J2: 1=GND 2=SWCLK 3=SWDIO 4=UART_RX(GPIO1)←Probe TX 5=UART_TX(GPIO0)→Probe RX
+- **`reset` や書き込みの直後にコンソールへ送らない。** Debug Probe が USB ごと固まり、抜き差しでしか戻らない
+- この基板では openocd の halt が効かない。gdb は当面使えない。焼く・読む・書くは通る
+- ハードを疑うときは、短いスクリプトを `push` して 1 トランザクションずつ成否を出し、書いたら読み戻す
+
 ## テスト
 
 ```console
