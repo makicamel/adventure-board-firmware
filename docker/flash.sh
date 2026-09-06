@@ -68,7 +68,13 @@ openocd \
   -c "program \"${elf}\" verify exit"
 
 # A separate session: after a flash operation the target is somewhere these
-# writes cannot reach. The probe can take a moment to come back between the
+# writes cannot reach. The halt is best effort: the watchdog registers take
+# the writes from a running core too, and on the r1 board openocd cannot
+# halt at all (dev-docs/device-bringup/r1-board.md). The trigger write is
+# wrapped as well: the reset it causes cuts the transaction short and
+# openocd reports "Failed to write memory", and without the catch that
+# counts as a failed attempt and the retry reboots the board again -- in the
+# middle of the /lib install the first reboot just started. The probe can take a moment to come back between the
 # two, especially over usbip, so give it a few tries -- and if it never does,
 # say so rather than failing a flash that already verified.
 echo "Rebooting through the watchdog"
@@ -77,7 +83,7 @@ for attempt in 1 2 3; do
       -f interface/cmsis-dap.cfg \
       -f "$target_cfg" \
       -c "adapter speed ${ADAPTER_SPEED}" \
-      -c "init; halt; mww ${psm_wdsel} ${wdsel_value}; mww ${wd_scratch4} 0; mww ${wd_ctrl} 0x80000000; exit"; then
+      -c "init; catch {halt}; mww ${psm_wdsel} ${wdsel_value}; mww ${wd_scratch4} 0; catch {mww ${wd_ctrl} 0x80000000}; exit"; then
     exit 0
   fi
   sleep 1

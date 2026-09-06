@@ -32,6 +32,9 @@
 #include "hardware/gpio.h"
 #include "hardware/structs/ioqspi.h"
 #include "hardware/structs/sio.h"
+#if defined(R2P2_CONSOLE_UART)
+#include "hardware/uart.h"
+#endif
 
 /*-------------------------------------
  *
@@ -56,6 +59,51 @@ volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
 static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORB_STDIN_BUFFER_SIZE]
   __attribute__((aligned(4)));
 static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
+
+#if defined(R2P2_CONSOLE_UART)
+/*
+ * The console on a hardware UART as well as on USB CDC.
+ *
+ * Output goes to both. Input from the UART lands in the same stdin ring
+ * buffer the CDC path fills, through picorb_hal_stdin_push, so SIGINT and
+ * cooked mode behave the same whichever way a byte arrived. The UART and
+ * its IRQ are taken for good: UART.new on this unit is not possible in a
+ * build with this on.
+ */
+#ifndef R2P2_CONSOLE_UART_ID
+#define R2P2_CONSOLE_UART_ID PICO_DEFAULT_UART
+#endif
+#ifndef R2P2_CONSOLE_UART_TX_PIN
+#define R2P2_CONSOLE_UART_TX_PIN PICO_DEFAULT_UART_TX_PIN
+#endif
+#ifndef R2P2_CONSOLE_UART_RX_PIN
+#define R2P2_CONSOLE_UART_RX_PIN PICO_DEFAULT_UART_RX_PIN
+#endif
+#ifndef R2P2_CONSOLE_UART_BAUDRATE
+#define R2P2_CONSOLE_UART_BAUDRATE 115200
+#endif
+#define CONSOLE_UART uart_get_instance(R2P2_CONSOLE_UART_ID)
+
+static void
+console_uart_rx_isr(void)
+{
+  while (uart_is_readable(CONSOLE_UART)) {
+    /* A full ring buffer drops the byte, as the CDC path does. */
+    picorb_hal_stdin_push((uint8_t)uart_getc(CONSOLE_UART));
+  }
+}
+
+static void
+console_uart_init(void)
+{
+  uart_init(CONSOLE_UART, R2P2_CONSOLE_UART_BAUDRATE);
+  gpio_set_function(R2P2_CONSOLE_UART_TX_PIN, GPIO_FUNC_UART);
+  gpio_set_function(R2P2_CONSOLE_UART_RX_PIN, GPIO_FUNC_UART);
+  irq_set_exclusive_handler(UART_IRQ_NUM(CONSOLE_UART), console_uart_rx_isr);
+  irq_set_enabled(UART_IRQ_NUM(CONSOLE_UART), true);
+  uart_set_irq_enables(CONSOLE_UART, true, false);
+}
+#endif
 
 bool
 picorb_hal_stdin_push(uint8_t ch)
@@ -363,6 +411,9 @@ picorb_hal_init(void)
   tud_init(TUD_OPT_RHPORT);
   irq_add_shared_handler(USBCTRL_IRQ, usb_irq_handler,
       PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
+#if defined(R2P2_CONSOLE_UART)
+  console_uart_init();
+#endif
 }
 
 #if defined(PICORB_VM_MRUBY)
@@ -495,7 +546,17 @@ picorb_hal_write(int fd, const void *buf, int nbytes)
 #else
   const uint8_t itf = 0;
 #endif
+#if defined(R2P2_CONSOLE_UART)
+  /* The UART takes everything; CDC takes what it can (nothing, quickly,
+   * when no host is attached). Report the UART's count. */
+  if (nbytes > 0) {
+    uart_write_blocking(CONSOLE_UART, (const uint8_t *)buf, (size_t)nbytes);
+  }
+  picorb_hal_cdc_write(itf, buf, nbytes, 500);
+  return nbytes;
+#else
   return picorb_hal_cdc_write(itf, buf, nbytes, 500);
+#endif
 }
 
 int picorb_hal_flush(int fd) {

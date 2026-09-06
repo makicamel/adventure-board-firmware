@@ -194,6 +194,14 @@ if(PICORUBY_PSG_PWM_DMA)
   target_compile_definitions(${PROJECT_NAME} PRIVATE PSG_PWM_DMA=1)
 endif()
 
+# Mirror the R2P2 console (the shell's stdin/stdout, normally USB CDC only)
+# on the board's default UART as well, for a board whose USB is not usable.
+# See picoruby-machine/ports/rp2040/machine.c.
+option(R2P2_CONSOLE_UART "Also run the R2P2 console on PICO_DEFAULT_UART" OFF)
+if(R2P2_CONSOLE_UART)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE R2P2_CONSOLE_UART=1)
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_stdlib
   pico_stdio

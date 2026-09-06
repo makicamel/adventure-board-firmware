@@ -91,11 +91,49 @@ openocd -f interface/cmsis-dap.cfg -f target/rp2350.cfg \
 フラッシュを触らない」がそのまま起きた形。**書き込み後は UART の
 `installed /etc/picorubykaigi01-files` が出るまで SWD を触らない。**
 
+## UART コンソール（`R2P2_CONSOLE_UART=1`）
+
+USB が直るまでシェルに触る手段がこれしかないので、コンソールを UART にも
+出すようにした（[upstream-changes.md](../upstream-changes.md) の 7）。
+`picorb_hal_write` が CDC に加えて UART0 にも書き、UART0 の受信割り込みが
+`picorb_hal_stdin_push` に流す。入力は CDC と同じリングバッファに入るので
+Ctrl-C も cooked モードも同じに振る舞う。
+
+```console
+R2P2_CONSOLE_UART=1 rake docker:r2p2:picoruby:pico2:debug
+rake docker:flash:picoruby:pico2:debug
+R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run 'ls /lib' 'free'
+```
+
+実機で確認できたこと:
+
+- 起動ログに続いて `Starting shell...` とプロンプト `$> ` が UART に出る
+- `r2p2dev.py run` で `ls` / `free` が往復する。`R2P2_PORT` を指定すると
+  usbipd の付け外しや `/dev/serial/by-id` の探索を全部飛ばす
+- Ctrl-C が効く（`^C` のエコーの後にプロンプトが戻る）
+- `r2p2dev.py reset`（halt を `catch` で包んだ版）で再起動し、
+  約 15 秒でプロンプトまで戻る
+
+**UART0 は GROVE-B の `Board#grove_uart` と衝突する。** このビルドでは
+ハード UART 版の GROVE-B は使えない（PIO の `grove_link` は無事）。
+
+### Debug Probe が USB ごと固まる
+
+`reset` の直後に `run` を続けると、2 回とも **プローブの USB が死んだ**。
+症状は、tty への書き込みは通るが応答が無く、`close()` が返らない。
+`dmesg` に `vhci_hcd: urb->status -104` が並び、Windows の `usbipd list` で
+プローブが「不明な USB デバイス（デバイス記述子要求の失敗）」になる。
+**usbipd の detach / attach では戻らず、物理的に抜き差しするしかない。**
+
+`reset` → 25 秒生読み → `run` の順なら問題なかったので、ターゲットの再起動中に
+ホストが送信する（`sync` の Ctrl-C と CR）ことが引き金に見えるが、原因は
+プローブのファーム（2.0.0）側にあるはずで未解明。当面は
+**`reset` のあと起動ログが流れ終わるまで `run` しない。**
+debugprobe のファーム更新も試す価値がある。
+
 ## 次
 
-- R2P2 のコンソールを UART にも出す。USB が直るまでの間、シェルに触る
-  手段がこれしかない。`machine.c` の書き込み経路に UART 出力を足し、
-  UART0 の受信割り込みで `picorb_hal_stdin_push` を呼ぶ
-- UART0 は GROVE-B の `Board#grove_uart` と衝突する。コンソールを UART0 に
-  置いたビルドではハード UART 版の GROVE-B は使えない（PIO 版は無事）
 - halt が効かない原因
+- Debug Probe が固まる条件の特定（ファーム更新で消えるか）
+- `flash.sh` の再起動をトリガ書き込みまで `catch` で包んだ版は未検証
+  （前の版はトリガ書き込みのエラーで 3 回リトライし、3 回再起動していた）

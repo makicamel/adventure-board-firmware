@@ -24,6 +24,7 @@ rake docker:r2p2:picoruby:pico2_w:prod     # ビルド → dist/{vm}-{board}-{mo
 rake docker:r2p2:picoruby:pico2_w:debug    # gdb 用 .elf 付き
 rake docker:r2p2:picoruby:pico2_w:clean
 rake docker:shell                          # コンテナ内シェル
+R2P2_CONSOLE_UART=1 rake docker:r2p2:picoruby:pico2:debug   # r1 基板用: シェルを J2 の UART にも出す
 rake docker:clean                          # イメージと bundle ボリュームを消す
 ```
 
@@ -221,6 +222,13 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - **prod は stdio が丸ごと無効**（`pico_enable_stdio_usb 0` / `_uart 0`）。
   `printf` はどこにも出ない
 - **`r2p2dev.py` が出す `$> ...` はボードの応答ではない。** 出力が空＝ボードが無言
+- **r1 基板では SWD の halt が効かない**（両コアが `unknown`）。メモリの読み書きと
+  `program` は通る。ウォッチドッグ再起動は halt を `catch` で包んで書く
+  （`flash.sh` / `r2p2dev.py` は対応済み）。書き込み後は UART に
+  `installed /etc/picorubykaigi01-files` が出るまで SWD を触らない
+- **`r2p2dev.py reset` の直後に `run` しない。** ターゲットの起動中にプローブの
+  UART へ送ると Debug Probe が USB ごと固まり、**抜き差しでしか戻らない**
+  （usbipd の detach/attach では戻らない）。起動ログが流れ終わってから叩く
 - **書き込みの直後に SWD でフラッシュを触らない。** 起動中のファームが
   `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
   `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
@@ -314,6 +322,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   ループバック検証済み、2 枚での確認は基板待ち
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
-- ⬜ R2P2 コンソールを UART に出す（r1 は USB が死んでいるので必須）
+- ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
+  `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）

@@ -61,9 +61,14 @@ docker compose -f docker/compose.yml run --rm -e BOARD=pico2_w -e MODE=debug bui
 `MODE` is `prod` or `debug`; the same triple names the `docker:flash:...` task
 below.
 
-`PICORUBY_PSG_MCP4922_DMA`, `PICORUBY_PSG_PWM_DMA` and `R2P2_NO_SHARED_ALLOC`
-are forwarded into the container when they are set on the host, so they act
-the same way as in a native build.
+`PICORUBY_PSG_MCP4922_DMA`, `PICORUBY_PSG_PWM_DMA`, `R2P2_NO_SHARED_ALLOC`
+and `R2P2_CONSOLE_UART` are forwarded into the container when they are set on
+the host, so they act the same way as in a native build.
+
+`R2P2_CONSOLE_UART=1` puts the R2P2 shell on the board's default UART (UART0,
+GPIO0/1, 115200) as well as on USB CDC -- for a board whose USB does not work,
+such as the r1 prototype. That build owns UART0, so `UART.new(unit:
+:RP2040_UART0)` is not available in it.
 
 Throw away the build directories of one target with:
 

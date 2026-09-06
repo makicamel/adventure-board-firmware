@@ -12,6 +12,11 @@ sequences with the answer buried in it.
     tools/r2p2dev.py port
 
 Everything auto-attaches first, so a command right after a flash just works.
+
+With R2P2_PORT set, the console is that tty instead of the board's USB -- the
+UART side of a debug probe, for a firmware built with R2P2_CONSOLE_UART=1:
+
+    R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run 'ls /lib'
 """
 
 import argparse
@@ -111,6 +116,12 @@ def attach(verbose=True):
 
 
 def console_path():
+    # A console that is not the board's own USB: the UART side of a debug
+    # probe, for a board whose USB does not work. The path is fixed, so there
+    # is nothing to attach or wait for.
+    fixed = os.environ.get("R2P2_PORT")
+    if fixed:
+        return fixed
     try:
         names = os.listdir(BY_ID)
     except FileNotFoundError:
@@ -442,7 +453,7 @@ def cmd_reset(args):
     attach_probe()
     attach()
     settle()
-    _openocd("init; halt; " + REBOOT_TCL + " exit")
+    _openocd("init; catch {halt}; " + REBOOT_TCL + " exit")
     print(attach())
 
 
@@ -464,7 +475,7 @@ def cmd_wipefs(args):
     print(f"erased {LITTLEFS_SIZE // 1024}KB at {LITTLEFS_ADDR:#x}")
     # Rebooting needs its own session: openocd leaves the target somewhere the
     # plain memory writes below cannot reach after a flash operation.
-    _openocd("init; halt; " + REBOOT_TCL + " exit")
+    _openocd("init; catch {halt}; " + REBOOT_TCL + " exit")
     print(attach())
 
 

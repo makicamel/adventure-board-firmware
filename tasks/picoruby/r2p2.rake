@@ -60,6 +60,13 @@ def r2p2_def_no_shared_alloc
   "-D R2P2_NO_SHARED_ALLOC=#{enabled ? 'ON' : 'OFF'}"
 end
 
+def r2p2_def_console_uart
+  # Off unless asked for: the console then also claims UART0 and its IRQ,
+  # so UART.new(unit: :RP2040_UART0) stops being available to Ruby.
+  enabled = ENV.key?("R2P2_CONSOLE_UART")
+  "-D R2P2_CONSOLE_UART=#{enabled ? 'ON' : 'OFF'}"
+end
+
 def r2p2_build_dir(vm, board, mode)
   "#{MRUBY_ROOT}/build/r2p2/#{vm}/#{board}/#{mode}"
 end
@@ -140,7 +147,8 @@ namespace :r2p2 do
                 #{r2p2_def_build_type(mode)} \
                 #{r2p2_def_psg_mcp4922_dma} \
                 #{r2p2_def_psg_pwm_dma} \
-                #{r2p2_def_no_shared_alloc}
+                #{r2p2_def_no_shared_alloc} \
+                #{r2p2_def_console_uart}
               DEFS
               sh "cmake -S #{R2P2_GEM_DIR}/cmake -B #{dir} #{defs}"
               sh "cmake --build #{dir}"
