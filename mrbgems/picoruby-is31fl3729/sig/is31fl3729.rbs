@@ -33,6 +33,7 @@ class IS31FL3729
   @rows: Integer
   @columns: Integer
   @logic_high: bool
+  @lgc_set: bool
   @buffer: String
   @dirty_from: Integer
   @dirty_to: Integer
@@ -45,6 +46,7 @@ class IS31FL3729
   def setup: (global_current: Integer, ?scaling: Integer) -> self
   def reset: () -> void
   def configure: (?enabled: bool, ?open_short: Integer) -> void
+  def settle_logic_level: () -> void
   def shutdown: () -> void
   def resume: () -> void
   def global_current=: (Integer value) -> Integer

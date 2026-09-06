@@ -131,6 +131,20 @@ R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run 'ls /lib' 'free'
 **`reset` のあと起動ログが流れ終わるまで `run` しない。**
 debugprobe のファーム更新も試す価値がある。
 
+## LED マトリクスの実チップ
+
+`one_dot.rb` が `I2C write failed (IOError)` で落ちたところから、スクリプトを
+`push` して 1 トランザクションずつ結果を見ていった。分かったこと:
+
+- 0x34 / 0x35 とも ACK する。配線・アドレス・SDB は設計どおり
+- **LGC を 0→1 にする config 書き込みの直後の 1 トランザクションが必ず落ちる。**
+  SSD の遷移は無関係、20ms 空けても同じ、データシートに記載なし。
+  落ちたのが書き込みだと、以後しばらく読み出しが 1 トランザクション遅れて返る。
+  落ちたのが読み出しなら以後は正常
+- gem の `configure` で LGC を立てた直後に捨て読みを 1 回入れて吸収した
+  （[picoruby-is31fl3729/README.md](../../mrbgems/picoruby-is31fl3729/README.md)）。
+  `one_dot.rb` と `frame.rb` がエラーなしで完走する
+
 ## 次
 
 - halt が効かない原因

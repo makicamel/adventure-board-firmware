@@ -36,7 +36,7 @@ led.frame = rendered   # rows * 16 bytes
 led.flush
 ```
 
-## Two things that bite
+## Three things that bite
 
 **Power-on leaves the chip dark even after a correct reset.** Both the global
 current (0xA1) and the scaling registers (0x90..0x9F) come up at 0, which means
@@ -46,6 +46,15 @@ and sets the configuration register will look correct and show nothing.
 **`SDB` is not handled here.** The pin is usually shared between chips and is
 often filtered, so the settling time is a property of the board, not of the
 chip. Raise it and wait before constructing the driver.
+
+**The transaction after turning `LGC` on is lost.** Not in the datasheet;
+measured on the chip. Whatever follows the configuration write that sets the
+2.4V/0.6V logic levels is NACKed, no matter how long the gap (20ms changed
+nothing), and if that was a write the chip then answers reads one
+transaction late for a while. `#configure` spends a read there when `LGC`
+goes 0 -> 1, once per reset, so `#setup` comes out clean. Nothing to do on
+the caller's side; it is only worth knowing if you talk to the register
+yourself.
 
 ## Register layout
 

@@ -8,12 +8,14 @@
 # (see Picotest::Runner#run_test); a sibling file would be loaded into the rake
 # process and never reach the VM under test.
 class I2C
-  attr_reader :writes
-  attr_accessor :read_data
+  attr_reader :writes, :reads
+  attr_accessor :read_data, :fail_next_read
 
   def initialize(unit: nil, frequency: 100_000, sda_pin: -1, scl_pin: -1, timeout: 1000)
     @writes = []
+    @reads = []
     @read_data = ""
+    @fail_next_read = false
   end
 
   def write(address, *outputs, timeout: nil, nostop: false)
@@ -40,8 +42,14 @@ class I2C
     bytes.bytesize
   end
 
+  # Recorded apart from the writes, so a test that counts what the chip is
+  # told is not disturbed by the driver looking at a register.
   def read(address, len, *outputs, timeout: nil)
-    write(address, *outputs) unless outputs.empty?
+    @reads << [address, outputs, len]
+    if @fail_next_read
+      @fail_next_read = false
+      raise IOError, "I2C write (for read) failed"
+    end
     @read_data[0, len].to_s
   end
 
@@ -56,6 +64,7 @@ class I2C
 
   def clear
     @writes = []
+    @reads = []
   end
 end
 
@@ -229,6 +238,51 @@ class IS31FL3729Test < Picotest::Test
     assert_equal IS31FL3729::SCALING_BASE, registers[3]
     assert_equal IS31FL3729::PWM_BASE, registers[4]
     assert_equal 5, registers.size
+  end
+
+  # --- the lost transaction after LGC ----------------------------------------
+  #
+  # The real chip drops whatever comes right after the write that turns LGC
+  # on. The driver spends a read there, once per reset.
+
+  def test_configure_sacrifices_a_read_after_turning_lgc_on
+    @i2c.clear
+    @led.setup(global_current: 0x20)
+    assert_equal 1, @i2c.reads.size
+    _address, outputs, len = @i2c.reads[0]
+    assert_equal [IS31FL3729::CONFIGURATION], outputs
+    assert_equal 1, len
+    # Already on: nothing more to lose.
+    @led.configure
+    assert_equal 1, @i2c.reads.size
+    # A reset clears LGC, so the next configure is exposed again.
+    @led.reset
+    @led.configure
+    assert_equal 2, @i2c.reads.size
+  end
+
+  def test_setup_survives_the_lost_transaction
+    @i2c.clear
+    @i2c.fail_next_read = true
+    @led.setup(global_current: 0x20)
+    assert_equal 1, @i2c.reads.size
+    # Every write still went out, in order, after the lost read.
+    registers = []
+    i = 0
+    while i < @i2c.writes.size
+      registers << @i2c.writes[i][1].getbyte(0)
+      i += 1
+    end
+    assert_equal [IS31FL3729::RESET, IS31FL3729::CONFIGURATION,
+                  IS31FL3729::GLOBAL_CURRENT, IS31FL3729::SCALING_BASE,
+                  IS31FL3729::PWM_BASE], registers
+  end
+
+  def test_no_sacrifice_without_lgc
+    led = IS31FL3729.new(i2c: @i2c, logic_high: false)
+    @i2c.clear
+    led.setup(global_current: 0x20)
+    assert_equal 0, @i2c.reads.size
   end
 
   def test_reset_value

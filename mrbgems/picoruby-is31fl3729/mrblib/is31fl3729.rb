@@ -67,6 +67,7 @@ class IS31FL3729
     # SW9 doubles as CS16, so running all 9 rows is what costs the 16th column.
     @columns = (rows == MAX_ROWS) ? 15 : 16
     @logic_high = logic_high
+    @lgc_set = false
     @buffer = "\x00" * (rows * ROW_STRIDE)
     @dirty_from = 0
     @dirty_to = @buffer.bytesize - 1
@@ -90,6 +91,8 @@ class IS31FL3729
 
   def reset
     write_register(RESET, RESET_VALUE)
+    # Everything goes back to POR, LGC included.
+    @lgc_set = false
   end
 
   # SWS (D7:D4) counts down from 9 rows at 0b0000, so 8 rows is 0b0001.
@@ -98,6 +101,7 @@ class IS31FL3729
     value |= LGC if @logic_high
     value |= SSD if enabled
     write_register(CONFIGURATION, value)
+    settle_logic_level if @logic_high && !@lgc_set
   end
 
   # Software shutdown. The frame buffer in the chip survives it.
@@ -204,6 +208,21 @@ class IS31FL3729
   end
 
   private
+
+  # Seen on the chip itself, not in the datasheet: the transaction that follows
+  # the write turning LGC on is lost, whatever it is and however long the
+  # gap -- 20ms made no difference. A lost write is worse than it sounds,
+  # because the chip then answers the next few reads one transaction late. A
+  # lost read costs nothing, so that is what gets sacrificed. The chip is fine
+  # from the transaction after.
+  def settle_logic_level
+    begin
+      @i2c.read(@address, 1, CONFIGURATION)
+    rescue IOError
+      nil
+    end
+    @lgc_set = true
+  end
 
   def write_register(register, value)
     @i2c.write(@address, register, value)
