@@ -389,8 +389,12 @@ class Panel
     out
   end
 
+  # brightness is light, linear in the chip's duty. A screen pixel is not:
+  # what it shows is roughly the square root of the light it means, so the
+  # same square root goes on here to make the canvas look like the LEDs do,
+  # and so that LedMatrix#duty_of (the square) and this cancel out.
   def level_at(x, y)
-    v = (brightness(x, y) * 255.0).to_i
+    v = (brightness(x, y) ** 0.5 * 255.0).to_i
     return 0 if v < 0
     return 255 if 255 < v
     v

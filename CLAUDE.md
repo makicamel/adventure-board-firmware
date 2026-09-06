@@ -116,7 +116,11 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 
 - **`build/host` をホストとコンテナで共有している。** ホストで `rake` を起動すると
   `output here was built by another configuration, rebuilding it` が 1 行出るが、
-  オブジェクトは消えない（前後で 90 個のまま）。**無害**
+  オブジェクトは消えない（前後で 90 個のまま）。ただし**無害ではない**: ホストで
+  `rake sim:test` を走らせた直後のコンテナビルドが
+  `Errno::ENOENT ... build/host/src/version.pi` で落ちた。`rm -rf build/host` で直る。
+  **`rake docker:*` の背景実行では `rake aborted!` を必ず grep すること**——
+  ログ末尾の `Artifacts copied` が無いのに古い ELF を焼いた
 - **`picoruby-i2c` は posix ポートを持たない。** `spec.add_dependency 'picoruby-i2c'`
   を書くとホストテストのリンクが `I2C_write_timeout_us` 未定義で落ちる。
   ホストでテストする gem では宣言しないこと（`picoruby-adc` が `picoruby-gpio` で同じ判断）
@@ -318,6 +322,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
+- ✅ 明るさは見た目に比例（`LedMatrix#duty_of` でガンマ 2.0。テーブル無し、
+  `set` の 1 箇所だけ。シミュレータは描画時に平方根で戻す）
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
 - ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）

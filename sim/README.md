@@ -19,7 +19,7 @@ rake sim:server
 ```ruby
 matrix.clear
 matrix.set(3, 5)        # x, y は 1..16
-matrix.set(4, 5, 0x40)  # 3 番目の引数は PWM (0..255)
+matrix.set(4, 5, 0x40)  # 3 番目の引数は明るさ (0..255)。見た目に比例するよう補正される
 matrix.show             # これを呼ぶまでチップには届かない
 ```
 

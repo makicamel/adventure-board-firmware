@@ -21,9 +21,11 @@ class LedMatrix
     @pen = 0xFF
   end
 
-  # x and y are 1-based.
+  # x and y are 1-based. The third argument is how bright the dot should
+  # look, 0..255, not the chip's duty: see duty_of.
   def set(x, y, pwm = 0xFF)
     return self if x < 1 || WIDTH < x || y < 1 || HEIGHT < y
+    pwm = duty_of(pwm)
     if y <= 8
       @top.set_dot(y, x, pwm)
     else
@@ -40,9 +42,22 @@ class LedMatrix
   end
 
   def fill(pwm = 0xFF)
+    pwm = duty_of(pwm)
     @top.fill(pwm)
     @bottom.fill(pwm)
     self
+  end
+
+  # The chip's PWM is linear in light, and the eye is not: on the real board
+  # 0x0F still looks a third lit and 0xC0 is hard to tell from 0xFF. Squaring
+  # the value (gamma 2.0) makes 0..255 read as brightness instead. Every dot
+  # passes through set, including blit, so this is the one place it happens;
+  # the VRAM keeps the values the drawing was made with. Rounded up so that
+  # anything above zero still lights.
+  def duty_of(v)
+    return 0 if v <= 0
+    return 255 if 255 <= v
+    (v * v + 254) / 255
   end
 
   # Nothing reaches the chips until this runs.
