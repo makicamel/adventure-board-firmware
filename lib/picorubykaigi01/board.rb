@@ -59,11 +59,23 @@ class Board
   # GPIO11 is the same PWM slice and only reaches the breadboard header, so it
   # is handed over as the right channel and simply goes nowhere on the board.
   # nil on a build without picoruby-psg, and then there is no speaker.
+  #
+  # Pan is hard left. The PSG mixes both channels from one pan table, and at
+  # the centre each side gets -3dB; the right side goes nowhere on this board,
+  # so centre only throws half the swing away. Channels 0..2 are what MML
+  # tracks land on with three voices; the synth keeps a state per channel, so
+  # this stops there rather than spending 16 of them.
   def self.default_speaker_backend
-    PSG::Synth.new(
+    synth = PSG::Synth.new(
       PSG::Driver.new(:pwm, left: AUDIO_PWM_PIN, right: AUDIO_PWM_PIN_R),
       voice_count: 3
     ).start
+    channel = 0
+    while channel < 3
+      synth.handle([:control_change, channel, 10, 8])
+      channel += 1
+    end
+    synth
   rescue NameError, NoMethodError
     nil
   end
