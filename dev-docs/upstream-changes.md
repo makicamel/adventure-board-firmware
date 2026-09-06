@@ -16,7 +16,8 @@
 | ファイル | 変更 |
 |---|---|
 | `Rakefile` | `tasks/docker.rake` と `tasks/sim.rake` を load する **2 行** |
-| `build_config/r2p2-picoruby-pico2.rb` | `conf.gem core: 'picoruby-is31fl3729'` **1 行** |
+| `build_config/r2p2-picoruby-pico2.rb` | `picoruby-is31fl3729` と `picoruby-pio-uart` を足し、`picoruby-keyboard` を外した（pico2_w と同じ構成に） |
+| `tasks/picoruby/r2p2.rake` | `R2P2_CONSOLE_UART` 環境変数を cmake の `-D` に渡す **8 行** |
 | `build_config/picoruby-wasm.rb` | シミュレータ用に描画・フォント gem を追加 |
 
 ## 2. `build_config/r2p2-picoruby-pico2_w.rb` — gembox を削った
@@ -143,6 +144,18 @@ picoruby-machine のティック、1 と 2 は picoruby-psg、3 は SDK の既�
 アラームプール**で、埋まっている番号を `hardware_alarm_claim()` すると panic する。
 
 → [grove-link/report.md](grove-link/report.md)
+
+## 7. `picoruby-machine` — コンソールを UART にも出す（**61 行**）
+
+| ファイル | 変更 |
+|---|---|
+| `ports/rp2040/machine.c` | `R2P2_CONSOLE_UART` が定義されていれば、`picorb_hal_write` が UART にも書き、UART の受信割り込みが `picorb_hal_stdin_push` に流す |
+| `picoruby-r2p2/cmake/CMakeLists.txt` | `option(R2P2_CONSOLE_UART ... OFF)` **8 行** |
+
+r1 基板は USB が死んでいる（[device-bringup/r1-board.md](device-bringup/r1-board.md)）ので、
+J2 の UART からシェルに触るために足した。**既定は OFF** で、素の R2P2 と同じ
+CDC だけの動作。ON にしたビルドでは UART0 とその IRQ をコンソールが取るので
+`UART.new(unit: :RP2040_UART0)` は使えない（PIO の `:PIO_UART0` は無事）。
 
 ---
 
