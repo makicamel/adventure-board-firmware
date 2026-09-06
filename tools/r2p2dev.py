@@ -24,10 +24,12 @@ import glob
 import os
 import re
 import select
+import struct
 import subprocess
 import termios
 import sys
 import time
+import zlib
 
 USBIPD = "/mnt/c/Program Files/usbipd-win/usbipd.exe"
 BY_ID = "/dev/serial/by-id"
@@ -349,32 +351,42 @@ def cmd_recover(args):
 
 
 def cmd_push(args):
-    """Copy a local file onto the board, a line at a time through irb.
+    """Copy a local file onto the board through the shell's own `dfucli`.
 
-    Slow, but it needs nothing on the device beyond File, which means it works
-    on a stock R2P2. For anything big, put the file in the firmware instead.
+    dfucli <path> puts the console in raw mode and takes a 19-byte DFU header
+    followed by the file body, so this is binary-safe and needs nothing on the
+    device beyond stock R2P2. The earlier version typed the file into irb a
+    line at a time, which died of NoMemoryError on any line irb took for the
+    start of a multi-line construct (`def`, `do`), and irb has little heap.
+
+    The device's stdin ring buffer is 1KB and the receiver does not drain it
+    promptly -- 256 bytes every 40ms lost everything past byte 1023 -- so the
+    body goes out in small pieces with a long pause between. Slow, but a
+    sample is a few KB.
     """
+    data = open(args.local, "rb").read()
+    kind = b"RITE" if args.local.endswith(".mrb") else b"RUBY"
+    header = struct.pack(">4sB4sIIH", b"DFU\0", 1, kind, len(data),
+                         zlib.crc32(data) & 0xffffffff, 0)
     con = open_console()
     try:
         con.sync()
-        con.command("irb", wait=4.0)
-        con.command(f'f = File.open("{args.remote}", "w")', wait=4.0)
-        with open(args.local) as fh:
-            for line in fh:
-                body = (line.rstrip("\n")
-                        .replace("\\", "\\\\")
-                        .replace('"', '\\"')
-                        .replace("#", "\\#"))
-                out = con.command(f'f.write "{body}\\n"', wait=3.0)
-                if "Error" in out:
-                    die(f"push failed on: {line.rstrip()}\n{out}")
-        con.command("f.close", wait=3.0)
-        con.command("quit", wait=3.0)
-        print(f"{args.local} -> {args.remote}")
+        con._write(f"dfucli {args.remote}\r".encode())
+        out = con._read(5.0, done=lambda t: "reading header" in t)
+        if "reading header" not in out:
+            die(f"dfucli did not start:\n{ANSI.sub('', out).strip()[-400:]}")
+        payload = header + data
+        for i in range(0, len(payload), 256):
+            con._write(payload[i:i + 256])
+            time.sleep(0.15)
+        out = con._read(15.0, done=lambda t: "DFU: " in t)
+        text = ANSI.sub("", out)
+        m = re.search(r"DFU: .*", text)
+        if not m or "error" in m.group(0):
+            die(f"push failed:\n{text.strip()[-600:]}")
+        print(f"{args.local} -> {args.remote} ({len(data)} bytes)")
     finally:
         con.close()
-
-
 def cmd_attach(args):
     attach_probe()
     print(attach())
