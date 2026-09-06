@@ -9,6 +9,7 @@ sequences with the answer buried in it.
 
     tools/r2p2dev.py run 'ls /lib' 'free'
     tools/r2p2dev.py reset
+    tools/r2p2dev.py watch 20        # raw output, e.g. a boot log
     tools/r2p2dev.py port
 
 Everything auto-attaches first, so a command right after a flash just works.
@@ -303,6 +304,23 @@ def cmd_port(args):
     print(attach())
 
 
+def cmd_watch(args):
+    """Print whatever the board says for a while, without touching it.
+
+    For boot logs: the shell's prompt dance is not needed, and sending
+    anything while the target is coming up is what wedged the debug probe.
+    """
+    con = Console(attach())
+    try:
+        end = time.time() + args.seconds
+        while time.time() < end:
+            sys.stdout.write(con._read(0.5))
+            sys.stdout.flush()
+    finally:
+        con.close()
+    print()
+
+
 def cmd_run(args):
     con = open_console()
     try:
@@ -511,8 +529,10 @@ def main():
     r.add_argument("--wait", type=float, default=3.0,
                    help="seconds to wait for each reply (default 3)")
     sub.add_parser("reset", help="reset the target over SWD and re-attach")
+    w = sub.add_parser("watch", help="print raw console output for a while")
+    w.add_argument("seconds", type=float, nargs="?", default=20.0)
     args = p.parse_args()
-    {"port": cmd_port, "attach": cmd_attach, "push": cmd_push,
+    {"port": cmd_port, "attach": cmd_attach, "push": cmd_push, "watch": cmd_watch,
      "run": cmd_run, "reset": cmd_reset, "wipefs": cmd_wipefs,
      "recover": cmd_recover}[args.cmd](args)
 

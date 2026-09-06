@@ -4,8 +4,9 @@ PicoRuby のフォーク。**picorubykaigi01-board**（RP2350A / 16×16 LED マ�
 音声 / ボタン / GROVE、PicoRubyKaigi の学習用配布基板）のファームウェアを作る。
 
 試作基板 r1 が手元にある（**Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド）。
-r1 は USB が死んでいるので J2 から SWD / UART で触る
-（[dev-docs/device-bringup/r1-board.md](dev-docs/device-bringup/r1-board.md)）。
+r1 は USB が死んでいるので J2 から SWD / UART で触る。
+**手順書: [dev-docs/device-bringup/probe-workflow.md](dev-docs/device-bringup/probe-workflow.md)**
+（経緯は [r1-board.md](dev-docs/device-bringup/r1-board.md)）。
 基板が来るまでの開発機は **Raspberry Pi Pico 2 W** だった。
 
 ライブラリ実装そのものの規約（サブモジュール、ブロック反復の回避、メモ化、
@@ -305,7 +306,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 | [dev-docs/board-gems/](dev-docs/board-gems/) | 基板の全機能を Ruby から触るための gem 棚卸し |
 | [dev-docs/led-matrix-gem/](dev-docs/led-matrix-gem/) | LED ドライバの実装計画とハード仕様 |
 | [dev-docs/wasm-simulator/](dev-docs/wasm-simulator/) | ブラウザシミュレータの計画と完了レポート |
-| [dev-docs/device-bringup/](dev-docs/device-bringup/) | 実機で踏んだ穴。WSL からの書き込みとデバッグ、`require` の費用 |
+| [dev-docs/device-bringup/](dev-docs/device-bringup/) | 実機で踏んだ穴。**Debug Probe だけで触る手順書**、WSL からの書き込み、`require` の費用 |
 | [dev-docs/grove-link/](dev-docs/grove-link/) | 基板 2 枚を GROVE-B で繋ぐ。PIO で UART を作る |
 | [docker/README.md](docker/README.md) | ビルド環境の詳細 |
 | [sim/README.md](sim/README.md) | シミュレータの使い方 |

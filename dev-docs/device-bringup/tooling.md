@@ -10,6 +10,7 @@ tools/r2p2dev.py run 'ls /lib' 'free'       # シェルに流して結果だけ�
 tools/r2p2dev.py push local.rb /home/t.rb   # ファイルを送る（小さいものだけ）
 tools/r2p2dev.py reset                      # ウォッチドッグで再起動して繋ぎ直す
 R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run 'ls /lib'   # USB が無い基板: プローブの UART 経由
+tools/r2p2dev.py watch 20                   # 生の出力を眺めるだけ（起動ログ用。何も送らない）
 tools/r2p2dev.py wipefs                     # ファイルシステムを消して再起動
 tools/r2p2dev.py recover                    # BOOTSEL から全消し＋焼き直し
 ```
