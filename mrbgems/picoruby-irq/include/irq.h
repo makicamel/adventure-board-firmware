@@ -15,6 +15,29 @@ bool IRQ_peek_event(int *irq_id, int *event_type);
 void IRQ_init(void);
 
 /*
+ * Debounced edges (src/irq_debounce.c). A port feeds every edge of a
+ * debounced pin through IRQ_debounce_edge and, when it asks for one,
+ * runs a one-shot timer of the debounce period that ends in
+ * IRQ_debounce_settle with a fresh sample of the pin. Each returns the
+ * edge to report (PICORB_GPIO_IRQ_EVENT_EDGE_FALL / _RISE) or 0.
+ */
+typedef struct {
+  uint8_t level;   /* the level last reported */
+  bool quiet;      /* inside the window: edges are ignored */
+} irq_debounce_t;
+
+void IRQ_debounce_init(irq_debounce_t *d, int level);
+int  IRQ_debounce_edge(irq_debounce_t *d, int level, bool *open_window);
+int  IRQ_debounce_settle(irq_debounce_t *d, int level, bool *open_window);
+
+#if defined(PICORB_PLATFORM_POSIX)
+/* Host stand-ins for a pin and the clock, so the GPIO path can be
+ * tested without hardware. See ports/posix/irq.c. */
+void IRQ_posix_gpio_set(int pin, int level);
+void IRQ_posix_elapse_ms(uint32_t ms);
+#endif
+
+/*
  * The event bridge needs Task::Queue and a scheduler hook. Both VMs
  * have them, but a build can be configured without: everything below --
  * including the source table an ISR would publish to -- compiles out,

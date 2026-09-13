@@ -41,6 +41,10 @@ module IRQ
   def self.unbind: (irq_source_t source) -> bool
   def self.take: (irq_source_t source) -> Integer
   def self.simulate: (irq_source_t source, Integer bits) -> nil
+  # Host builds only: a simulated pin and the clock that closes debounce
+  # windows.
+  def self.simulate_gpio: (Integer pin, Integer level) -> nil
+  def self.simulate_elapse: (Integer ms) -> nil
 
   # Event delivery. PicoRuby (mruby) only: FemtoRuby cannot create the
   # dispatcher task from a block.

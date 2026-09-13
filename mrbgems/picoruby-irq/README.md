@@ -55,6 +55,12 @@ irq_instance = gpio.irq(GPIO::EDGE_FALL, debounce: 50) do |peripheral, event_typ
 end
 ```
 
+The first edge is reported at once. Edges within the debounce period
+after it are ignored, and the pin is sampled once when the period ends,
+so a change that happened meanwhile (a short tap, a release) is still
+reported. Bounce on release does not come through as another press.
+Debounce applies to edges; level events keep their earlier behavior.
+
 ### Multiple Event Types
 
 ```ruby

@@ -316,6 +316,34 @@ irq_bridge_init(mrbc_vm *vm, mrbc_class *module_IRQ)
 
 #endif /* PICORB_IRQ_EVENT_BRIDGE */
 
+#if defined(PICORB_PLATFORM_POSIX)
+/*
+ * IRQ.simulate_gpio(pin, level) -> nil
+ * IRQ.simulate_elapse(ms) -> nil
+ */
+static void
+c_simulate_gpio(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2 || v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "IRQ.simulate_gpio(pin, level)");
+    return;
+  }
+  IRQ_posix_gpio_set((int)v[1].i, (int)v[2].i);
+  SET_NIL_RETURN();
+}
+
+static void
+c_simulate_elapse(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1 || v[1].tt != MRBC_TT_INTEGER || v[1].i < 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "IRQ.simulate_elapse(ms)");
+    return;
+  }
+  IRQ_posix_elapse_ms((uint32_t)v[1].i);
+  SET_NIL_RETURN();
+}
+#endif
+
 #define SET_MODULE_CONST(mod, cst) \
   mrbc_set_const(mod, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
 
@@ -328,6 +356,10 @@ mrbc_irq_init(mrbc_vm *vm)
   mrbc_define_method(vm, module_IRQ, "register_gpio", c_register_gpio);
   mrbc_define_method(vm, module_IRQ, "unregister_gpio", c_unregister_gpio);
   mrbc_define_method(vm, module_IRQ, "peek_event", c_peek_event);
+#if defined(PICORB_PLATFORM_POSIX)
+  mrbc_define_method(vm, module_IRQ, "simulate_gpio", c_simulate_gpio);
+  mrbc_define_method(vm, module_IRQ, "simulate_elapse", c_simulate_elapse);
+#endif
 
 #if defined(PICORB_IRQ_EVENT_BRIDGE)
   irq_bridge_init(vm, module_IRQ);

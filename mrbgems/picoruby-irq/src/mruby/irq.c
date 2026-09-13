@@ -77,6 +77,35 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
   return result;
 }
 
+#if defined(PICORB_PLATFORM_POSIX)
+/*
+ * IRQ.simulate_gpio(pin, level) -> nil
+ * IRQ.simulate_elapse(ms) -> nil
+ *
+ * Host builds only: move a simulated pin, or the clock that closes
+ * debounce windows. Events land in the GPIO queue exactly as an
+ * interrupt would put them there.
+ */
+static mrb_value
+mrb_s_simulate_gpio(mrb_state *mrb, mrb_value self)
+{
+  mrb_int pin, level;
+  mrb_get_args(mrb, "ii", &pin, &level);
+  IRQ_posix_gpio_set((int)pin, (int)level);
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s_simulate_elapse(mrb_state *mrb, mrb_value self)
+{
+  mrb_int ms;
+  mrb_get_args(mrb, "i", &ms);
+  if (ms < 0) mrb_raise(mrb, E_ARGUMENT_ERROR, "negative time");
+  IRQ_posix_elapse_ms((uint32_t)ms);
+  return mrb_nil_value();
+}
+#endif
+
 #if defined(PICORB_IRQ_EVENT_BRIDGE)
 
 /*
@@ -425,6 +454,10 @@ mrb_picoruby_irq_gem_init(mrb_state *mrb)
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(register_gpio), mrb_s_register_gpio, MRB_ARGS_REQ(3));
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unregister_gpio), mrb_s_unregister_gpio, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_IRQ, MRB_SYM(peek_event), mrb_s_peek_event, MRB_ARGS_NONE());
+#if defined(PICORB_PLATFORM_POSIX)
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(simulate_gpio), mrb_s_simulate_gpio, MRB_ARGS_REQ(2));
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(simulate_elapse), mrb_s_simulate_elapse, MRB_ARGS_REQ(1));
+#endif
 
 #if defined(PICORB_IRQ_EVENT_BRIDGE)
   irq_bridge_init(mrb, module_IRQ);
