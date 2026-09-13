@@ -366,6 +366,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
+- ✅ r1 でボタン 6 個とステータス LED（名前はシルク印字に合わせて修正済み）
+- ✅ r1 の GROVE1（J4 = I2C1）に M5Stack CardKB（0x5F）を**逆ケーブル**で繋ぎ、
+  キー入力が読めた。GROVE2（J5）は未確認（同じ部品なのでピン順が逆の可能性が高い）
 - ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
