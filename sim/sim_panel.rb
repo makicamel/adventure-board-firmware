@@ -181,9 +181,10 @@ class GPIO
 
   # Stand-in for GPIO#irq from picoruby-irq. The debounce argument is accepted
   # and ignored: the page produces clean events, and the gem does the filtering
-  # on the board.
+  # on the board. Like the gem, a pin holds one registration and the newest
+  # wins, so pressing Run again does not leave the last run listening.
   def irq(event_type, debounce: nil, capture: nil, &block)
-    (GPIO.handlers[@pin] ||= []) << [block, event_type]
+    GPIO.handlers[@pin] = [[block, event_type]]
     block
   end
 end

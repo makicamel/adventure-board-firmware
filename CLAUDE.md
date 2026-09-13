@@ -225,6 +225,13 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - 押下はキューに積んで `take_press` / `each_press` で取り出す。
   ループの速さに関係なく 1 回の押しが 1 回として届く
 - オートリピートは `Buttons` に入れずループ側で作る
+- **シェルで流したスクリプトの GPIO 割り込みは、終わっても登録が残る。** 同じピンは
+  新しい登録で置き換わるように直したが、**別のピンの登録は溜まる**（最大 16 個）。
+  いろいろなピンを使うスクリプトを続けて流すときは、あいだに `tools/r2p2dev.py reset` を挟む
+- `picoruby-irq` のデバウンスは作り直した（元は離すときのチャタリングが押下として届いた）。
+  どちらも upstream の問題として [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md) に記録
+- **ボタンの代わりに GPIO を自分で動かして割り込みを試せる。** 出力にしたピンでも入力バッファが
+  生きているので、同じピンの割り込みが立つ。空きは GPIO15、緑 LED の GPIO16 も使える
 
 ### 実機（Pico 2 W）
 
@@ -308,6 +315,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   （`UART.new(unit: :PIO_UART0, ...)`）。別クラスにしないのは、この基板で
   覚えたことが素の R2P2 で通じるようにするため
 - `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
+- `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。
+  問題の記録は [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md)）
 
 新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、
 `sim/`、`dev-docs/`、

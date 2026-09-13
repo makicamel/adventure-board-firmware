@@ -287,6 +287,14 @@ GPIO.release(21)
 check("released")            { !buttons.any? }
 buttons.clear_presses
 
+# The level comes off the pin, so it is right even with no edge delivered —
+# on the board the debounce may drop one.
+GPIO.write_at(18, 0) # down, no event
+check("held follows the pin, not the edges") { buttons.pressed?(:down) && buttons.pressed == [:down] }
+check("and queues nothing")                  { buttons.presses_waiting == 0 }
+GPIO.write_at(18, 1)
+check("released without an edge")            { !buttons.any? }
+
 check("every name maps to a pin") do
   ok = true
   names = Buttons::NAMES

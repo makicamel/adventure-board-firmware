@@ -3,12 +3,16 @@
 # Edge interrupts rather than polling. A press is an event, so it cannot be
 # missed however short the click is or however slowly the main loop runs — the
 # level alone would lose a tap that started and finished between two polls.
-# picoruby-irq debounces in the gem, so there is nothing to filter here.
+# picoruby-irq debounces in the gem, so there is nothing to filter here, and
+# only the falling edge is asked for: a press is all that gets queued. (Before
+# the gem watched both edges itself, the bounce of a release came through as a
+# second press; see dev-docs/upstream-issues.md.)
 #
-# Presses queue up and are taken one at a time; the level is there separately
-# for anything that should act while a button is held. Auto-repeat is not here
-# on purpose: a loop that wants it can count its own ticks against `pressed?`,
-# and one that does not is not paying for it.
+# Presses queue up and are taken one at a time. Whether a button is held is
+# read off the pin rather than tracked from edges, so it is right whenever it is
+# asked, bounce or not. Auto-repeat is not here on purpose: a loop that wants it
+# can count its own ticks against `pressed?`, and one that does not is not
+# paying for it.
 class Buttons
   NAMES = [:up, :down, :left, :right, :a, :b]
 
@@ -22,7 +26,6 @@ class Buttons
   def initialize(pins: Board::BUTTON_PINS, debounce: DEFAULT_DEBOUNCE_MS)
     @names = []
     @gpios = []
-    @level = 0
     @queue = []
     i = 0
     while i < pins.size
@@ -30,27 +33,40 @@ class Buttons
       gpio = GPIO.new(pins[i][1], GPIO::IN | GPIO::PULL_UP)
       @names << name
       @gpios << gpio
-      watch(gpio, name, 1 << i, debounce)
+      watch(gpio, name, debounce)
       i += 1
     end
   end
 
-  # Currently held down.
+  # Currently held down. Active low.
   def pressed?(name)
-    (@level & mask_of(name)) != 0
+    names = @names
+    i = 0
+    while i < names.size
+      return @gpios[i].read == 0 if names[i] == name
+      i += 1
+    end
+    false
   end
 
   def any?
-    @level != 0
+    gpios = @gpios
+    i = 0
+    while i < gpios.size
+      return true if gpios[i].read == 0
+      i += 1
+    end
+    false
   end
 
   # The names currently held down.
   def pressed
     out = []
     names = @names
+    gpios = @gpios
     i = 0
     while i < names.size
-      out << names[i] if (@level & (1 << i)) != 0
+      out << names[i] if gpios[i].read == 0
       i += 1
     end
     out
@@ -83,14 +99,9 @@ class Buttons
   # A method, not the body of the loop above: `while` opens no scope, so a
   # block written inside one closes over the shared variables and every button
   # would end up reporting the last one.
-  def watch(gpio, name, mask, debounce)
-    gpio.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE, debounce: debounce) do |_peripheral, event_type|
-      if event_type == GPIO::EDGE_RISE
-        @level &= ~mask
-      else
-        @level |= mask
-        push(name)
-      end
+  def watch(gpio, name, debounce)
+    gpio.irq(GPIO::EDGE_FALL, debounce: debounce) do |_peripheral, _event_type|
+      push(name)
     end
     nil
   end
@@ -100,15 +111,5 @@ class Buttons
     queue << name
     queue.shift while QUEUE_LIMIT < queue.size
     nil
-  end
-
-  def mask_of(name)
-    names = @names
-    i = 0
-    while i < names.size
-      return 1 << i if names[i] == name
-      i += 1
-    end
-    0
   end
 end

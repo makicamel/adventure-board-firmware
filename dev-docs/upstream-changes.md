@@ -157,6 +157,26 @@ J2 の UART からシェルに触るために足した。**既定は OFF** で�
 CDC だけの動作。ON にしたビルドでは UART0 とその IRQ をコンソールが取るので
 `UART.new(unit: :RP2040_UART0)` は使えない（PIO の `:PIO_UART0` は無事）。
 
+## 8. `picoruby-irq` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした
+
+| ファイル | 変更 |
+|---|---|
+| `src/irq_debounce.c` | **新規**。ポートに依存しないデバウンスの状態機械 |
+| `include/irq.h` | 上の宣言と、posix 用の模擬の宣言 |
+| `ports/rp2040/irq.c` | `debounce` 付きのエッジ登録は両エッジを有効にし、状態機械とアラームで判定する |
+| `ports/posix/irq.c` | GPIO 割り込みの模擬（ハンドラ表・キュー・デバウンス・ms 時計） |
+| `src/mruby/irq.c` / `src/mrubyc/irq.c` / `sig/irq.rbs` | posix だけ `IRQ.simulate_gpio` / `IRQ.simulate_elapse` |
+| `test/irq_gpio_debounce_test.rb` | **新規** |
+| `mrblib/irq.rb` / `sig/irq.rbs` | GPIO の登録で、同じピンの既存の登録を外してから登録する。置き換えられた登録の `unregister` は `false` |
+| `test/irq_gpio_registration_test.rb` | **新規** |
+| `README.md` | 上の 2 つの動作を追記 |
+
+**理由。** 元の判定は「前回と同じ種類のイベントなら捨てる」で、タクトスイッチの
+チャタリングを両エッジでも FALL だけでも取れなかった（ボタン 1 回が 2 回に数えられる）。
+また、シェルで流したスクリプトの登録が残り、流し直すと同じピンの割り込みが新しい方に届かなかった。
+upstream に PR を送る前提で、基板に依存しない形で書いている。esp32 のデバウンスは未修正。
+→ [upstream-issues.md](upstream-issues.md)
+
 ---
 
 ## 触っていないもの
