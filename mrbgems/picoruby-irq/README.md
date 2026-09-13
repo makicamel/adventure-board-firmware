@@ -102,6 +102,11 @@ puts irq_instance.enabled?  # => true
 irq_instance.unregister
 ```
 
+A GPIO pin holds one registration. Registering the pin again replaces
+the previous registration, whose `unregister` then returns `false`. This
+is also what lets a script that is run again from the R2P2 shell take
+its pins back from the earlier run.
+
 ### Manual Event Processing
 
 ```ruby
