@@ -177,6 +177,10 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   `Machine.uptime_us` を呼ぶので、`performance.now()` で代替する
 - 純 Ruby の gem（`picoruby-midibase` / `-mml` など）は**ソースを fetch して連結すれば
   stock パッケージで動く**。C 拡張（`psg` / `gpio` / `pwm` / `vram` / `shinonome`）は動かない
+- **実機の USB シリアルをブラウザ（WebSerial）で使うときは、WSL から外しておく。**
+  `usbipd attach` したままだと Windows のブラウザのポート一覧に出ない
+- **`JS::WebSerial` の `binary_capture_*` は、`start_terminal_read`（xterm へ流す読み取り）と
+  組でしか動かない。** `on_receive` で受けるなら、フレームは自前で切り出す（`sim/sim_device.rb`）
 
 ### Funicular（UI フレームワーク）
 
@@ -188,6 +192,9 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - クラスメソッドからインスタンスを叩くなら `public :foo` が要る
 - **速く変わるものは state に置かない。** canvas / テキストエリア / ログは `ref` で持つ
   （毎回 VDOM 差分が走る。テキストエリアを state にするとカーソルが飛ぶ）
+- **ハートビートで「前回表示した文字列」と比べるなら、`<<` で伸ばした文字列を渡さない。**
+  覚えておいた値も同じオブジェクトなので一緒に伸び、いつ比べても等しくなって表示が止まる。
+  `@log = @log + out` のように新しい文字列を作る
 - **Funicular がマウントする要素を、スクリプト読み込み時に掴んではいけない。**
   まだ存在しない。遅延取得する
 
@@ -374,5 +381,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   ADC とピン順（同じ部品なので逆の可能性が高い）は未確認
 - ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
+- ✅ シミュレータのページから USB で実機に送って実行（[実機で実行]、WebSerial + PicoModem）。
+  USB を直した基板で確認。何度も実行すると実機が応答しなくなる件は未解決
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）

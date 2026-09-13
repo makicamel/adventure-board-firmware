@@ -22,6 +22,9 @@ $audio_sink = SwitchableSink.new
 $board = Board.boot(i2c: $panel.i2c, speaker_backend: $audio_sink)
 $board.speaker.router.connect(:mml, $notelog)
 $app = nil
+# The real board over USB. Page machinery like the note log: a sample never
+# sees it, it only carries the sample to the board.
+$device = DeviceLink.new
 
 
 class SimApp < Funicular::Component
@@ -96,7 +99,9 @@ class SimApp < Funicular::Component
       gcc: 32,
       audio_on: false,
       notes_visible: false,
-      held: []
+      held: [],
+      device: :none,
+      device_supported: DeviceLink.supported?
     }
   end
 
@@ -156,8 +161,15 @@ class SimApp < Funicular::Component
           end
           button(id: "reset", onclick: :on_reset) { "Reset" }
         end
+        div(class: "controls") { device_controls }
         textarea(ref: :codebox, id: "code", spellcheck: "false")
         div(id: "status", class: state[:kind]) { state[:status] }
+        div(class: "legend", style: "margin-top:12px",
+            hidden: state[:device] == :none ? "hidden" : nil) do
+          "実機の出力"
+        end
+        tag("pre", ref: :devicelog, id: "devicelog",
+            hidden: state[:device] == :none ? "hidden" : nil)
         # Kept in the document even when hidden: it is how a melody can be
         # checked without hearing it, and the browser harness reads it.
         div(class: "legend", style: "margin-top:12px",
@@ -176,6 +188,25 @@ class SimApp < Funicular::Component
 
   # These add their elements to whatever block is being captured, so nothing
   # needs to be collected or returned.
+  def device_controls
+    unless state[:device_supported]
+      span(class: "legend") { "実機への接続は Chrome / Edge でだけ使えます" }
+      return nil
+    end
+    connected = state[:device] != :none
+    busy = state[:device] == :busy
+    button(id: "device-connect", onclick: :on_device_connect,
+           disabled: busy ? "disabled" : nil) do
+      connected ? "実機を切断" : "実機に接続"
+    end
+    button(id: "device-run", class: "primary", onclick: :on_device_run,
+           disabled: (connected && !busy) ? nil : "disabled") do
+      "実機で実行"
+    end
+    span(class: "legend") { "USB でつなぐ。ポートは R2P2 の 1 番目（CDC0）を選ぶ" }
+    nil
+  end
+
   def example_options
     list = EXAMPLES
     i = 0
@@ -288,6 +319,54 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # Runs on the click itself: the browser only shows its port picker for a
+  # user gesture.
+  def on_device_connect(_event)
+    begin
+      if $device.connected?
+        $device.disconnect
+        patch(device: :none, status: "実機を切断しました", kind: "ok")
+      else
+        $device.connect
+        patch(device: :connected, kind: "ok",
+              status: "実機に接続しました。シェルの出力は下に出ます。")
+      end
+    rescue Exception => e
+      patch(device: $device.connected? ? :connected : :none)
+      report("実機への接続", e)
+    end
+    nil
+  end
+
+  # The transfer waits on the board many times over, so it runs in a task of
+  # its own and reports back when it is done.
+  def on_device_run(_event)
+    box = refs[:codebox]
+    source = box ? box[:value].to_s : ""
+    patch(device: :busy, status: "実機に送っています…", kind: "busy")
+    Task.new(name: "device-run") do
+      begin
+        $device.run(source)
+        $app.device_finished(nil) if $app
+      rescue Exception => e
+        $app.device_finished(e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_finished(error)
+    state_now = $device.connected? ? :connected : :none
+    if error
+      patch(device: state_now)
+      report("実機で実行", error)
+    else
+      patch(device: state_now, kind: "ok",
+            status: "実機で実行しています（#{DeviceLink::PATH}）。止めるには、もう一度実行するか切断してください。")
+    end
+    nil
+  end
+
   # Synchronous on purpose: the browser only lifts its autoplay block for code
   # running on the gesture's own stack.
   def on_notes_toggle(_event)
@@ -337,6 +416,23 @@ class SimApp < Funicular::Component
     JS.global.renderPanel($panel.levels_hex)
     draw_status_led
     draw_notes
+    draw_device
+    nil
+  end
+
+  # The log is read on the heartbeat, like the notes. So is a cable pulled out:
+  # the port goes away without anyone clicking anything.
+  def draw_device
+    if state[:device] != :none && !$device.connected?
+      patch(device: :none, status: "実機との接続が切れました", kind: "error")
+    end
+    el = refs[:devicelog]
+    return nil unless el
+    text = $device.log
+    return nil if text == $device_log_shown
+    $device_log_shown = text
+    el[:textContent] = text
+    el[:scrollTop] = el[:scrollHeight].to_i
     nil
   end
 
@@ -415,7 +511,7 @@ class SimApp < Funicular::Component
 
   # The run loop is a class method — it outlives any one render — and it pokes
   # the mounted instance, so these two cannot stay private.
-  public :draw, :report
+  public :draw, :report, :device_finished
 end
 
 Funicular.start(SimApp, container: 'app')
