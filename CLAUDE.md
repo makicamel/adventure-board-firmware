@@ -119,7 +119,7 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 抽出済みの要点は [dev-docs/led-matrix-gem/hardware.md](dev-docs/led-matrix-gem/hardware.md)。
 `ref/` は git 管理外。
 
-**間違えやすい 3 点:**
+**間違えやすい点:**
 
 - **SDB は GPIO24**（GPIO14 ではない）。**H にしてから 200µs 待って**最初の I2C
 - **U11 は列が左右反転**（`cs = 17 - x`）。上半分 U10=0x34 / 下半分 U11=0x35
@@ -127,6 +127,10 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **IS31FL3729 は LGC を 0→1 にした直後の 1 トランザクションを必ず落とす**（データシート
   に無い。実チップで確認）。gem が `configure` で捨て読みを入れて吸収しているので、
   レジスタを直接叩くとき以外は気にしなくてよい
+- **xlsx のボタン名は間違っている。** 正しいのはシルク印字: SW1=UP(GPIO17) /
+  SW2=LEFT(18) / SW3=RIGHT(19) / SW4=DOWN(20) / SW5=B(21) / SW6=A(22)。
+  xlsx は SW2〜SW6 を ↓ ← → A B としている。r1 で押して確認済み
+- **GROVE1（J4）はピン順が逆。** Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる
 
 ## 既知の落とし穴
 

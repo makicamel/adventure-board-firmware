@@ -43,14 +43,15 @@ class SimApp < Funicular::Component
     ["グラデーション", "gradient.rb"]
   ]
 
+  # Pins as on the board (Board::BUTTON_PINS). B sits left of A there too.
   BUTTON_PINS = [
-    [17, "↑", "up"], [19, "←", "left"], [20, "→", "right"], [18, "↓", "down"]
+    [17, "↑", "up"], [18, "←", "left"], [19, "→", "right"], [20, "↓", "down"]
   ]
-  AB_PINS = [[21, "A"], [22, "B"]]
+  AB_PINS = [[21, "B"], [22, "A"]]
 
   KEY_PINS = {
-    "ArrowUp" => 17, "ArrowDown" => 18, "ArrowLeft" => 19, "ArrowRight" => 20,
-    "z" => 21, "Z" => 21, "x" => 22, "X" => 22
+    "ArrowUp" => 17, "ArrowLeft" => 18, "ArrowRight" => 19, "ArrowDown" => 20,
+    "z" => 22, "Z" => 22, "x" => 21, "X" => 21
   }
 
   MONITOR_MS = 50

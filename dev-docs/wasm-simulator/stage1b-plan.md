@@ -71,6 +71,8 @@ sim/sim_ui.rb              ← 画面
 - `sim/sim_panel.rb` に `GPIO` スタブ（`GPIO::IN` / `PULL_UP` / `read` / `high?` / `low?`）
 - `lib/picorubykaigi01.rb` に `Buttons`
   - GPIO17〜22 を `:up :down :left :right :a :b` に対応（xlsx のピン割当どおり）
+    - **訂正（2026-09-13）**: xlsx のボタン名が基板と違っていた。正しくは
+      `:up :left :right :down :b :a`。[hardware.md](../led-matrix-gem/hardware.md) の §6
   - **負論理**（押下で L）。`pressed?(:a)`、`any?`、チャタリング除去
   - GPIO が連番なので一括読みできる形にしておく
 - 画面: 6 個のボタン + **キーボード**（矢印キー / Z / X）

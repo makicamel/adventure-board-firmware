@@ -129,7 +129,7 @@ const INTERACTIVE = {
     const seen = await watchStatusLed(page);
     const blinked = seen.includes('on') && seen.includes('off');
     console.log(`# blinking: ${blinked}`);
-    await press(page, '[data-pin="21"]', 700, async () => {
+    await press(page, '[data-pin="22"]', 700, async () => {
       const held = await page.getAttribute('#status-led', 'class');
       console.log(`# while A is held: ${held && !held.includes('off') ? 'on' : 'off'}`);
     });
@@ -147,20 +147,20 @@ const INTERACTIVE = {
   buttons: async (page) => {
     // A very short click must still move exactly one cell: the press is an
     // event on a queue, so it cannot fall between two loop ticks.
-    await press(page, '[data-pin="20"]', 20); // right, a flick
+    await press(page, '[data-pin="19"]', 20); // right, a flick
     show('buttons: after a 20ms click on right (expect one step)', await readPanel(page));
-    await press(page, '[data-pin="20"]', 120); // right, briefly
+    await press(page, '[data-pin="19"]', 120); // right, briefly
     show('buttons: after a short tap on right (expect one step)', await readPanel(page));
-    await press(page, '[data-pin="20"]', 900); // right, held
+    await press(page, '[data-pin="19"]', 900); // right, held
     show('buttons: after holding right (expect a few more)', await readPanel(page));
-    await press(page, '[data-pin="18"]', 120); // down, briefly
+    await press(page, '[data-pin="20"]', 120); // down, briefly
     show('buttons: after a short tap on down', await readPanel(page));
     await page.keyboard.down('ArrowLeft');
     await page.waitForTimeout(500);
     await page.keyboard.up('ArrowLeft');
     await page.waitForTimeout(300);
     show('buttons: after holding the left arrow key', await readPanel(page));
-    await press(page, '[data-pin="22"]', 500, async () => {
+    await press(page, '[data-pin="21"]', 500, async () => {
       show('buttons: B held (cross)', await readPanel(page));
     });
   },

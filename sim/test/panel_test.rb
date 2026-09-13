@@ -267,33 +267,39 @@ check("a click with no poll in the middle is still queued") { buttons.take_press
 check("and the level is back up")                           { !buttons.pressed?(:up) }
 
 # Several presses in a row all survive, in order.
-GPIO.press(19); GPIO.release(19)
-GPIO.press(20); GPIO.release(20)
-GPIO.press(19); GPIO.release(19)
+GPIO.press(18); GPIO.release(18) # left
+GPIO.press(19); GPIO.release(19) # right
+GPIO.press(18); GPIO.release(18) # left
 taken = []
 buttons.each_press { |name| taken << name }
 check("every press is delivered, in order") { taken == [:left, :right, :left] }
 check("the queue is empty afterwards")      { buttons.presses_waiting == 0 }
 
 GPIO.press(17)
-GPIO.press(21) # a
+GPIO.press(22) # a
 check("two at once") { buttons.pressed?(:up) && buttons.pressed?(:a) }
 check("pressed lists both") do
   names = buttons.pressed
   names.size == 2 && names.include?(:up) && names.include?(:a)
 end
 GPIO.release(17)
-GPIO.release(21)
+GPIO.release(22)
 check("released")            { !buttons.any? }
 buttons.clear_presses
 
 # The level comes off the pin, so it is right even with no edge delivered —
 # on the board the debounce may drop one.
-GPIO.write_at(18, 0) # down, no event
+GPIO.write_at(20, 0) # down, no event
 check("held follows the pin, not the edges") { buttons.pressed?(:down) && buttons.pressed == [:down] }
 check("and queues nothing")                  { buttons.presses_waiting == 0 }
-GPIO.write_at(18, 1)
+GPIO.write_at(20, 1)
 check("released without an edge")            { !buttons.any? }
+
+# As measured on the r1 board, pressing each button by its silkscreen label.
+# The pin assignment spreadsheet says otherwise for all but UP.
+check("the names follow the silkscreen") do
+  Board::BUTTON_PINS == [[:up, 17], [:left, 18], [:right, 19], [:down, 20], [:b, 21], [:a, 22]]
+end
 
 check("every name maps to a pin") do
   ok = true

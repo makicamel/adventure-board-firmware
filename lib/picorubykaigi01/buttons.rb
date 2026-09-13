@@ -14,7 +14,8 @@
 # can count its own ticks against `pressed?`, and one that does not is not
 # paying for it.
 class Buttons
-  NAMES = [:up, :down, :left, :right, :a, :b]
+  # In the order of Board::BUTTON_PINS.
+  NAMES = [:up, :left, :right, :down, :b, :a]
 
   # Milliseconds, handled inside picoruby-irq.
   DEFAULT_DEBOUNCE_MS = 20

@@ -26,14 +26,16 @@ class Board
   GROVE_B_TX_PIN  = 28   # J5.2
   GROVE_B_RX_PIN  = 29   # J5.1
 
-  # The six buttons, in GPIO order so they can be read in one sweep.
+  # The six buttons, in GPIO order so they can be read in one sweep. The names
+  # follow the silkscreen, not the pin assignment spreadsheet, which labels
+  # SW2..SW6 differently: SW2 is LEFT, SW3 RIGHT, SW4 DOWN, SW5 B and SW6 A.
   BUTTON_PINS = [
-    [:up,    17],
-    [:down,  18],
-    [:left,  19],
-    [:right, 20],
-    [:a,     21],
-    [:b,     22]
+    [:up,    17],   # SW1
+    [:left,  18],   # SW2
+    [:right, 19],   # SW3
+    [:down,  20],   # SW4
+    [:b,     21],   # SW5, the left one of the pair
+    [:a,     22]    # SW6
   ]
 
   # SDB carries C37 + C38 = 0.2uF, so it takes far longer than the datasheet's
