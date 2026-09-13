@@ -368,7 +368,10 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
 - ✅ r1 でボタン 6 個とステータス LED（名前はシルク印字に合わせて修正済み）
 - ✅ r1 の GROVE1（J4 = I2C1）に M5Stack CardKB（0x5F）を**逆ケーブル**で繋ぎ、
-  キー入力が読めた。GROVE2（J5）は未確認（同じ部品なのでピン順が逆の可能性が高い）
+  キー入力が読めた
+- ✅ r1 の GROVE2（J5）: 信号線 2 本をジャンパでつなぎ、導通（両方向）と
+  PIO UART（TX=GPIO28 → RX=GPIO29、0〜255 の全バイト）を確認。
+  ADC とピン順（同じ部品なので逆の可能性が高い）は未確認
 - ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
