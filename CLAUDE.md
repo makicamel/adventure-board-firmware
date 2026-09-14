@@ -383,5 +383,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ✅ シミュレータのページから USB で実機に送って実行（[実機で実行]、WebSerial + PicoModem）。
   USB を直した基板で確認。何度も実行すると実機が応答しなくなる件は未解決
+- ⬜ J1（ブレッドボード用 2×10 ヘッダ）の疎通確認。手順とスクリプトは
+  [dev-docs/device-bringup/scripts/header_check.rb](dev-docs/device-bringup/scripts/header_check.rb)
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）
