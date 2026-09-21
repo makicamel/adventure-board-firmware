@@ -16,7 +16,7 @@
 | ファイル | 変更 |
 |---|---|
 | `Rakefile` | `tasks/docker.rake` と `tasks/sim.rake` を load する **2 行** |
-| `build_config/r2p2-picoruby-pico2.rb` | `picoruby-is31fl3729` と `picoruby-pio-uart` を足し、`picoruby-keyboard` を外した（pico2_w と同じ構成に） |
+| `build_config/r2p2-picoruby-pico2.rb` | `picoruby-is31fl3729`・`picoruby-pio-uart`・`picoruby-adc-capture`（ADC を DMA で録り続ける計測用の新規 gem。32KB の RAM を使う）を足し、`picoruby-keyboard` を外した（pico2_w と同じ構成に） |
 | `tasks/picoruby/r2p2.rake` | `R2P2_CONSOLE_UART` 環境変数を cmake の `-D` に渡す **8 行** |
 | `build_config/picoruby-wasm.rb` | シミュレータ用に描画・フォント gem を追加 |
 
@@ -233,3 +233,14 @@ DMA は **2 チャンネルを互いに `chain_to` でつないで交互に使�
 空いているほうのチャンネルに次のかたまりを先に積んでおき、切り替えはハードに任せる。
 
 `ports/common/psg.c` の三角波の折り返しも直した（[upstream-issues.md](upstream-issues.md) の 5）。
+
+## 12. `picoruby-psg` の出力を中央基準に、`picoruby-midibase-mml` の `Player#stopped?`
+
+| ファイル | 変更 |
+|---|---|
+| `picoruby-psg/ports/common/psg.c` / `include/psg.h` | 各声を 0 を中心に上下へ振り、合計を中央（2048）に載せる。中央へはリセット後 約 93ms かけて上がる。固定音量（エンベロープなし）の変化は約 3ms かけて追従させる。ソフトクリップは上下対称に。止まっているトーン（`tone_inc == 0`）は無音扱い |
+| `picoruby-midibase-mml/mrblib/player.rb` | `run` が最後まで再生して抜けるときに `@stopped = true`（**1 行**）。`stopped?` で待つ呼び出し側が永久に待っていた |
+
+元の出力は片側（0 〜 振幅）で、音が鳴る・止まるたびに平均電圧が振幅の半分だけ動き、出力のカップリングコンデンサを通って
+「ブチッ」と鳴っていた。1 声の振幅（山から谷まで）は変えていない。
+この repo 側では `lib/picorubykaigi01/speaker.rb` の `play_mml` がアンプを切らずに前の曲だけ止めるようにした（`stop` は今までどおりアンプも切る）。
