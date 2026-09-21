@@ -1,21 +1,12 @@
-# MML でメロディを鳴らす。
-#
-# パーサもシーケンサも実機と同じ picoruby-midibase-mml が動いている。
-# 差し替わっているのは音源だけ（実機は PSG、ここは WebAudio）。
-#
-# 音を聞くには先に「音を有効にする」を押す。押さなくても、
-# 何がいつ鳴ったかは下のノートログに出る。
-#
-#   t120  テンポ    o4  オクターブ    l8  既定の音符長
-#   >  オクターブ上げ    <  下げ    r  休符
+# MML（音楽を文字で書く記法）でメロディを鳴らす。
+# シミュレータでは、何がいつ鳴ったかをページ下の「鳴った音を見る」で確かめられる。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/speaker'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/speaker'      # スピーカー
 GC.start
 
-# 前に流したプログラムの音量（v）や音色（@）が音源に残っているので、最初に戻す。
-speaker.reset
+speaker.reset   # 前のプログラムが残した音量や音色の設定を初期値に戻す
+
+# t140 テンポ / o4 オクターブ / l8 音符の長さの既定値（8 分）/ c d e f g a b ドレミ / 数字はその音だけの長さ
 speaker.play_mml("t140 o4 l8 ccggaag4 ffeeddc4")

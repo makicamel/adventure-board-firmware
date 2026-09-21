@@ -1,18 +1,14 @@
-# 左端の縦一列。下半分は列が左右反転して配線されているので、
-# ここが左端に真っ直ぐ 1 本に見えれば cs = 17 - x の向きが正しい。
-# 下半分だけ右端に出たら反転の向きが逆。
+# 左端に縦線を 1 本。上から下まで左端に揃っていれば、下半分の配線の左右反転が正しく直されている。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
 y = 1
 while y <= 16
-  matrix.set(1, y)
+  matrix.set(1, y)   # x=1（左端）の y 行目
   y += 1
 end
 matrix.show

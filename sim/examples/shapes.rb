@@ -1,21 +1,16 @@
-# VRAM の描画 API。線と矩形。
-#
-# VRAM は 8bit なので、色にそのまま明るさ (0..255) を渡せる。
-# 何も指定しなければ matrix.pen の値が使われる。
+# 線と四角を描く。色の代わりに明るさ（0〜255）を渡す。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
-matrix.clear_drawing
+matrix.clear_drawing                    # 描画用のメモリ（VRAM）を消す。こちらの座標は 0〜15
 
-matrix.draw_rect(0, 0, 16, 16, 0xFF)    # 外枠は明るく
-matrix.draw_line(0, 0, 15, 15, 0x60)    # 対角線は暗く
+matrix.draw_rect(0, 0, 16, 16, 0xFF)    # 外枠は明るく（x, y, 幅, 高さ, 明るさ）
+matrix.draw_line(0, 0, 15, 15, 0x60)    # 対角線は暗く（始点 x, y, 終点 x, y, 明るさ）
 matrix.draw_line(15, 0, 0, 15, 0x20)    # もう一本はもっと暗く
 
-matrix.blit
+matrix.blit                             # VRAM の内容をマトリクスへ写す
 matrix.show

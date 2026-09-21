@@ -1,36 +1,28 @@
-# 何も押さなくても勝手に動く。
-#
-# 実機と同じ書き方。while true で回して sleep_ms で待つ。
-# ブラウザではこのコードが専用のタスクで走り、sleep_ms のあいだ
-# 画面に制御が戻るので固まらない。基板でもそのまま動く。
+# 何も押さなくても動き続ける。繰り返しは while true と sleep_ms で書く。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
-t = 0
+t = 0                   # 何周目か
 
 while true
   t += 1
   matrix.clear
 
-  # 外周を 1 周する点。
-  i = t % 60
+  i = t % 60            # 外周を 60 歩で 1 周する点
   if i < 16
-    matrix.set(i + 1, 1)
+    matrix.set(i + 1, 1)                # 上の辺を右へ
   elsif i < 30
-    matrix.set(16, i - 14)
+    matrix.set(16, i - 14)              # 右の辺を下へ
   elsif i < 45
-    matrix.set(16 - (i - 30), 16)
+    matrix.set(16 - (i - 30), 16)       # 下の辺を左へ
   else
-    matrix.set(1, 16 - (i - 45))
+    matrix.set(1, 16 - (i - 45))        # 左の辺を上へ
   end
 
-  # 中央に経過を示すバー。
-  w = (t % 16) + 1
+  w = (t % 16) + 1      # 中央のバーの長さ（1〜16）
   x = 1
   while x <= w
     matrix.set(x, 8, 0x30)
@@ -38,5 +30,5 @@ while true
   end
 
   matrix.show
-  sleep_ms 80
+  sleep_ms 80           # 待っているあいだ、ほかの処理に順番が回る
 end

@@ -91,7 +91,7 @@ docker compose -f docker/compose.yml run --rm shell bundle exec steep check --lo
 rake sim:wasm               # フォント・描画 gem 入りの PicoRuby.wasm を作る（要 emsdk）
 rake sim:test               # 中核のヘッドレス検証（ブラウザ不要）
 rake sim:check              # ヘッドレス Chromium でページを操作して結果を報告
-rake sim:check[l_shape]     # サンプル 1 つだけ
+rake sim:check[one_dot]     # サンプル 1 つだけ
 rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 ```
 
@@ -240,6 +240,21 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   （実機は `Board.boot` の既定値、シミュレータは `sim_app.rb` が `$board` を用意）
 - サンプルは `require 'picorubykaigi01'` から始める。実機では `/lib` から読み、
   ブラウザでは連結済みなので require シムが握り潰す。両方で正しい
+
+**サンプルのコメントの書き方**（`sim/examples/` と `examples/` で共通。2026-09-22 に全部そろえた）:
+
+- **`sim/examples/` は一般ユーザのためのもの。基板の検証用のコードは置かない**（`dev-docs/device-bringup/scripts/` へ）。
+  数を増やしすぎない。ページの選択肢は「初めての人が読む順」に並べる（`SimApp::EXAMPLES`）。
+  「ローカルの wasm が要る」という断り書きは付けない（自前の wasm をいずれ一般公開する前提）
+- 冒頭は**題名 1 行 + 多くても 2 行**（操作方法、必要なもの）。仕組みや経緯の説明は書かない（README か dev-docs に置く）
+- 説明は**その行の横**に短く書く。初めて出てくる API に 1 回だけ。同じ説明を繰り返さない
+- `require` の並びは全サンプル同じ形。`GC.start` の説明は最初の 1 個の横にだけ（`# 読み込みで使ったメモリを片付ける`）、
+  各 `require` の横にはそのファイルが何を使えるようにするか（`# LED マトリクス` `# ボタン` `# スピーカー`）
+- コメントを直すときはコードを触らない。コメントを除いた行が元と一致することを確かめる
+
+**ユーザのコードはトップレベルのメソッド（`run_user_source`）の中で `eval` する。** `SimApp` の中で `eval` すると、
+ユーザの書いた `def` が `SimApp` に定義されて呼べず、**シミュレータでだけ** `NoMethodError` になった（実機では普通に動く構文）。
+`sound_and_light.rb` がトップレベルの `def` を使っているので、`rake sim:check` がこの退行を拾う。
 
 ユーザのコードは `Task` で走らせ、Run のたびに前を `terminate` する。
 canvas はハートビートで仮想チップを映すので、コード側から再描画を指示しない。

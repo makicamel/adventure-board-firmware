@@ -1,19 +1,13 @@
-# ステータス LED（緑）を点滅させる。
-#
-# GPIO16 の先に R31 と LED があり、High で点く。
-# 隣の赤は 3V3 直結の電源表示で、ソフトからは触れない。
-#
-# A を押している間は点きっぱなし、それ以外は 1 秒周期で点滅する。
+# 緑のステータス LED を点滅させる。A を押しているあいだは点きっぱなし、B でドットが増える。
+# （隣の赤い LED は電源の表示で、プログラムからは操作できない）
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/buttons'      # ボタン
 GC.start
-require 'picorubykaigi01/buttons'
-GC.start
-require 'picorubykaigi01/status_led'
+require 'picorubykaigi01/status_led'   # ステータス LED
 GC.start
 
 led = board.status_led
@@ -23,14 +17,13 @@ while true
   t += 1
 
   if buttons.pressed?(:a)
-    led.on
+    led.on                 # A を押しているあいだは点灯
   elsif (t % 10) == 0
-    led.toggle
+    led.toggle             # 10 周（1 秒）ごとに点滅を切り替える
   end
 
-  # 押されたぶんだけドットを増やす、ついでのデモ。
-  buttons.each_press do |name|
-    matrix.set(rand(16) + 1, rand(16) + 1, 0x80) if name == :b
+  buttons.each_press do |name|                                      # 押されたボタンを順に取り出す
+    matrix.set(rand(16) + 1, rand(16) + 1, 0x80) if name == :b      # B ならでたらめな位置に 1 点
     matrix.show
   end
 

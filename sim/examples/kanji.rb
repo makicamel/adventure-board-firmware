@@ -1,20 +1,12 @@
-# 漢字を出す。16×16 を選んだ理由そのもの。
-#
-# picoruby-shinonome の JIS 16×16 ビットマップフォントが、
-# このマトリクスにちょうど収まる。
-#
-# ※ このサンプルは `rake sim:wasm` でビルドしたローカルの PicoRuby.wasm が
-#    必要。CDN の stock パッケージにはフォントの gem が入っていない。
+# 漢字を 1 文字出す。16×16 のフォントがこのマトリクスにちょうど収まる。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
-matrix.clear_drawing
-matrix.draw_text("宝")
-matrix.blit
-matrix.show
+matrix.clear_drawing     # 描画用のメモリ（VRAM）を消す
+matrix.draw_text("宝")   # VRAM に文字を描く
+matrix.blit              # VRAM の内容をマトリクスへ写す
+matrix.show              # LED に反映する

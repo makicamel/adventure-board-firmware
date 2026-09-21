@@ -1,24 +1,20 @@
-# チップ境界（8 行目と 9 行目の間）をまたぐ L 字。
-# 上下でチップが変わり、下半分は列が左右反転して配線されているので、
-# ここが真っ直ぐ縦に見えれば座標変換が正しいことになる。
+# L 字を描く。上半分と下半分（別々の LED ドライバ）をまたいで真っ直ぐに見えるか。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
 
 y = 2
-while y <= 14
+while y <= 14          # 縦の線。8 行目と 9 行目の間でドライバが替わる
   matrix.set(3, y)
   y += 1
 end
 
 x = 4
-while x <= 10
+while x <= 10          # 横の線
   matrix.set(x, 14)
   x += 1
 end

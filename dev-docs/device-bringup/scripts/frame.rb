@@ -1,26 +1,23 @@
-# 外周の枠と対角線。向きと縦横の入れ替わりが一目で分かる。
+# 外周の枠と対角線。向きが合っているかが一目で分かる。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
 
 i = 1
 while i <= 16
-  matrix.set(i, 1)
-  matrix.set(i, 16)
-  matrix.set(1, i)
-  matrix.set(16, i)
-  matrix.set(i, i, 0x60)
+  matrix.set(i, 1)         # 上の辺
+  matrix.set(i, 16)        # 下の辺
+  matrix.set(1, i)         # 左の辺
+  matrix.set(16, i)        # 右の辺
+  matrix.set(i, i, 0x60)   # 対角線は少し暗く
   i += 1
 end
 
-# 左上だけ明るくして向きの目印にする。
-matrix.set(2, 2, 0xFF)
+matrix.set(2, 2, 0xFF)     # 左上の目印（ここが左上に見えれば向きが正しい）
 matrix.set(3, 2, 0xFF)
 matrix.set(2, 3, 0xFF)
 

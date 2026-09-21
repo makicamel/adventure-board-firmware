@@ -1,51 +1,39 @@
-# 2 枚の基板を GROVE-B で繋いで、ボタンで相手のドットを動かす。
-#
-# 自分のボタンが動かすのは「相手の」ドット。2 枚とも**同じこのコード**を走らせる。
-#
-# ⚠ 実機 2 枚が要る。ケーブルは**箱に入っているストレートのまま**でよい。
-#   GPIO28 は UART の TX にしかなれないので、2 枚ともハードウェア UART を
-#   使うと TX 同士がぶつかる。そこで PIO で UART を作り、片方だけ
-#   TX と RX を入れ替える。それが下の「役割」。
-#
-# シミュレータでは動かない（PIO も相手の基板も無い）。
+# 基板 2 枚を GROVE-B でつなぎ、自分のボタンで相手のドットを動かす。2 枚とも同じこのコードを走らせる。
+# 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは普通のストレートでよい。
+# 実機専用（シミュレータでは動かない）。配線の事情は examples/README.md。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/led_matrix'
+require 'picorubykaigi01/buttons'      # ボタン
 GC.start
-require 'picorubykaigi01/buttons'
-GC.start
-require 'picorubykaigi01/grove_link'
+require 'picorubykaigi01/grove_link'   # GROVE-B の基板間リンク
 GC.start
 
-# 役割を選ぶまでは、どちらの基板も送信しない。
-# 2 枚とも同じ役割にすると TX 同士が同じ線を押し合って、通信できない。
 matrix.clear
 matrix.pen = 0x40
-matrix.draw_text("?", 4, 0)
+matrix.draw_text("?", 4, 0)            # 役割を選ぶまでは "?" を出して、何も送らない
 matrix.show
 
 role = nil
 while role.nil?
   buttons.each_press do |name|
-    role = :a if name == :up
-    role = :b if name == :down
+    role = :a if name == :up           # ↑ で A
+    role = :b if name == :down         # ↓ で B
   end
   sleep_ms 20
 end
 
-# 選んだ役割を出す。相手と同じ文字が出ていたら、どちらかが選び直す。
 matrix.clear
-matrix.draw_text(role == :a ? "A" : "B", 4, 0)
+matrix.draw_text(role == :a ? "A" : "B", 4, 0)   # 選んだ役割を見せる。相手と同じ文字なら、どちらかがやり直す
 matrix.show
 sleep_ms 600
 
-link = board.grove_link(role: role)
+link = board.grove_link(role: role)    # 役割によって、送る線と受ける線が入れ替わる
 
-CODES = { up: "u", down: "d", left: "l", right: "r", a: "a", b: "b" }
-MOVES = { "u" => [0, -1], "d" => [0, 1], "l" => [-1, 0], "r" => [1, 0] }
+CODES = { up: "u", down: "d", left: "l", right: "r", a: "a", b: "b" }           # 送るのはボタン名の頭 1 文字
+MOVES = { "u" => [0, -1], "d" => [0, 1], "l" => [-1, 0], "r" => [1, 0] }        # 受けた文字 → 動かす量
 
 x = 8
 y = 8
@@ -55,33 +43,27 @@ matrix.set(x, y)
 matrix.show
 
 while true
-  # 自分のボタンは相手へ送るだけ。自分のドットは動かさない。
-  buttons.each_press do |name|
+  buttons.each_press do |name|         # 自分のボタンは相手へ送るだけ。自分のドットは動かさない
     code = CODES[name]
     link.puts(code) if code
   end
 
-  # 相手から届いたぶんだけ動かす。
-  #
-  # 受信 FIFO は 8 バイトしかなく、割り込みも無い。溜まる前に読みに来る
-  # 必要があるので、ループは短く保つこと。1 回の押しが 2 バイトなので、
-  # 100ms ごとに読めば 4 回ぶん溜められる。
   moved = false
-  while (code = link.gets)
+  while (code = link.gets)             # 相手から届いたぶんを全部取り出す（無ければ nil）
     if (d = MOVES[code])
       x += d[0]
       y += d[1]
-      x = 1 if x < 1
+      x = 1 if x < 1                   # 端で止める
       x = 16 if 16 < x
       y = 1 if y < 1
       y = 16 if 16 < y
       moved = true
-    elsif code == "a"
+    elsif code == "a"                  # A は全体を一瞬光らせる
       matrix.fill(0x20)
       matrix.show
       sleep_ms 80
       moved = true
-    elsif code == "b"
+    elsif code == "b"                  # B は中央へ戻す
       x = 8
       y = 8
       moved = true
@@ -94,9 +76,7 @@ while true
     matrix.show
   end
 
-  # 一周ぶん（512 バイト）溜まる前に読みに来られなかったら、それは落ちている。
-  # DMA が受けているので普通は起きないが、起きたら黙っていない。
-  puts "受信が追いついていない" if 0 < link.lost
+  puts "受信が追いついていない" if 0 < link.lost   # 読みに来るのが遅すぎて取りこぼしたら知らせる
 
   sleep_ms 20
 end

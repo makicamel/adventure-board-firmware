@@ -1,10 +1,8 @@
-# 市松模様。PWM を変えて明るさの差も見る。
+# 市松模様。明るいマスと暗いマスを交互に並べる。
 
-# require したファイルは、コンパイラをヒープに残していく。
-# 1 本読むたびに GC で片付けないと、次が読めなくなる。
 require 'picorubykaigi01'
-GC.start
-require 'picorubykaigi01/led_matrix'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'picorubykaigi01/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear
@@ -12,7 +10,7 @@ y = 1
 while y <= 16
   x = 1
   while x <= 16
-    matrix.set(x, y, ((x + y) % 2 == 0) ? 0xFF : 0x30)
+    matrix.set(x, y, ((x + y) % 2 == 0) ? 0xFF : 0x30)   # 3 番目の引数が明るさ（0〜255）
     x += 1
   end
   y += 1

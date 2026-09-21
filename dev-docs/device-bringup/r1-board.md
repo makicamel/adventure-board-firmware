@@ -143,7 +143,7 @@ debugprobe のファーム更新も試す価値がある。
   落ちたのが読み出しなら以後は正常
 - gem の `configure` で LGC を立てた直後に捨て読みを 1 回入れて吸収した
   （[picoruby-is31fl3729/README.md](../../mrbgems/picoruby-is31fl3729/README.md)）。
-  `one_dot.rb` と `frame.rb` がエラーなしで完走する
+  `one_dot.rb` と `frame.rb`（今は `dev-docs/device-bringup/scripts/` にある）がエラーなしで完走する
 
 ## 明るさの見え方
 
