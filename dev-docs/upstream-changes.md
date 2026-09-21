@@ -205,3 +205,25 @@ upstream に PR を送る前提で、基板に依存しない形で書いてい�
 「必要な回路だけ残す」ではなく全部残したのは、学習用の基板で、使った回路が黙って止まる事故を避けるため。
 経緯は [audio-quality/report.md](audio-quality/report.md)、問題の記録は [upstream-issues.md](upstream-issues.md) の 3。
 
+## 10. `picoruby-littlefs` / `picoruby-psg` — フラッシュに書くあいだ core1 を待たせる
+
+| ファイル | 変更 |
+|---|---|
+| `picoruby-littlefs/ports/rp2040/flash_hal.c` | 書き込み・消去の 3 か所を `flash_guard_enter/exit` で包む。core1 が `multicore_lockout_victim_init()` 済みなら `multicore_lockout_start_blocking()` で止めてから割り込みを禁止する。core1 が動いていなければ今までどおり |
+| `picoruby-psg/ports/rp2040/psg_port.c` | core1 の入口で `multicore_lockout_victim_init()`。停止の依頼（`CMD_CLEANUP`）をコア間 FIFO から `volatile` のフラグに変えた（SDK のロックアウトが core1 の FIFO 受信を割り込みで握り、知らない値を捨てるため） |
+
+PSG が core1 でフラッシュ上のコードを実行している最中にファイルを書くと、core1 が二重フォールトで固まっていた。
+シミュレータの [実機で実行] は毎回 `/home/app.rb` に書くので、PSG のスクリプトを 2 回流すと実機が応答しなくなった。
+書いているあいだ（1 回数十 ms）core1 が止まるので、再生中に書くと音が途切れる。
+問題の記録は [upstream-issues.md](upstream-issues.md) の 4。
+
+## 11. `picoruby-psg` — PWM のキャリアを 22.5kHz → 約 132kHz に
+
+| ファイル | 変更 |
+|---|---|
+| `ports/rp2040/psg_drv_pwm.c` | DMA 版: 分周なし、`TOP = clk_sys / (22050 × 6) − 1`（150MHz で 1132）。1 サンプルを PWM 6 周期ぶん DMA で書く。4096 段 → 1133 段に減る分の端数は 6 周期に配って平均を保つ |
+
+元は 1 サンプル = PWM 1 周期で、キャリアが可聴域のすぐ上（22.5kHz）にあり、基板の RC フィルタ（146kHz 前提）を
+ほぼ素通りしていた。分周比の小数部が SDK で切り捨てられて再生が 22,536Hz（約 38 セント高い）になる件も、
+分周をやめたので解消（22,065Hz）。DMA の張り直しが 1 周期遅れても、同じ値の 7.5µs の保持で済む。
+非 DMA 版（`PICORUBY_PSG_PWM_DMA=0`）は変えていない。

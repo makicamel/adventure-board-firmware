@@ -19,9 +19,32 @@ static bool pwm_initialized = false;
 static bool left_is_a = true;
 
 #if PSG_PWM_DMA
+/*
+ * One PWM period per sample puts the carrier at the sample rate, 22 kHz:
+ * right on top of the audio band, where no reasonable output filter can
+ * take it out (an RC pair sized for a >100 kHz carrier passes it almost
+ * untouched), and with a fractional clock divider that the SDK truncates
+ * to 8.4 bits, so the rate actually played was 22536 Hz, 38 cents sharp.
+ *
+ * Instead the slice runs undivided and every sample is written for
+ * PSG_PWM_OVERSAMPLE consecutive periods: TOP = clk_sys / (rate * 6) - 1,
+ * which is 1132 at 150 MHz -- a 132 kHz carrier and 22065 Hz -- and 943
+ * at 125 MHz. TOP + 1 levels are fewer than the 4096 a sample has, so
+ * the remainder is spread over the six periods (each gets the quotient,
+ * the first few one more), which keeps the average exact to 1/6 level.
+ */
+#define PSG_PWM_OVERSAMPLE 6
+
 static int dma_chan = -1;
 static dma_channel_config dma_config;
-static uint32_t dma_buf[PSG_BUFFER_OUTPUT_SAMPLES];
+/* Two buffers: the next block is expanded into the idle one while the DMA
+ * is still playing the other, so that re-arming the channel is a handful
+ * of register writes. Expanding after the channel went idle took longer
+ * than a PWM period and stalled the output at every block boundary. */
+static uint32_t dma_buf[2][PSG_BUFFER_OUTPUT_SAMPLES * PSG_PWM_OVERSAMPLE];
+static uint8_t dma_buf_next = 0;          /* the buffer not being played */
+static const uint32_t *dma_packed = NULL; /* the block already expanded into it */
+static uint32_t pwm_levels;   /* TOP + 1 */
 #endif
 
 static void
@@ -66,11 +89,12 @@ psg_pwm_init(uint8_t lpin, uint8_t rpin)
   left_is_a = (pwm_gpio_to_channel(l_gpio) == PWM_CHAN_A);
 
   /* common settings ------------------------------------------------ */
-  pwm_set_wrap(slice_num, MAX_SAMPLE_WIDTH);
-
 #if PSG_PWM_DMA
-  pwm_set_clkdiv(slice_num, (float)clock_get_hz(clk_sys) / (SAMPLE_RATE * (MAX_SAMPLE_WIDTH + 1.0f)));
+  pwm_levels = clock_get_hz(clk_sys) / (SAMPLE_RATE * PSG_PWM_OVERSAMPLE);
+  pwm_set_wrap(slice_num, (uint16_t)(pwm_levels - 1));
+  pwm_set_clkdiv_int_frac(slice_num, 1, 0);
 #else
+  pwm_set_wrap(slice_num, MAX_SAMPLE_WIDTH);
   /* optional: div = 1.0 (125 MHz) -> 30.5 kHz carrier @ wrap 4095   */
   pwm_set_clkdiv_int_frac(slice_num, 1, 0);
 #endif
@@ -124,32 +148,46 @@ psg_pwm_write(uint16_t l, uint16_t r)
 }
 
 #if PSG_PWM_DMA
-static inline uint32_t
-psg_pwm_pack_sample(uint32_t sample)
+/* The CC words for the PSG_PWM_OVERSAMPLE periods one sample lasts. */
+static inline void
+psg_pwm_pack_sample(uint32_t sample, uint32_t *dst)
 {
-  uint16_t l = (sample >> 16) & MAX_SAMPLE_WIDTH;
-  uint16_t r = sample & MAX_SAMPLE_WIDTH;
-  return left_is_a ? (((uint32_t)r << 16) | l) : (((uint32_t)l << 16) | r);
+  /* 0..4095 -> 0..pwm_levels, in sixths of a level */
+  uint32_t l6 = ((sample >> 16) & MAX_SAMPLE_WIDTH) * pwm_levels * PSG_PWM_OVERSAMPLE >> PWM_BITS;
+  uint32_t r6 = (sample & MAX_SAMPLE_WIDTH) * pwm_levels * PSG_PWM_OVERSAMPLE >> PWM_BITS;
+  uint32_t lq = l6 / PSG_PWM_OVERSAMPLE, lr = l6 % PSG_PWM_OVERSAMPLE;
+  uint32_t rq = r6 / PSG_PWM_OVERSAMPLE, rr = r6 % PSG_PWM_OVERSAMPLE;
+  for (uint32_t k = 0; k < PSG_PWM_OVERSAMPLE; k++) {
+    uint32_t l = lq + (k < lr);
+    uint32_t r = rq + (k < rr);
+    dst[k] = left_is_a ? ((r << 16) | l) : ((l << 16) | r);
+  }
 }
 
 static bool
 psg_pwm_write_buffer(const uint32_t *samples, uint32_t count)
 {
   if (!pwm_initialized || dma_chan < 0 || count > PSG_BUFFER_OUTPUT_SAMPLES) return false;
-  if (dma_channel_is_busy(dma_chan)) return false;
-
-  for (uint32_t i = 0; i < count; i++) {
-    dma_buf[i] = psg_pwm_pack_sample(samples[i]);
+  /* The caller retries with the same block until it is accepted. */
+  uint32_t *buf = dma_buf[dma_buf_next];
+  if (dma_packed != samples) {
+    for (uint32_t i = 0; i < count; i++) {
+      psg_pwm_pack_sample(samples[i], &buf[i * PSG_PWM_OVERSAMPLE]);
+    }
+    dma_packed = samples;
   }
+  if (dma_channel_is_busy(dma_chan)) return false;
 
   dma_channel_configure(
     dma_chan,
     &dma_config,
     &pwm_hw->slice[slice_num].cc,
-    dma_buf,
-    count,
+    buf,
+    count * PSG_PWM_OVERSAMPLE,
     true
   );
+  dma_buf_next ^= 1;
+  dma_packed = NULL;
   return true;
 }
 #endif
