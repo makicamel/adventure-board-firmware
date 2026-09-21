@@ -361,6 +361,17 @@ spk.stop
 check("stop sends all notes off") { sink.events[-1] == [:control_change, 0, 123, 0] }
 check("and mutes again")          { GPIO.read_at(Board::AMP_SD_PIN) == 0 }
 
+spk.note_on(64, channel: 1)
+sink.events.clear
+spk.reset
+check("reset silences every channel it has used") {
+  sink.events.include?([:control_change, 0, 123, 0]) && sink.events.include?([:control_change, 1, 123, 0])
+}
+check("and puts volume and program back") {
+  sink.events.include?([:control_change, 1, 7, 127]) && sink.events.include?([:program_change, 1, 0])
+}
+check("without touching the amplifier") { GPIO.read_at(Board::AMP_SD_PIN) == 1 }
+
 puts "12. the note log reads events back as names"
 log = NoteLog.new
 log.handle([:note_on, 0, 60, 100], timestamp_us: 0)

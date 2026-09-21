@@ -341,16 +341,48 @@ PSG_tick_1ms(void)
 
 const psg_output_api_t *psg_drv = NULL;
 
-// Soft clip by tanh approximation to avoid hard clipping
-static inline uint32_t
-soft_clip(uint32_t x)
+/*
+ * The output is centred. Each voice swings around zero and the sum rides
+ * on a mid-scale level, so the mean of the output does not depend on
+ * what is playing. It used to be one-sided (0 .. amplitude): every note
+ * on and note off moved the mean by half the amplitude, and that step
+ * went through the output coupling capacitor as a thump.
+ *
+ * PSG_CENTER is reached by a ramp after a reset (about 93 ms), because
+ * the jump from an idle output at 0 to mid-scale is the largest such
+ * step there is.
+ *
+ * A fixed volume (R8-10 without the envelope bit) is slewed to over
+ * about 3 ms instead of taking effect within one sample, which takes the
+ * click out of a note that starts or stops anywhere but at a zero
+ * crossing. The hardware envelope is left alone: it is used at audio
+ * rate as a waveform of its own, and slewing it would change the sound.
+ */
+#define PSG_CENTER      ((MAX_SAMPLE_WIDTH + 1) / 2)   /* 2048 */
+#define PSG_GAIN_SLEW   48                             /* per sample; full scale in ~60 samples */
+
+// Soft clip by tanh approximation to avoid hard clipping. Symmetric around 0.
+static inline int32_t
+soft_clip(int32_t x)
 {
-  const uint32_t knee = 3600;
-  if (x <= knee) return (uint16_t)x;
-  uint32_t d = x - knee;
-  // 0.117 ~= (1/8 − 1/128) -> (d>>3) − (d>>7)
-  uint32_t y = knee + ((d >> 3) - (d >> 7));
-  return (y > MAX_SAMPLE_WIDTH) ? MAX_SAMPLE_WIDTH : (uint16_t)y;
+  const int32_t knee = 1800;
+  int32_t mag = (x < 0) ? -x : x;
+  if (mag > knee) {
+    int32_t d = mag - knee;
+    // 0.117 ~= (1/8 − 1/128) -> (d>>3) − (d>>7)
+    mag = knee + ((d >> 3) - (d >> 7));
+    if (mag > (int32_t)PSG_CENTER - 1) mag = (int32_t)PSG_CENTER - 1;
+  }
+  return (x < 0) ? -mag : mag;
+}
+
+static inline uint16_t
+to_output(int32_t mix)
+{
+  int32_t y = (int32_t)psg.center + soft_clip(mix);
+  if (y < 0) y = 0;
+  if (y > (int32_t)MAX_SAMPLE_WIDTH) y = (int32_t)MAX_SAMPLE_WIDTH;
+  return (uint16_t)y;
 }
 
 static inline void
@@ -367,8 +399,10 @@ PSG_calc_sample(uint16_t *l, uint16_t *r)
   }
   uint8_t noise_bit = psg.noise_shift & 1;
 
+  if (psg.center < PSG_CENTER) psg.center++;   // about 93 ms from a reset to mid-scale
+
   // mix
-  uint32_t mix_l = 0, mix_r = 0;
+  int32_t mix_l = 0, mix_r = 0;
 
   for (int tr = 0; tr < 3; ++tr) {
     // phase
@@ -417,26 +451,40 @@ PSG_calc_sample(uint16_t *l, uint16_t *r)
     if (use_tone)  active_amp += tone_amp;
     if (use_noise && noise_bit) active_amp = 4095;
 
-    // Track mute
-    if (psg.mute_mask & (1u << tr)) continue;
-    if (active_amp == 0) continue;
-
     // volume: bit4 = envelope
     uint8_t vol = psg.r.volume[tr];
-    if (vol & 0x10) vol = psg.env_level[tr];
+    bool enveloped = (vol & 0x10) != 0;
+    if (enveloped) vol = psg.env_level[tr];
     vol &= 0x0F;
 
-    uint32_t gain = vol_tab[vol];
-    uint32_t amp = (active_amp * gain) >> 12;
+    // Silent: a muted track, a channel with neither tone nor noise, and a
+    // tone that is not running (its waveform would sit at one end, off centre)
+    bool sounding = (use_tone && psg.tone_inc[tr]) || use_noise;
+    uint32_t target = vol_tab[vol];
+    if ((psg.mute_mask & (1u << tr)) || !sounding) target = 0;
+
+    uint32_t gain = psg.gain_now[tr];
+    if (enveloped) {
+      gain = target;
+    } else if (gain < target) {
+      gain = (target - gain > PSG_GAIN_SLEW) ? gain + PSG_GAIN_SLEW : target;
+    } else if (gain > target) {
+      gain = (gain - target > PSG_GAIN_SLEW) ? gain - PSG_GAIN_SLEW : target;
+    }
+    psg.gain_now[tr] = (uint16_t)gain;
+    if (gain == 0) continue;
+
+    // swing around zero: -2048..2047
+    int32_t amp = (((int32_t)active_amp - (int32_t)PSG_CENTER) * (int32_t)gain) >> 12;
 
     // pan
     uint8_t bal = psg.pan[tr];          // 1..15
-    mix_l += (amp * pan_tab_l[bal]) >> 12; // 0..4095
-    mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
+    mix_l += (amp * (int32_t)pan_tab_l[bal]) >> 12;
+    mix_r += (amp * (int32_t)pan_tab_r[bal]) >> 12;
   }
 
-  *l = (uint16_t)soft_clip(mix_l);
-  *r = (uint16_t)soft_clip(mix_r);
+  *l = to_output(mix_l);
+  *r = to_output(mix_r);
 }
 
 void

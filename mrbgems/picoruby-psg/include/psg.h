@@ -145,6 +145,11 @@ typedef struct {
   uint8_t pan[3];
   // tone type
   psg_timbre_t timbre[3];
+  // Output is centred: silence sits at `center`, which climbs from 0 to
+  // mid-scale once after a reset so that the output does not step there.
+  uint16_t center;         /* 0..PSG_CENTER */
+  // Fixed volumes are slewed to, not jumped to (see PSG_GAIN_SLEW)
+  uint16_t gain_now[3];    /* 0..vol_tab[15] */
 } psg_t;
 
 #define SAMPLE_RATE       22050

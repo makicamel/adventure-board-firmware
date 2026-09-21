@@ -10,10 +10,11 @@ GC.start
 def play_and_wait(label, mml)
   puts label
   speaker.play_mml(mml)
-  # speaker.playing? では待てない: MML を最後まで再生しても true のまま（Player が
-  # 自然に終わったとき @stopped を立てない）。全音符 1 個 = t120 で 2 秒なので時間で待つ
-  sleep_ms 2300
-  speaker.stop
+  sleep_ms 200
+  while speaker.playing?
+    sleep_ms 100
+  end
+  # speaker.stop は呼ばない: アンプを切るので、音の合間ごとにポップ音が入る
   sleep_ms 600
 end
 

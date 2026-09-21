@@ -9,7 +9,10 @@ GC.start
 require 'picorubykaigi01/speaker'
 GC.start
 
-speaker.play_mml("t120 o4 l8 cdefgab>c<bagfedc", loop: true)
+# 前に流したプログラムの音量（v）や音色（@）が音源に残っているので、最初に戻す。
+speaker.reset
+# loop: true で繰り返すのは "$" から後ろ。"$" が無いと 1 回で終わる。
+speaker.play_mml("t120 o4 l8 $ cdefgab>c<bagfedc", loop: true)
 
 t = 0
 while true

@@ -109,6 +109,8 @@ module MIDIBASE
           end
           break unless restart
         end
+        # Played to the end is stopped too: stopped? is how a caller waits.
+        @stopped = true
       end
 
       private def reset_playback

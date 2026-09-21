@@ -16,4 +16,6 @@ GC.start
 require 'picorubykaigi01/speaker'
 GC.start
 
+# 前に流したプログラムの音量（v）や音色（@）が音源に残っているので、最初に戻す。
+speaker.reset
 speaker.play_mml("t140 o4 l8 ccggaag4 ffeeddc4")
