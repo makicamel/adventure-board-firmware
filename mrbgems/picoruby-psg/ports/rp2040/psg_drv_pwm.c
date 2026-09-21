@@ -42,9 +42,14 @@ static bool left_is_a = true;
  * PWM period after the first one ends. Re-arming a single channel from
  * software lost two periods at every block boundary: 0.5% flat, and a
  * phase step 344 times a second.
- * The third buffer stays zero. A channel that gets chained to before it
- * was reloaded (core1 stalled for a whole block) reads on past its own
- * buffer; this way that is the other block or silence, not stray memory.
+ * The third buffer holds the mid-scale level. A channel that gets chained
+ * to before it was reloaded (core1 was late) reads on past its own buffer:
+ * channel 0 repeats channel 1's block, channel 1 plays the third buffer.
+ * Mid-scale is where the output rests, so that is a gap, not a bang (it
+ * was zero at first: a full-scale step down and back, 2.9 ms long).
+ * Only the first miss is covered. A core1 that stays away for several
+ * blocks -- parked while core0 writes flash -- lets the read addresses run
+ * on into whatever follows.
  */
 static int dma_chan[2] = { -1, -1 };
 static uint32_t dma_buf[3][PSG_BUFFER_OUTPUT_SAMPLES * PSG_PWM_OVERSAMPLE];
@@ -52,6 +57,8 @@ static uint8_t dma_playing = 0;           /* the channel that is (or was last) r
 static bool dma_started = false;
 static bool dma_queued = false;           /* the other channel is loaded and waiting */
 static uint32_t pwm_levels;   /* TOP + 1 */
+
+static inline void psg_pwm_pack_sample(uint32_t sample, uint32_t *dst);
 #endif
 
 static void
@@ -131,6 +138,10 @@ psg_pwm_init(uint8_t lpin, uint8_t rpin)
     channel_config_set_chain_to(&c, dma_chan[i ^ 1]);
     dma_channel_configure(dma_chan[i], &c, &pwm_hw->slice[slice_num].cc, dma_buf[i], 0, false);
   }
+  for (uint32_t i = 0; i < PSG_BUFFER_OUTPUT_SAMPLES; i++) {
+    uint32_t mid = (MAX_SAMPLE_WIDTH + 1) / 2;
+    psg_pwm_pack_sample((mid << 16) | mid, &dma_buf[2][i * PSG_PWM_OVERSAMPLE]);
+  }
   dma_playing = 0;
   dma_started = false;
   dma_queued = false;
@@ -165,8 +176,13 @@ psg_pwm_write(uint16_t l, uint16_t r)
 }
 
 #if PSG_PWM_DMA
+/* The SDK's DMA accessors are plain `static inline`: in a debug build they
+ * stay out of line (and in flash), so the block path touches the registers
+ * itself. */
+#define DMA_BUSY(n)   ((dma_hw->ch[n].ctrl_trig & DMA_CH0_CTRL_TRIG_BUSY_BITS) != 0)
+
 /* The CC words for the PSG_PWM_OVERSAMPLE periods one sample lasts. */
-static inline void
+PSG_HOT static inline void
 psg_pwm_pack_sample(uint32_t sample, uint32_t *dst)
 {
   /* 0..4095 -> 0..pwm_levels, in sixths of a level */
@@ -181,7 +197,7 @@ psg_pwm_pack_sample(uint32_t sample, uint32_t *dst)
   }
 }
 
-static bool
+PSG_HOT static bool
 psg_pwm_write_buffer(const uint32_t *samples, uint32_t count)
 {
   if (!pwm_initialized || dma_chan[0] < 0 || count > PSG_BUFFER_OUTPUT_SAMPLES) return false;
@@ -190,21 +206,20 @@ psg_pwm_write_buffer(const uint32_t *samples, uint32_t count)
   if (dma_queued) {
     /* Both buffers are taken until the running channel ends and the
      * hardware moves on to the queued one. */
-    if (dma_channel_is_busy(dma_chan[dma_playing])) return false;
+    if (DMA_BUSY(dma_chan[dma_playing])) return false;
     dma_playing ^= 1;
     dma_queued = false;
   }
-
   uint8_t target = dma_started ? (dma_playing ^ 1) : dma_playing;
   for (uint32_t i = 0; i < count; i++) {
     psg_pwm_pack_sample(samples[i], &dma_buf[target][i * PSG_PWM_OVERSAMPLE]);
   }
-  dma_channel_set_read_addr(dma_chan[target], dma_buf[target], false);
+  dma_hw->ch[dma_chan[target]].read_addr = (uintptr_t)dma_buf[target];
   if (dma_started) {
-    dma_channel_set_trans_count(dma_chan[target], count * PSG_PWM_OVERSAMPLE, false);
+    dma_hw->ch[dma_chan[target]].transfer_count = count * PSG_PWM_OVERSAMPLE;
     dma_queued = true;
   } else {
-    dma_channel_set_trans_count(dma_chan[target], count * PSG_PWM_OVERSAMPLE, true);
+    dma_hw->ch[dma_chan[target]].al1_transfer_count_trig = count * PSG_PWM_OVERSAMPLE;
     dma_started = true;
   }
   return true;

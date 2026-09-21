@@ -244,3 +244,17 @@ DMA は **2 チャンネルを互いに `chain_to` でつないで交互に使�
 元の出力は片側（0 〜 振幅）で、音が鳴る・止まるたびに平均電圧が振幅の半分だけ動き、出力のカップリングコンデンサを通って
 「ブチッ」と鳴っていた。1 声の振幅（山から谷まで）は変えていない。
 この repo 側では `lib/picorubykaigi01/speaker.rb` の `play_mml` がアンプを切らずに前の曲だけ止めるようにした（`stop` は今までどおりアンプも切る）。
+
+## 13. `picoruby-psg` — core1 の音声処理を RAM に置き、debug ビルドでも最適化する
+
+| ファイル | 変更 |
+|---|---|
+| `include/psg.h` | `PSG_HOT`（`optimize("O2")` + `.time_critical.psg` セクション）と `PSG_HOT_DATA` を定義。rp2040 / rp2350 以外では空 |
+| `ports/common/psg.c` | レンダリング（`PSG_render_block` とその下請け）、パケット処理（`PSG_process_packet` / `PSG_write_reg` / `PSG_rb_peek` / `PSG_rb_pop`）、`PSG_tick_1ms` に `PSG_HOT`。表 3 つ（`vol_tab` / `pan_tab_l` / `pan_tab_r`）に `PSG_HOT_DATA` |
+| `ports/rp2040/psg_port.c` | `psg_core1_main`、`tick_cb`、`psg_process_packets`、`PSG_enter_critical` / `PSG_exit_critical` などに `PSG_HOT` |
+| `ports/rp2040/psg_drv_pwm.c` | `psg_pwm_write_buffer` / `psg_pwm_pack_sample` に `PSG_HOT`。SDK の DMA アクセサ（`-O0` ではフラッシュ上の関数として残る）をやめてレジスタを直接書く。番兵バッファ（`dma_buf[2]`）をゼロではなく中央の値で埋める |
+
+元は debug ビルド（`-O0`）で、各音のあたまに短いノイズが入っていた。core1 が 1 かたまり（64 サンプル = 2.88ms）を作って DMA に積むのに
+平均 1.6ms かかり、core0 が Ruby を実行している時間帯に締め切りを越えていた（10 秒に 166 回）。RAM の消費は約 3.2KB。
+数字と経緯は [audio-quality/report.md](audio-quality/report.md) の §3「その 6」、問題としての記録は [upstream-issues.md](upstream-issues.md) の 6。
+RP2040 のボード（pico / pico_w）でも同じ 3.2KB を RAM に取る点は、upstream に出すなら相談が要る。

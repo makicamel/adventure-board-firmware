@@ -157,6 +157,24 @@ typedef struct {
 #define PWM_BITS          12
 #define MAX_SAMPLE_WIDTH  ((1u << PWM_BITS) - 1)  // 4095
 
+/*
+ * What core1 runs for every block of samples, and the 1 ms tick: kept in
+ * RAM, and optimised even in a debug (-O0) build.
+ *
+ * Both cores fetch code from the same flash. While core0 runs the VM,
+ * core1's fetches queue up behind it and the block path ran three times
+ * slower than from RAM (557 -> 172 us a block at -O2 on an RP2350); at -O0
+ * it took 1.6 ms of the 2.9 ms a block lasts, on average, and missed the
+ * DMA reload several times at every note. About 3 KB of RAM.
+ */
+#if defined(PICO_RP2040) || defined(PICO_RP2350)
+#  define PSG_HOT       __attribute__((optimize("O2"), section(".time_critical.psg")))
+#  define PSG_HOT_DATA  __attribute__((section(".time_critical.psg_data")))
+#else
+#  define PSG_HOT
+#  define PSG_HOT_DATA
+#endif
+
 // Callback
 bool PSG_audio_cb(void);
 void PSG_render_block(uint32_t *dst, uint32_t samples);

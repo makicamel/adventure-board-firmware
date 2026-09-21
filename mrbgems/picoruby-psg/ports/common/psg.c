@@ -32,7 +32,7 @@ psg_ringbuf_t rb = {
   .buf = NULL,  // will be allocated later
 };
 
-static inline uint32_t
+PSG_HOT static inline uint32_t
 calc_inc(uint16_t period)
 {
   if (!period) return 0;
@@ -41,7 +41,7 @@ calc_inc(uint16_t period)
   return ((uint64_t)f << 32) / SAMPLE_RATE;
 }
 
-static inline void
+PSG_HOT static inline void
 update_tone_inc(int tr)
 {
   psg.tone_inc[tr] = calc_inc(psg.r.tone_period[tr]);
@@ -56,7 +56,7 @@ update_tone_inc(int tr)
   } while (0)
 
 // AY compatible registors
-void
+PSG_HOT void
 PSG_write_reg(uint8_t reg, uint8_t val)
 {
   psg_cs_token_t tok = PSG_enter_critical();
@@ -135,7 +135,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
 }
 
 
-void
+PSG_HOT void
 PSG_process_packet(const psg_packet_t *pkt)
 {
   switch (pkt->op) {
@@ -244,7 +244,7 @@ PSG_rb_push(const psg_packet_t *p)
 }
 
 /* consumer (core-1) ------------------------------------------------- */
-bool
+PSG_HOT bool
 PSG_rb_peek(psg_packet_t *out)  // does not consume
 {
   if (!rb.buf || rb.tail == rb.head) return false;
@@ -252,7 +252,7 @@ PSG_rb_peek(psg_packet_t *out)  // does not consume
   return true;
 }
 
-void
+PSG_HOT void
 PSG_rb_pop(void)  // consumes one slot
 {
   psg_cs_token_t t = PSG_enter_critical();
@@ -262,15 +262,15 @@ PSG_rb_pop(void)  // consumes one slot
 }
 
 // volume table: 1.5 dB steps with 3.0 dB headroom for 12-bit range
-static const uint16_t vol_tab[16] = {
+static const uint16_t PSG_HOT_DATA vol_tab[16] = {
   0, 258, 307, 365, 434, 516, 613, 728, 865, 1029, 1223, 1453, 1727, 2052, 2439, 2899
 };
 
 // Pan table: 1 = L-only,  8 = center, 15 = R-only. 0 is not supposed to be used.
-static const uint16_t pan_tab_l[16] = {
+static const uint16_t PSG_HOT_DATA pan_tab_l[16] = {
   4095, 4095, 4069, 3992, 3865, 3689, 3467, 3202, 2896, 2553, 2179, 1777, 1352,  911,  458,    0
 };
-static const uint16_t pan_tab_r[16] = {
+static const uint16_t PSG_HOT_DATA pan_tab_r[16] = {
      0,    0,  458,  911, 1352, 1777, 2179, 2553, 2896, 3202, 3467, 3689, 3865, 3992, 4069, 4095
 };
 
@@ -280,7 +280,7 @@ static const uint16_t pan_tab_r[16] = {
 //   = 0.723          * EP (ms)
 //   = 723            * EP (µs)
 // FYI: T in MSX is `0.000143 * EP (s)` (256 / 1_789_770 * EP)
-static inline void
+PSG_HOT static inline void
 update_envelope(void)
 {
   for (int tr = 0; tr < 3; ++tr) {
@@ -330,7 +330,7 @@ update_envelope(void)
   }
 }
 
-void
+PSG_HOT void
 PSG_tick_1ms(void)
 {
   // Advance LFO phase (called from 1 kHz system timer)
@@ -362,7 +362,7 @@ const psg_output_api_t *psg_drv = NULL;
 #define PSG_GAIN_SLEW   48                             /* per sample; full scale in ~60 samples */
 
 // Soft clip by tanh approximation to avoid hard clipping. Symmetric around 0.
-static inline int32_t
+PSG_HOT static inline int32_t
 soft_clip(int32_t x)
 {
   const int32_t knee = 1800;
@@ -376,7 +376,7 @@ soft_clip(int32_t x)
   return (x < 0) ? -mag : mag;
 }
 
-static inline uint16_t
+PSG_HOT static inline uint16_t
 to_output(int32_t mix)
 {
   int32_t y = (int32_t)psg.center + soft_clip(mix);
@@ -385,7 +385,7 @@ to_output(int32_t mix)
   return (uint16_t)y;
 }
 
-static inline void
+PSG_HOT static inline void
 PSG_calc_sample(uint16_t *l, uint16_t *r)
 {
   update_envelope();
@@ -487,7 +487,7 @@ PSG_calc_sample(uint16_t *l, uint16_t *r)
   *r = to_output(mix_r);
 }
 
-void
+PSG_HOT void
 PSG_render_block(uint32_t *dst, uint32_t samples)
 {
   for (uint32_t i = 0; i < samples; i++) {

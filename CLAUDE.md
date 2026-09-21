@@ -278,6 +278,14 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
   `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
 - 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
+- **debug ビルドは `-O0`、prod は `-O2`。** r1 は UART コンソールのために debug しか使わないので、
+  時間に追われる処理（PSG の core1 など）は debug でだけ間に合わなくなる。締め切りのある関数には
+  `__attribute__((optimize("O2")))` を付け、RAM に置く（`.time_critical`）。2 つのコアは同じフラッシュから
+  命令を取るので、core0 が Ruby を回しているあいだ core1 のフラッシュ上のコードは 3 倍遅くなる
+- **SDK の `static inline`（`dma_channel_is_busy` など）は `-O0` では関数として残り、フラッシュに置かれる。**
+  RAM に置いた関数から呼ぶなら、レジスタを直接触る
+- **SWD で変数を読み書きする番地は、ビルドのたびに `nm` で取り直す。** 古い番地にゼロを書いて基板を固めた。
+  openocd で値を見るのは `echo "[read_memory ADDR 32 N]"`（`mdw` は `-c` では何も出さない）。halt は要らない
 - **RP2350 の DMA `TRANS_COUNT` は上位 4 ビットが MODE。** RP2040 の例が書く
   `0xffffffff` は RP2350 では **ENDLESS**（カウントを減らさない）になり、
   バッファは埋まるのにカウンタが 0 のままになる。`0x0fffffff` を使う
@@ -330,6 +338,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   スピーカーの「ざらざら」の原因だった（[dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)）
 - `mrbgems/picoruby-littlefs/ports/rp2040/flash_hal.c` と `mrbgems/picoruby-psg/ports/rp2040/psg_port.c` —
   **フラッシュに書くあいだ core1（PSG）を待たせる。** 元は PSG を一度使ったあとにファイルを書くと core1 が固まった
+- `mrbgems/picoruby-psg/` — キャリアを 132kHz に、DMA 2 チャンネルの交互連鎖、出力を中央基準に、三角波の修正。
+  **core1 の音声処理は RAM に置き、debug ビルドでも `-O2`**（`PSG_HOT`）。元は各音のあたまにノイズが入った
 - `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
 - `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。
   問題の記録は [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md)）
@@ -375,6 +385,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
   ループバック検証済み、2 枚での確認は基板待ち
+- ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
+  経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
+  `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く

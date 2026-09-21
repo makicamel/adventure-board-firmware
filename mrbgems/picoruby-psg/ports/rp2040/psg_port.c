@@ -29,13 +29,13 @@ psg_port_init(void)
   psg_spin = spin_lock_instance(spin_lock_claim_unused(true));
 }
 
-psg_cs_token_t
+PSG_HOT psg_cs_token_t
 PSG_enter_critical(void)
 {
   return spin_lock_blocking(psg_spin);
 }
 
-void
+PSG_HOT void
 PSG_exit_critical(psg_cs_token_t token)
 {
   spin_unlock(psg_spin, token);
@@ -51,7 +51,7 @@ PSG_exit_critical(psg_cs_token_t token)
 static volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
 
-static inline void
+PSG_HOT static inline void
 psg_process_packets(void)
 {
   psg_packet_t pkt;
@@ -64,7 +64,7 @@ psg_process_packets(void)
   g_tick_ms = 0;
 }
 
-static bool
+PSG_HOT static bool
 tick_cb(repeating_timer_t *t)
 {
   (void)t;
@@ -159,20 +159,21 @@ psg_core1_cleanup(void)
   for (;;) tight_loop_contents();
 }
 
-static inline void
+PSG_HOT static inline void
 psg_core1_poll_command(void)
 {
   if (core1_cleanup_requested) psg_core1_cleanup();
 }
 
-static void __attribute__((noreturn))
+PSG_HOT static void __attribute__((noreturn))
 psg_core1_main(void)
 {
   uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
   uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
-  /* This core runs from flash without a pause, so whoever erases or
-   * programs flash on core0 has to be able to park it first -- otherwise
-   * it faults on its next instruction fetch and locks up. After the two
+  /* This core never pauses, and although the block loop is in RAM, the
+   * SDK's timer interrupt path is in flash. So whoever erases or programs
+   * flash on core0 has to be able to park it first -- otherwise it faults
+   * on its next instruction fetch and locks up. After the two
    * pops above, because from here on the FIFO interrupt takes what
    * core0 sends. */
   multicore_lockout_victim_init();
