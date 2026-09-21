@@ -394,9 +394,12 @@ def cmd_push(args):
         if "reading header" not in out:
             die(f"dfucli did not start:\n{ANSI.sub('', out).strip()[-400:]}")
         payload = header + data
-        for i in range(0, len(payload), 256):
-            con._write(payload[i:i + 256])
-            time.sleep(0.15)
+        # Short pieces: the board's stdin ring is 1 KB and the reader is Ruby.
+        # 256 bytes at a time was lost now and then over the probe's UART, and
+        # what dfucli did not take went to the shell as commands.
+        for i in range(0, len(payload), 64):
+            con._write(payload[i:i + 64])
+            time.sleep(0.04)
         out = con._read(15.0, done=lambda t: "DFU: " in t)
         text = ANSI.sub("", out)
         m = re.search(r"DFU: .*", text)
