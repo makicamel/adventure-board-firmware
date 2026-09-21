@@ -35,15 +35,22 @@ static bool left_is_a = true;
  */
 #define PSG_PWM_OVERSAMPLE 6
 
-static int dma_chan = -1;
-static dma_channel_config dma_config;
-/* Two buffers: the next block is expanded into the idle one while the DMA
- * is still playing the other, so that re-arming the channel is a handful
- * of register writes. Expanding after the channel went idle took longer
- * than a PWM period and stalled the output at every block boundary. */
-static uint32_t dma_buf[2][PSG_BUFFER_OUTPUT_SAMPLES * PSG_PWM_OVERSAMPLE];
-static uint8_t dma_buf_next = 0;          /* the buffer not being played */
-static const uint32_t *dma_packed = NULL; /* the block already expanded into it */
+/*
+ * Two DMA channels that chain to each other, one buffer each. While one
+ * plays, the next block is expanded into the other's buffer and that
+ * channel is loaded without a trigger; the hardware starts it on the very
+ * PWM period after the first one ends. Re-arming a single channel from
+ * software lost two periods at every block boundary: 0.5% flat, and a
+ * phase step 344 times a second.
+ * The third buffer stays zero. A channel that gets chained to before it
+ * was reloaded (core1 stalled for a whole block) reads on past its own
+ * buffer; this way that is the other block or silence, not stray memory.
+ */
+static int dma_chan[2] = { -1, -1 };
+static uint32_t dma_buf[3][PSG_BUFFER_OUTPUT_SAMPLES * PSG_PWM_OVERSAMPLE];
+static uint8_t dma_playing = 0;           /* the channel that is (or was last) running */
+static bool dma_started = false;
+static bool dma_queued = false;           /* the other channel is loaded and waiting */
 static uint32_t pwm_levels;   /* TOP + 1 */
 #endif
 
@@ -53,12 +60,22 @@ psg_pwm_shutdown(void)
   if (!pwm_initialized) return;
 
 #if PSG_PWM_DMA
-  if (dma_chan >= 0) {
-    dma_channel_abort(dma_chan);
-    dma_channel_cleanup(dma_chan);
-    dma_channel_unclaim(dma_chan);
-    dma_chan = -1;
+  for (int i = 0; i < 2; i++) {
+    if (dma_chan[i] < 0) continue;
+    /* break the chain first, or aborting one starts the other */
+    hw_write_masked(&dma_hw->ch[dma_chan[i]].al1_ctrl,
+                    (uint32_t)dma_chan[i] << DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB,
+                    DMA_CH0_CTRL_TRIG_CHAIN_TO_BITS);
   }
+  for (int i = 0; i < 2; i++) {
+    if (dma_chan[i] < 0) continue;
+    dma_channel_abort(dma_chan[i]);
+    dma_channel_cleanup(dma_chan[i]);
+    dma_channel_unclaim(dma_chan[i]);
+    dma_chan[i] = -1;
+  }
+  dma_started = false;
+  dma_queued = false;
 #endif
 
   pwm_set_both_levels(slice_num, 0, 0);
@@ -103,20 +120,20 @@ psg_pwm_init(uint8_t lpin, uint8_t rpin)
   pwm_set_both_levels(slice_num, 0, 0);
 
 #if PSG_PWM_DMA
-  dma_chan = dma_claim_unused_channel(true);
-  dma_config = dma_channel_get_default_config(dma_chan);
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_32);
-  channel_config_set_read_increment(&dma_config, true);
-  channel_config_set_write_increment(&dma_config, false);
-  channel_config_set_dreq(&dma_config, pwm_get_dreq(slice_num));
-  dma_channel_configure(
-    dma_chan,
-    &dma_config,
-    &pwm_hw->slice[slice_num].cc,
-    NULL,
-    0,
-    false
-  );
+  dma_chan[0] = dma_claim_unused_channel(true);
+  dma_chan[1] = dma_claim_unused_channel(true);
+  for (int i = 0; i < 2; i++) {
+    dma_channel_config c = dma_channel_get_default_config(dma_chan[i]);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, false);
+    channel_config_set_dreq(&c, pwm_get_dreq(slice_num));
+    channel_config_set_chain_to(&c, dma_chan[i ^ 1]);
+    dma_channel_configure(dma_chan[i], &c, &pwm_hw->slice[slice_num].cc, dma_buf[i], 0, false);
+  }
+  dma_playing = 0;
+  dma_started = false;
+  dma_queued = false;
 #endif
 
   pwm_set_enabled(slice_num, true);
@@ -167,27 +184,29 @@ psg_pwm_pack_sample(uint32_t sample, uint32_t *dst)
 static bool
 psg_pwm_write_buffer(const uint32_t *samples, uint32_t count)
 {
-  if (!pwm_initialized || dma_chan < 0 || count > PSG_BUFFER_OUTPUT_SAMPLES) return false;
-  /* The caller retries with the same block until it is accepted. */
-  uint32_t *buf = dma_buf[dma_buf_next];
-  if (dma_packed != samples) {
-    for (uint32_t i = 0; i < count; i++) {
-      psg_pwm_pack_sample(samples[i], &buf[i * PSG_PWM_OVERSAMPLE]);
-    }
-    dma_packed = samples;
-  }
-  if (dma_channel_is_busy(dma_chan)) return false;
+  if (!pwm_initialized || dma_chan[0] < 0 || count > PSG_BUFFER_OUTPUT_SAMPLES) return false;
 
-  dma_channel_configure(
-    dma_chan,
-    &dma_config,
-    &pwm_hw->slice[slice_num].cc,
-    buf,
-    count * PSG_PWM_OVERSAMPLE,
-    true
-  );
-  dma_buf_next ^= 1;
-  dma_packed = NULL;
+  /* The caller retries with the same block until it is accepted. */
+  if (dma_queued) {
+    /* Both buffers are taken until the running channel ends and the
+     * hardware moves on to the queued one. */
+    if (dma_channel_is_busy(dma_chan[dma_playing])) return false;
+    dma_playing ^= 1;
+    dma_queued = false;
+  }
+
+  uint8_t target = dma_started ? (dma_playing ^ 1) : dma_playing;
+  for (uint32_t i = 0; i < count; i++) {
+    psg_pwm_pack_sample(samples[i], &dma_buf[target][i * PSG_PWM_OVERSAMPLE]);
+  }
+  dma_channel_set_read_addr(dma_chan[target], dma_buf[target], false);
+  if (dma_started) {
+    dma_channel_set_trans_count(dma_chan[target], count * PSG_PWM_OVERSAMPLE, false);
+    dma_queued = true;
+  } else {
+    dma_channel_set_trans_count(dma_chan[target], count * PSG_PWM_OVERSAMPLE, true);
+    dma_started = true;
+  }
   return true;
 }
 #endif

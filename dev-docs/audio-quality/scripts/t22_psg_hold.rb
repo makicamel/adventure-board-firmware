@@ -8,5 +8,6 @@ require 'picorubykaigi01/speaker'
 GC.start
 
 TIMBRE = 1
-speaker.play_mml("t30 @#{TIMBRE} v15 o4 l1 a", loop: true)
+# loop: true だけでは繰り返さない。MML に繰り返しの開始位置 "$" が要る
+speaker.play_mml("t30 @#{TIMBRE} v15 o4 l1 $ a", loop: true)
 puts "T22: timbre #{TIMBRE} を鳴らしている"

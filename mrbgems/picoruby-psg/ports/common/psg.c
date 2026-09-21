@@ -388,15 +388,13 @@ PSG_calc_sample(uint16_t *l, uint16_t *r)
     uint32_t tone_amp;
     switch (psg.timbre[tr]) {
       case PSG_TIMBRE_TRIANGLE: {
-        // Extract upper 13 bits from 32 bit phase -> 0..8191
+        // Upper 13 bits of the 32 bit phase -> 0..8191
         uint32_t idx = psg.tone_phase[tr] >> 19; // = 32 - 13
-        // XOR flipping by MSB: convert sawtooth to triangle
-        idx ^= (idx >> 12);   // 0xxxxxxxxxxxx -> 0xxxxxxxxxxxx (as is)
-                              // 1xxxxxxxxxxxx -> 0yyyyyyyyyyyy (flipped)
-        // Extract lower 13 bits: 0..8191
-        uint32_t tri = idx & 0x1FFF;
-        // Normalize to 0..4095 (includes both even and odd)
-        tone_amp = tri >> 1;
+        // Fold the upper half back down: 0..4095 then 4095..0.
+        // (This used to be `idx ^= (idx >> 12)`, which only flips bit 0,
+        // so the "triangle" came out as a sawtooth.)
+        if (idx & 0x1000) idx ^= 0x1FFF;
+        tone_amp = idx;
         break;
       }
       case PSG_TIMBRE_SAWTOOTH: {
