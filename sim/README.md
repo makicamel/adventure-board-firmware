@@ -79,11 +79,15 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 
 | ファイル | 役割 | JS 依存 |
 |---|---|---|
-| `sim_panel.rb` | `I2C` / `VirtualIS31FL3729` / `Panel` / `LedMatrix` | **なし** |
+| `sim_panel.rb` | ハードの代役: `I2C` / `GPIO` / `IRQ` / 仮想チップ `VirtualIS31FL3729` / それを 16×16 にまとめる `Panel`。`require` のシムもここ | **なし** |
+| `sim_audio.rb` | 音の側: `Machine` の代替、鳴った音の記録 `NoteLog`、あとから音源を差し替えられる `SwitchableSink`、`WebAudioSpeaker` | あり |
 | `sim_device.rb` | 実機との USB 接続と転送（`DeviceLink`）。サンプルからは呼ばない | あり |
-| `sim_ui.rb` | canvas 描画、エディタ、ボタン | あり |
-| `index.html` | ページと描画関数 | — |
+| `sim_app.rb` | ページの UI。Funicular のコンポーネント `SimApp`（ボタン・サンプル選択・状態表示・ユーザのコードの実行）と、コードの色付けの `CodeColors` | あり |
+| `index.html` | ページ、スタイル、JS に残した 2 つ（canvas の描画 `renderPanel`、色付きの層 `setCodeColors`）、ソースの読み込み | — |
+| `examples/` | ページで選べるサンプル。実機の `/home/examples` にも同じものが入る | — |
 | `test/panel_test.rb` | ヘッドレス検証 | **なし** |
+
+`LedMatrix` / `Buttons` / `Speaker` などサンプルが呼ぶものは `sim/` ではなく `lib/picorubykaigi01/`（実機と同じボードレイヤ）にある。
 
 面白い部分（レジスタのデコードと 2 チップの座標合成）はすべて `sim_panel.rb` に
 あり、JS に依存しない。だから**ブラウザ無しで検証できる**:
@@ -104,6 +108,7 @@ rake sim:test
 - Ruby 側（`CodeColors`、`sim_app.rb`）が分類の切れ目ごとに `<span class="kN">` を作り、`setCodeColors`（`index.html`）に渡す。
   ハートビートで欄の文字列を見て、**前に色を付けた文字列と違うときだけ**解析する（打鍵・貼り付け・サンプルの読み込みを区別しなくて済む）
 - 色は `index.html` の `.k1`〜`.k8`。分類 8（メソッド名）は演算子や `[` `]` にも付くので控えめな色にしてある
+- 公開（GitHub Pages に自動で出す）は、リポジトリを別の Organization に移してから。それまでは各自の環境で組む
 - **`rake sim:wasm` で作った wasm が要る。** stock のパッケージ（CDN）には `SyntaxHighlight` が無く、そのときは色なしの今までどおりの欄になる
 - `rake sim:check` は各サンプルで「色が付いているか・下の文字と欄の文字が一致するか・分類ごとの個数」を 1 行で報告する。
   見た目は `tools/browser-check/editor-shot.cjs`（欄をスクロールした絵を `tmp/browser-check/editor-colours.png` に出し、2 枚の位置と大きさを数字で出す）

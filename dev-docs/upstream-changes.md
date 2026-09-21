@@ -82,6 +82,7 @@ prod は stdio が無効なので、その上のレジスタダンプもどこ�
 | `src/vram.c` | `gray8` のピクセル関数 3 つと `display_page_init_format`、`display_draw_bytes` に色 |
 | `src/mruby/vram.c` / `src/mrubyc/vram.c` | `layout: :gray8`、`draw_bitmap` / `draw_bytes` の `color:` |
 | `sig/vram.rbs` / `README.md` | 上に追随 |
+| `mrblib/vram.rb` / `test/vram_test.rb` | `VRAM::Delegatable` の `draw_bitmap` / `draw_bytes` が `color:` を受けて渡す（sig は足したのにラッパーが落としていて、型検査に 2 件出ていた。SSD1306 / UC8151 のように委譲するドライバでは色を指定できなかった）。gem に最初のテスト 4 本 |
 
 **理由。** 1bit だと LED の明るさが使えず、サンプルが書きにくかった。
 ピクセル形式は元から関数ポインタで切り替わる作りだったので、

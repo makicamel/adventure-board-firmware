@@ -404,6 +404,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
+- ⬜ シミュレータを GitHub Pages で公開する（Actions で `rake sim:wasm` 相当を組んで `sim/` を出す）。
+  **リポジトリを別の Organization に移してからやる**（2026-09-21 の決定）。それまで `sim/vendor/` は git 管理外のままで、
+  色付け・漢字は `rake sim:wasm` をした環境でだけ出る（無ければ CDN の stock で、色なし・漢字なしで動く）
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く

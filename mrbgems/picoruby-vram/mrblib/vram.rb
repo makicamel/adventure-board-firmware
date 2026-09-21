@@ -8,13 +8,13 @@ module VRAM::Delegatable
     @vram.set_pixel(x, y, color)
   end
 
-  def draw_bitmap(x:, y:, w:, h:, data:)
-    @vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
+  def draw_bitmap(x:, y:, w:, h:, data:, color: 1)
+    @vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data, color: color)
     nil
   end
 
-  def draw_bytes(x:, y:, w:, h:, data:)
-    @vram.draw_bytes(x: x, y: y, w: w, h: h, data: data)
+  def draw_bytes(x:, y:, w:, h:, data:, color: 1)
+    @vram.draw_bytes(x: x, y: y, w: w, h: h, data: data, color: color)
     nil
   end
 
