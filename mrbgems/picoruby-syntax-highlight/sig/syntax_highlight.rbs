@@ -1,0 +1,4 @@
+module SyntaxHighlight
+  # One category byte (0..8) per source byte; nil for a source over 32 KiB.
+  def self.tokenize: (String source) -> String?
+end

@@ -187,6 +187,14 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **`JS::WebSerial` の `binary_capture_*` は、`start_terminal_read`（xterm へ流す読み取り）と
   組でしか動かない。** `on_receive` で受けるなら、フレームは自前で切り出す（`sim/sim_device.rb`）
 
+- **gem の初期化が 1 つ失敗すると、それより後ろの gem は全部初期化されない。しかも何も出ない。**
+  `mrb_open()` は例外を抱えたままの VM を返し、`picorb_init` は NULL しか見ていない。wasm に入れた
+  `picoruby-is31fl3729` は `require 'i2c'` で毎回こうなっている（ページはドライバのソースを自分で読むので困っていなかった）。
+  後ろに足した gem の定数が「ビルドには入っているのに実行時に無い」ときはこれ。`build_config/picoruby-wasm.rb` では
+  **`picoruby-is31fl3729` を最後に置く**
+- **コードの欄の色付けは Prism**（`picoruby-syntax-highlight` の `SyntaxHighlight.tokenize`）。`rake sim:wasm` の wasm にだけ入っている。
+  仕組みは [sim/README.md](sim/README.md) の「コードの色付け」
+
 ### Funicular（UI フレームワーク）
 
 - stock パッケージに同梱（`build_config/picoruby-wasm.rb`）。追加ビルド不要
@@ -211,6 +219,9 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   1 サービスのための必須変数が**全コマンド**を壊す
 - `brotli` がビルドの最後に要る（イメージに追加済み）
 - `mrbgems/picoruby-wasm/npm/` の成果物は全部 gitignore 済み。戻す必要はない
+- **`python3 -m http.server` は `Cache-Control` を返さないので、ブラウザは `picoruby.wasm` / `picoruby.js` を自分の判断で
+  持ち続ける。** `rake sim:wasm` のあと再読み込みしても古い wasm で動いた（色付けが出なかった）。`index.html` が読み込み前に
+  `cache: 'no-cache'` で確認しに行くようにしてある。**ヘッドレスの `sim:check` は毎回まっさらなので、この種の問題は見つけられない**
 - 静的サーバは `.wasm` に `application/wasm` を返すこと。
   でないとストリーミングコンパイルが拒否される
 
@@ -349,7 +360,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。
   問題の記録は [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md)）
 
-新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、
+新規ディレクトリ（`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、`mrbgems/picoruby-syntax-highlight/`、
 `sim/`、`dev-docs/`、
 `tools/`、`docker/`）は追加なので衝突しない。
 `mrbgems/` **自体はサブモジュールではない**（サブモジュールは中の特定 gem だけ）。
@@ -378,7 +389,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   0x34 / 0x35 とも応答。LGC の落とし穴を見つけて吸収済み
 - ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA のエンジン。`UART` の `:PIO_UART0`
   ユニットとして見える。`gets` / `irq` まで実機ループバックで検証済み）
-- ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular
+- ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular。コードの欄は Prism で色付け
 - ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる

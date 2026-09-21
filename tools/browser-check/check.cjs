@@ -61,6 +61,27 @@ function serve() {
 // Read the canvas back as a 16x16 map. The renderer paints an unlit dot as a
 // dark well and a lit one towards white, so the red channel at the centre of a
 // cell separates them cleanly.
+// The coloured copy under the code box: whether it is on, whether it says the
+// same thing as the box, and how many spans of each category it was cut into
+// (k1 keyword, k2 string, k3 comment, k4 number, k5 symbol, k6 constant,
+// k7 @ivar/$gvar, k8 method name). Text and counts, so nobody has to look.
+async function readCodeColors(page) {
+  return await page.evaluate(() => {
+    const pre = document.getElementById('code-colors');
+    const box = document.getElementById('code');
+    if (!pre || !box) return 'no #code-colors element';
+    if (!pre.parentElement.classList.contains('colored')) return 'off (no SyntaxHighlight in this wasm?)';
+    const want = box.value.endsWith('\n') ? box.value + ' ' : box.value;
+    const same = pre.textContent === want;
+    const counts = {};
+    pre.querySelectorAll('span').forEach((el) => { counts[el.className] = (counts[el.className] || 0) + 1; });
+    const list = Object.keys(counts).sort().map((k) => `${k}=${counts[k]}`).join(' ');
+    const first = pre.querySelector('.k1');
+    return `on, text ${same ? 'matches the box' : 'DIFFERS from the box'}, ${list}` +
+           (first ? `, first keyword "${first.textContent}"` : '');
+  });
+}
+
 async function readPanel(page) {
   return await page.evaluate(({ CELL, GAP, PAD, N }) => {
     const canvas = document.getElementById('panel');
@@ -262,6 +283,7 @@ async function main() {
       await page.screenshot({ path: file });
       console.log(`\n# example: ${opt.label} (${opt.value})  [${code.length} bytes of code]`);
       console.log(`# status (${cls}): ${st}`);
+      console.log(`# code colours: ${await readCodeColors(page)}`);
       show(name, await readPanel(page));
 
       // Audio has to be switched on from a user gesture before a synth exists.

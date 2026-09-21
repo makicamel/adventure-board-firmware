@@ -30,6 +30,32 @@
     background: #0f1116; color: #d8dee9; border: 1px solid #2c313a;
     border-radius: 6px; padding: 10px;
   }
+  /* The code box in colour: a <pre> with the same text lies under the
+     textarea, and the textarea's own text goes transparent once there are
+     colours to show (class "colored", set from setCodeColors). Without them
+     -- a PicoRuby.wasm that has no SyntaxHighlight -- it stays an ordinary
+     textarea. Lines do not wrap, so that both lay the text out alike. */
+  .editor { position: relative; }
+  .editor textarea { display: block; position: relative; white-space: pre; overflow: auto; }
+  #code-colors {
+    position: absolute; inset: 0; margin: 0; box-sizing: border-box; overflow: hidden;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre;
+    padding: 10px; border: 1px solid transparent; border-radius: 6px;
+    background: #0f1116; color: #d8dee9; pointer-events: none; display: none;
+  }
+  .editor.colored #code-colors { display: block; }
+  .editor.colored textarea { background: transparent; color: transparent; caret-color: #d8dee9; }
+  .editor.colored textarea::selection { background: rgba(88, 140, 230, .35); color: transparent; }
+  /* One class per category of SyntaxHighlight.tokenize. 8 is method names,
+     and to Ruby that includes operators and [ ], so it stays quiet. */
+  .k1 { color: #ff7b72; }              /* keyword */
+  .k2 { color: #a5d6ff; }              /* string */
+  .k3 { color: #8b949e; }              /* comment. Not italic: a slanted face may be laid out wider than the textarea on top */
+  .k4 { color: #79c0ff; }              /* number */
+  .k5 { color: #7ee787; }              /* symbol */
+  .k6 { color: #ffa657; }              /* constant */
+  .k7 { color: #ffc2b8; }              /* @ivar $gvar */
+  .k8 { color: #d9c9f5; }              /* method name */
   #status { margin-top: 10px; padding: 8px 10px; border-radius: 4px; min-height: 1.5em;
             font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
   #status.ok    { background: #10261a; color: #7ee2a8; border: 1px solid #1d4630; }
@@ -72,6 +98,31 @@
 </p>
 
 <div id="app"></div>
+
+<script>
+// The coloured copy of the code box. Ruby works out the colours (Prism, inside
+// the wasm) and hands over finished HTML; what is here is only what has to
+// happen at once rather than on the next heartbeat: following the scroll.
+(function () {
+  let wired = false;
+  window.setCodeColors = function (html) {
+    const pre = document.getElementById('code-colors');
+    const box = document.getElementById('code');
+    if (!pre || !box) return;
+    if (!wired) {
+      wired = true;
+      box.addEventListener('scroll', function () {
+        pre.scrollTop = box.scrollTop;
+        pre.scrollLeft = box.scrollLeft;
+      });
+      pre.parentElement.classList.add('colored');
+    }
+    pre.innerHTML = html;
+    pre.scrollTop = box.scrollTop;
+    pre.scrollLeft = box.scrollLeft;
+  };
+})();
+</script>
 
 <script>
 // Painting is the one thing left to JavaScript: a frame is 256 values handed
@@ -189,8 +240,18 @@
       // A plain GET rather than HEAD: the file is a few kilobytes and the
       // script tag below reads it from cache, while a HEAD for a URL that is
       // about to be loaded as a script gets reported as an aborted request.
-      const local = await fetch('vendor/init.iife.js', { cache: 'no-store' });
-      if (local.ok) loaderSrc = 'vendor/init.iife.js';
+      const local = await fetch('vendor/init.iife.js', { cache: 'no-cache' });
+      if (local.ok) {
+        loaderSrc = 'vendor/init.iife.js';
+        // A static server sends no Cache-Control, so the browser keeps these by
+        // its own rule of thumb -- and went on running the wasm from before a
+        // `rake sim:wasm` (the code box stayed without colours: the old build
+        // had no SyntaxHighlight). 'no-cache' asks the server whether the copy
+        // is still good, a 304 when it is, and refreshes it when it is not, so
+        // that the loader's own requests below find the new one.
+        await Promise.all(['vendor/picoruby.js', 'vendor/picoruby.wasm'].map(
+          (url) => fetch(url, { cache: 'no-cache' }).then((r) => r.arrayBuffer()).catch(() => null)));
+      }
     } catch (e) { /* fall through to the CDN */ }
 
     const loader = document.createElement('script');

@@ -5,7 +5,7 @@
 ここに全部載せる。** マージのときに何を見ればよいかが分かるように。
 
 新規ディレクトリ（衝突しないもの）:
-`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、
+`mrbgems/picoruby-is31fl3729/`、`mrbgems/picoruby-pio-uart/`、`mrbgems/picoruby-syntax-highlight/`、
 `sim/`、`dev-docs/`、`tools/`、`docker/`、`lib/picorubykaigi01*`、
 `examples/`、`tasks/docker.rake`、`tasks/sim.rake`。
 
@@ -18,7 +18,7 @@
 | `Rakefile` | `tasks/docker.rake` と `tasks/sim.rake` を load する **2 行** |
 | `build_config/r2p2-picoruby-pico2.rb` | `picoruby-is31fl3729`・`picoruby-pio-uart`・`picoruby-adc-capture`（ADC を DMA で録り続ける計測用の新規 gem。32KB の RAM を使う）を足し、`picoruby-keyboard` を外した（pico2_w と同じ構成に） |
 | `tasks/picoruby/r2p2.rake` | `R2P2_CONSOLE_UART` 環境変数を cmake の `-D` に渡す **8 行** |
-| `build_config/picoruby-wasm.rb` | シミュレータ用に描画・フォント gem を追加 |
+| `build_config/picoruby-wasm.rb` | シミュレータ用に描画・フォント gem と、コードの色付けの `picoruby-syntax-highlight`（新規ディレクトリ。family-mruby から無変更で持ってきた）を追加。`PICOBOARD_WASM` のときだけ。**`picoruby-is31fl3729` は最後に置く**（初期化で `require 'i2c'` が失敗し、それより後ろの gem が初期化されなくなるため） |
 
 ## 2. `build_config/r2p2-picoruby-pico2_w.rb` — gembox を削った
 

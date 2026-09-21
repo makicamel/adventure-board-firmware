@@ -10,6 +10,7 @@
 # Careful with method names: every HTML tag is a reserved word on a Component,
 # so `code`, `audio`, `select` and friends cannot be used here.
 require 'js'
+require 'syntax-highlight'   # only in the wasm from `rake sim:wasm`; the stock one goes without colours
 
 # Bringing the board up is the one thing that genuinely differs between here
 # and the device, so it is the one thing done here: the peripherals are
@@ -26,6 +27,42 @@ $app = nil
 # sees it, it only carries the sample to the board.
 $device = DeviceLink.new
 
+
+# Turns a program into HTML for the coloured copy of the code box: one
+# <span class="kN"> per run of bytes that SyntaxHighlight gave the same
+# category. Prism's tokens begin and end on character boundaries, so cutting
+# the source at those bytes never splits a character.
+module CodeColors
+  def self.html(source)
+    kinds = SyntaxHighlight.tokenize(source)
+    return escape(source) if kinds.nil? || kinds.bytesize != source.bytesize
+    out = ""
+    size = source.bytesize
+    start = 0
+    while start < size
+      kind = kinds.getbyte(start)
+      stop = start + 1
+      while stop < size && kinds.getbyte(stop) == kind
+        stop += 1
+      end
+      text = escape(source.byteslice(start, stop - start).to_s)
+      if kind == 0
+        out << text
+      else
+        out << "<span class=\"k#{kind}\">" << text << "</span>"
+      end
+      start = stop
+    end
+    # A <pre> gives no height to a line break at its very end; the textarea
+    # does, and the two have to stay the same height to scroll together.
+    out << " " if source.end_with?("\n")
+    out
+  end
+
+  def self.escape(text)
+    text.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
+  end
+end
 
 class SimApp < Funicular::Component
   EXAMPLES = [
@@ -162,7 +199,10 @@ class SimApp < Funicular::Component
           button(id: "reset", onclick: :on_reset) { "Reset" }
         end
         div(class: "controls") { device_controls }
-        textarea(ref: :codebox, id: "code", spellcheck: "false")
+        div(class: "editor") do
+          tag("pre", id: "code-colors") { "" }
+          textarea(ref: :codebox, id: "code", spellcheck: "false")
+        end
         div(id: "status", class: state[:kind]) { state[:status] }
         div(class: "legend", style: "margin-top:12px",
             hidden: state[:device] == :none ? "hidden" : nil) do
@@ -417,6 +457,29 @@ class SimApp < Funicular::Component
     draw_status_led
     draw_notes
     draw_device
+    draw_code_colors
+    nil
+  end
+
+  # The code box in colour. Read on the heartbeat like everything else, and
+  # only worked out again when the text is not what was coloured last: that
+  # covers typing, a pasted program and a loaded example alike, with nobody
+  # having to say so. SyntaxHighlight comes with `rake sim:wasm`; the stock
+  # package does not have it, and then the box stays as plain as it was.
+  def draw_code_colors
+    return if @code_colors_missing
+    box = refs[:codebox]
+    return unless box
+    source = box[:value].to_s
+    return if source == @colored_source
+    @colored_source = source
+    JS.global.setCodeColors(CodeColors.html(source))
+    nil
+  rescue Exception => e
+    # Once, not twenty times a second. A wasm without SyntaxHighlight lands
+    # here with a NameError, and that one is expected and not worth a line.
+    @code_colors_missing = true
+    puts "code colours are off: #{e.class}: #{e.message}" unless e.is_a?(NameError)
     nil
   end
 

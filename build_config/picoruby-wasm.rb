@@ -47,6 +47,11 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
     conf.gem core: 'picoruby-vram'
     conf.gem core: 'picoruby-bdffont'
     conf.gem core: 'picoruby-shinonome'
+    conf.gem core: 'picoruby-syntax-highlight'   # colours the simulator's code box
+    # Keep this one last. Its mrblib opens with `require 'i2c'`, which the
+    # browser does not have, so its gem init raises -- and mrb_open() gives up
+    # on every gem after the one that raised, without a word. (The page loads
+    # the driver's source itself, after the require shim in sim_panel.rb.)
     conf.gem core: 'picoruby-is31fl3729'
   end
 end
