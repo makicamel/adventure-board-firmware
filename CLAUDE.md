@@ -325,6 +325,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `mrbgems/picoruby-irq/include/irq.h` — **`UART` に PIO のユニットを足した**
   （`UART.new(unit: :PIO_UART0, ...)`）。別クラスにしないのは、この基板で
   覚えたことが素の R2P2 で通じるようにするため
+- `mrbgems/picoruby-machine/ports/rp2040/machine.c` — **`SLEEP_EN0/1` を絞る代入を消した。** 元は CPU が眠る
+  （タスクが全部 `sleep_ms` などで待つ）たびに PWM / DMA / PIO / I2C / SPI / ADC が止まり、
+  スピーカーの「ざらざら」の原因だった（[dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)）
 - `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
 - `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。
   問題の記録は [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md)）

@@ -193,3 +193,15 @@ upstream に PR を送る前提で、基板に依存しない形で書いてい�
 ⚠️ `tasks/picoruby/r2p2.rake` はボード名を決め打ちでループしてタスクを生成する。
 独自ボード名を足すにはここに手を入れる必要があり、**まだ手を入れていない**
 （`USE_WIFI=1` もここでボード名ごとに決め打ちされている）。
+
+## 9. `picoruby-machine` — 眠っているあいだ周辺回路のクロックを止めない（**−22 行**）
+
+| ファイル | 変更 |
+|---|---|
+| `ports/rp2040/machine.c` | `picorb_hal_init` の `clocks_hw->sleep_en0 = 0;` と `sleep_en1 = ...` の代入を**消した**（リセット値の全 ON のまま）。関連するコメント 2 か所を追随 |
+
+消す前は、Ruby のタスクが全部待っているあいだ（`__wfi`）PWM・DMA・PIO・I2C・SPI・ADC のクロックが止まっていた。
+音声の PWM が 1ms ごとに 27µs しか進まず、スピーカーの「ざらざら」の原因だった。
+「必要な回路だけ残す」ではなく全部残したのは、学習用の基板で、使った回路が黙って止まる事故を避けるため。
+経緯は [audio-quality/report.md](audio-quality/report.md)、問題の記録は [upstream-issues.md](upstream-issues.md) の 3。
+

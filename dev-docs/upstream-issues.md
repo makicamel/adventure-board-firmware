@@ -8,6 +8,7 @@ PR を送るための記録なので、基板に依存しない形で書く。
 |---|---|---|---|
 | 1 | `picoruby-irq` | GPIO 割り込みのデバウンスが、タクトスイッチのチャタリングを取れない | rp2040 / posix は修正済み（PR 未送付）。esp32 は未修正 |
 | 2 | `picoruby-irq` | シェルでスクリプトを流し終えても GPIO 割り込みの登録が残り、同じピンに登録し直すと届かない | 同じピンは「新しい登録で置き換える」に修正済み（PR 未送付）。別のピンの登録が溜まる件は未修正 |
+| 3 | `picoruby-machine` | rp2040 ポートが `SLEEP_EN0 = 0` にしていて、タスクが全部待っているあいだ PWM / DMA / PIO / I2C / SPI / ADC が止まる | この repo では代入を消した（PR 未送付）。upstream には「止めてはいけない回路を残す」形で出すのがよさそう |
 
 ---
 
@@ -192,3 +193,45 @@ handlers before=1 after=1 falls=3
   ジョブと登録を結び付ける必要があり、シェルの設計に関わるので upstream と相談したい
 - 解除より前に割り込みが起きても、Ruby 側に配られる前に解除すると、そのイベントは届かない
   （元からの動作。実機では配られるまで 5〜20ms かかることがあった）
+
+---
+
+## 3. CPU が眠ると PWM などの周辺回路が止まる（rp2040 ポート）
+
+### 症状
+
+`PWM.new(pin, frequency: 150_000, duty: 50)` のあと `sleep_ms` で待つと、ピンには連続した PWM が出ない。
+RP2350 で測ると、1ms ごとに約 27µs（4 周期）だけ進み、残りは止まった瞬間の High / Low のまま。
+RC フィルタとアンプをつなぐと大きな雑音になる。440Hz の矩形波のような遅い PWM も同じように乱れる。
+タスクが空ループで回っているあいだは正常に出る。
+
+### 原因
+
+`mrbgems/picoruby-machine/ports/rp2040/machine.c` の `picorb_hal_init`:
+
+```c
+clocks_hw->sleep_en0 = 0;
+clocks_hw->sleep_en1 = /* TIMER, TICKS, USBCTRL, UART0/1 だけ */;
+```
+
+`SLEEP_EN0/1` は「コアが全部 WFI / WFE で眠っているあいだ、どの回路にクロックを配るか」。
+RP2350 では PWM・DMA・PIO0〜2・I2C0/1・ADC が `SLEEP_EN0`、SPI0/1 が `SLEEP_EN1` にある（RP2040 は SPI も `SLEEP_EN0`）。
+`picorb_hal_idle_cpu` は `__wfi` なので、走れるタスクが無い時間はこれらが全部止まる。
+core1 を使う gem（`picoruby-psg`）でも、両方のコアが同時に眠った瞬間は止まる。
+
+### PicoRuby 抜きでの再現
+
+pico-sdk だけのファーム（この repo の `dev-docs/audio-quality/c-pwm-test/`）。150kHz 50% の PWM を出して 1ms の
+repeating timer + `__wfi` で待つ。
+
+| `SLEEP_EN` | PWM のピン |
+|---|---|
+| リセット値（全 ON） | 連続した 150kHz |
+| 上の 2 行と同じ値 | 3.3V か 0V に 1〜2ms ずつ止まる（150kHz は出ない） |
+
+### 修正
+
+- この repo: 代入を消した（全 ON）。学習用の基板なので、漏れが無いことを優先
+- upstream 向けの案: 節電の意図を保つなら、`SLEEP_EN0` に PWM / DMA / PIO0〜2 / I2C0/1 / ADC（SYS と ADC）、
+  SPI0/1（RP2350 は `SLEEP_EN1`）を残す。ほかにも CPU を待たずに動く回路（TRNG、HSTX など）が要るかは要検討
+
