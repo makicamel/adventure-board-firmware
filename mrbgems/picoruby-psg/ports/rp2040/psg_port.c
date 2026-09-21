@@ -120,10 +120,15 @@ audio_cb(repeating_timer_t *t)
 
 enum {
   ACK_CORE1_READY = 0xA5,
-  CMD_NONE,
-  CMD_CLEANUP,
   ACK_DONE,
 };
+
+/* core0 asks core1 to clean up through this flag, not through the
+ * inter-core FIFO: once core1 is a lockout victim (see psg_core1_main)
+ * the SDK's FIFO interrupt handler owns core1's receive side and drops
+ * every word that is not a lockout request. core1's replies still go
+ * through the FIFO, which is the other direction. */
+static volatile bool core1_cleanup_requested = false;
 
 #if defined(PICO_RP2350)
 #define PICORB_IRQ_1 TIMER1_IRQ_1
@@ -157,10 +162,7 @@ psg_core1_cleanup(void)
 static inline void
 psg_core1_poll_command(void)
 {
-  if (multicore_fifo_rvalid()) {
-    uint32_t cmd = multicore_fifo_pop_blocking();
-    if (cmd == CMD_CLEANUP) psg_core1_cleanup();
-  }
+  if (core1_cleanup_requested) psg_core1_cleanup();
 }
 
 static void __attribute__((noreturn))
@@ -168,6 +170,12 @@ psg_core1_main(void)
 {
   uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
   uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
+  /* This core runs from flash without a pause, so whoever erases or
+   * programs flash on core0 has to be able to park it first -- otherwise
+   * it faults on its next instruction fetch and locks up. After the two
+   * pops above, because from here on the FIFO interrupt takes what
+   * core0 sends. */
+  multicore_lockout_victim_init();
   psg_drv->init(p1, p2); /* init PSG driver */
   psg_drv->start();
   bool use_buffer_output = psg_drv->write_buffer != NULL;
@@ -265,11 +273,12 @@ void
 PSG_tick_stop_core1(void)
 {
   if (core1_alive) {
-    multicore_fifo_push_blocking(CMD_CLEANUP);
+    core1_cleanup_requested = true;
     while (multicore_fifo_pop_blocking() != ACK_DONE) {
       // wait
     }
     multicore_reset_core1();
+    core1_cleanup_requested = false;
     core1_alive = false;
   } else if (psg_drv) {
     psg_drv->stop();

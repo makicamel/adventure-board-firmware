@@ -9,6 +9,7 @@ PR を送るための記録なので、基板に依存しない形で書く。
 | 1 | `picoruby-irq` | GPIO 割り込みのデバウンスが、タクトスイッチのチャタリングを取れない | rp2040 / posix は修正済み（PR 未送付）。esp32 は未修正 |
 | 2 | `picoruby-irq` | シェルでスクリプトを流し終えても GPIO 割り込みの登録が残り、同じピンに登録し直すと届かない | 同じピンは「新しい登録で置き換える」に修正済み（PR 未送付）。別のピンの登録が溜まる件は未修正 |
 | 3 | `picoruby-machine` | rp2040 ポートが `SLEEP_EN0 = 0` にしていて、タスクが全部待っているあいだ PWM / DMA / PIO / I2C / SPI / ADC が止まる | この repo では代入を消した（PR 未送付）。upstream には「止めてはいけない回路を残す」形で出すのがよさそう |
+| 4 | `picoruby-littlefs` / `picoruby-psg` | core1（PSG）が動いているあいだにフラッシュへ書くと、core1 が二重フォールトでロックアップする | 修正済み（PR 未送付）。rp2040 ポートのみ |
 
 ---
 
@@ -234,4 +235,44 @@ repeating timer + `__wfi` で待つ。
 - この repo: 代入を消した（全 ON）。学習用の基板なので、漏れが無いことを優先
 - upstream 向けの案: 節電の意図を保つなら、`SLEEP_EN0` に PWM / DMA / PIO0〜2 / I2C0/1 / ADC（SYS と ADC）、
   SPI0/1（RP2350 は `SLEEP_EN1`）を残す。ほかにも CPU を待たずに動く回路（TRNG、HSTX など）が要るかは要検討
+
+---
+
+## 4. PSG が動いているあいだにファイルを書くと core1 が固まる（rp2040 ポート）
+
+### 症状
+
+`PSG::Driver.new(:pwm, ...)` を一度でも呼んだあと（音が鳴っていなくてもよい）、シェルからファイルを書く
+（`dfucli` / PicoModem の転送、`cp` など）と、シェルが応答しなくなる。SWD でつなぐと openocd が
+`[rp2350.dap.core1] clearing lockup after double fault` を出す。RP2350（Pico 2 相当）で確認。
+
+### 原因
+
+- `picoruby-littlefs/ports/rp2040/flash_hal.c` は `save_and_disable_interrupts()` だけで
+  `flash_range_erase` / `flash_range_program` を呼ぶ。止まるのは呼んだ側（core0）の割り込みだけ
+- `picoruby-psg/ports/rp2040/psg_port.c` の `psg_core1_main` は core1 でフラッシュ上（XIP）のコードを休まず実行し、
+  1kHz のタイマー割り込みもフラッシュ上
+- 消去・書き込みのあいだ XIP は読めないので、core1 は次の命令が読めずフォールトし、ハンドラも読めず二重フォールトになる
+
+### 修正（この repo で実施）
+
+- `flash_hal.c`: core1 がロックアウトの対象になっていれば（`multicore_lockout_victim_is_initialized(1)`）、
+  `multicore_lockout_start_blocking()` / `_end_blocking()` で挟む
+- `psg_port.c`: core1 の入口で `multicore_lockout_victim_init()`。core0 → core1 の `CMD_CLEANUP` は FIFO をやめて
+  `volatile bool` に（SDK のロックアウトハンドラは core1 の FIFO 受信を割り込みで取り、ロックアウト要求以外の値を捨てる）
+
+### 確認（実機、UART のシェルから）
+
+| 手順 | 修正前 | 修正後 |
+|---|---|---|
+| MML をループ再生したまま 8KB のファイルを 3 回書く | 1 回目で core1 ロックアップ、シェル無応答 | 3 回とも成功、再生は続く |
+| 「`melody.rb` → 8KB 書く」を 5 往復 | — | 全部成功 |
+| `Driver#deinit` → `Driver.new` → `deinit`、そのあと書き込みと `rm` | — | 成功（フラグでの停止が届いている） |
+
+### 残っていること
+
+- ループ再生の `Player` タスクが生きたまま、別のスクリプトで `Driver#deinit` し、そのあと `rm` を続けたら
+  core0 が応答しなくなったことが 1 回ある（core1 のロックアップは無し）。再生中の音源を下から外す不自然な手順で、
+  再現確認も原因調査もしていない
+- 書き込み中は core1 が止まるので音が途切れる
 

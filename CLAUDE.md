@@ -328,6 +328,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - `mrbgems/picoruby-machine/ports/rp2040/machine.c` — **`SLEEP_EN0/1` を絞る代入を消した。** 元は CPU が眠る
   （タスクが全部 `sleep_ms` などで待つ）たびに PWM / DMA / PIO / I2C / SPI / ADC が止まり、
   スピーカーの「ざらざら」の原因だった（[dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)）
+- `mrbgems/picoruby-littlefs/ports/rp2040/flash_hal.c` と `mrbgems/picoruby-psg/ports/rp2040/psg_port.c` —
+  **フラッシュに書くあいだ core1（PSG）を待たせる。** 元は PSG を一度使ったあとにファイルを書くと core1 が固まった
 - `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
 - `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。
   問題の記録は [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md)）
@@ -385,7 +387,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ✅ シミュレータのページから USB で実機に送って実行（[実機で実行]、WebSerial + PicoModem）。
-  USB を直した基板で確認。何度も実行すると実機が応答しなくなる件は未解決
+  USB を直した基板で確認。何度も実行すると実機が応答しなくなる件は、PSG（core1）を止めずにフラッシュへ書いていたのが原因で、修正済み
+  （[dev-docs/upstream-issues.md](dev-docs/upstream-issues.md) の 4）
 - ⬜ J1（ブレッドボード用 2×10 ヘッダ）の疎通確認。手順とスクリプトは
   [dev-docs/device-bringup/scripts/header_check.rb](dev-docs/device-bringup/scripts/header_check.rb)
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
