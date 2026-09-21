@@ -258,3 +258,11 @@ DMA は **2 チャンネルを互いに `chain_to` でつないで交互に使�
 平均 1.6ms かかり、core0 が Ruby を実行している時間帯に締め切りを越えていた（10 秒に 166 回）。RAM の消費は約 3.2KB。
 数字と経緯は [audio-quality/report.md](audio-quality/report.md) の §3「その 6」、問題としての記録は [upstream-issues.md](upstream-issues.md) の 6。
 RP2040 のボード（pico / pico_w）でも同じ 3.2KB を RAM に取る点は、upstream に出すなら相談が要る。
+
+## 14. `picoruby-psg` — エンベロープを全チャンネル同じ速さで進める
+
+| ファイル | 変更 |
+|---|---|
+| `ports/common/psg.c` | `update_envelope` のループ内の `return` 4 か所を `continue` に（とコメント 3 行） |
+
+問題の記録は [upstream-issues.md](upstream-issues.md) の 7。

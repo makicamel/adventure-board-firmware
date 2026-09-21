@@ -130,6 +130,11 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **xlsx のボタン名は間違っている。** 正しいのはシルク印字: SW1=UP(GPIO17) /
   SW2=LEFT(18) / SW3=RIGHT(19) / SW4=DOWN(20) / SW5=B(21) / SW6=A(22)。
   xlsx は SW2〜SW6 を ↓ ← → A B としている。r1 で押して確認済み
+- **MML のイベントは同じ時刻でも 1 つずつ Ruby で処理される**（debug ビルドで設定 1 つ 40〜60ms、`note_on` 20〜30ms）。
+  複数トラックの先頭に設定（`s` `m` `@` `v` など）と音を続けて書くと、和音がばらける。設定のあとに短い休符を置く
+- **スピーカーは PSG の左出力（GPIO10）だけ。** パンは `Speaker` が左いっぱい（`Board::PSG_SPEAKER_PAN`）にしている。
+  音源（`PSG::Synth`）は設定を「送り主 × チャンネル」ごとに覚えるので、`synth.handle` で直接送った設定は
+  `Speaker`（送り主 `:mml`）の音には効かない。3 声を v15 で重ねると出力は電源いっぱいまで振れる
 - **GROVE1（J4）はピン順が逆。** Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる
 
 ## 既知の落とし穴
@@ -338,7 +343,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   スピーカーの「ざらざら」の原因だった（[dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)）
 - `mrbgems/picoruby-littlefs/ports/rp2040/flash_hal.c` と `mrbgems/picoruby-psg/ports/rp2040/psg_port.c` —
   **フラッシュに書くあいだ core1（PSG）を待たせる。** 元は PSG を一度使ったあとにファイルを書くと core1 が固まった
-- `mrbgems/picoruby-psg/` — キャリアを 132kHz に、DMA 2 チャンネルの交互連鎖、出力を中央基準に、三角波の修正。
+- `mrbgems/picoruby-psg/` — キャリアを 132kHz に、DMA 2 チャンネルの交互連鎖、出力を中央基準に、三角波とエンベロープの修正。
   **core1 の音声処理は RAM に置き、debug ビルドでも `-O2`**（`PSG_HOT`）。元は各音のあたまにノイズが入った
 - `mrbgems/picoruby-vram/` — 8bit 階調（`layout: :gray8`）
 - `mrbgems/picoruby-irq/` — エッジのデバウンスを作り直し、同じピンの登録を置き換えにした（PR を送る前提。

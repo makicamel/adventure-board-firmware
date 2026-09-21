@@ -18,6 +18,11 @@ class Board
   AUDIO_PWM_PIN   = 10   # PWM5A into the RC filter and the PAM8302A
   AUDIO_PWM_PIN_R = 11   # same slice, only on the breadboard header
   AMP_SD_PIN      = 23   # low = amplifier muted
+  # Where the PSG's channels sit, as a MIDI pan: hard left. The PSG mixes both
+  # outputs from one pan table and gives each side -3dB at the centre; the
+  # right output reaches nothing on this board, so centre only throws that
+  # away. (8 rather than 0: it is what lands on the PSG's own "left only".)
+  PSG_SPEAKER_PAN = 8
   STATUS_LED_PIN  = 16   # green LED through R31
   GROVE_A_SDA_PIN = 6
   GROVE_A_SCL_PIN = 7
@@ -61,23 +66,11 @@ class Board
   # GPIO11 is the same PWM slice and only reaches the breadboard header, so it
   # is handed over as the right channel and simply goes nowhere on the board.
   # nil on a build without picoruby-psg, and then there is no speaker.
-  #
-  # Pan is hard left. The PSG mixes both channels from one pan table, and at
-  # the centre each side gets -3dB; the right side goes nowhere on this board,
-  # so centre only throws half the swing away. Channels 0..2 are what MML
-  # tracks land on with three voices; the synth keeps a state per channel, so
-  # this stops there rather than spending 16 of them.
   def self.default_speaker_backend
-    synth = PSG::Synth.new(
+    PSG::Synth.new(
       PSG::Driver.new(:pwm, left: AUDIO_PWM_PIN, right: AUDIO_PWM_PIN_R),
       voice_count: 3
     ).start
-    channel = 0
-    while channel < 3
-      synth.handle([:control_change, channel, 10, 8])
-      channel += 1
-    end
-    synth
   rescue NameError, NoMethodError
     nil
   end
@@ -144,7 +137,9 @@ class Board
       @speaker_built = true
       backend = @given_speaker_backend || self.class.default_speaker_backend
       if backend
-          @speaker = Speaker.new(sink: backend)
+        # A backend that was handed in (the simulator's) plays on two ears.
+        pan = @given_speaker_backend ? 64 : PSG_SPEAKER_PAN
+        @speaker = Speaker.new(sink: backend, pan: pan)
       end
     end
     @speaker

@@ -9,6 +9,7 @@
 | ファイル | 使うもの | 必要なもの |
 |---|---|---|
 | [grove_link_chat.rb](grove_link_chat.rb) | GROVE-B（PIO で作った UART） | 基板 2 枚。**ケーブルはストレートでよい** |
+| [envelope.rb](envelope.rb) | PSG のエンベロープ（MML の `s` / `m`）。減衰・トレモロ・和音を順に鳴らす | 基板 1 枚。シミュレータの音源には無い機能 |
 | [grove_uart_chat.rb](grove_uart_chat.rb) | GROVE-B（ハードウェア UART0） | **基板 2 枚 + クロスケーブル** |
 
 2 枚を繋ぐなら `grove_link_chat.rb` の方を使う。ケーブルを選ばない。

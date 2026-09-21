@@ -283,6 +283,9 @@ static const uint16_t PSG_HOT_DATA pan_tab_r[16] = {
 PSG_HOT static inline void
 update_envelope(void)
 {
+  // Every channel has its own envelope state, so one that moves must not
+  // end the loop: `return` here used to cost the channels after it a count,
+  // and their envelopes ran slower by a sample per step.
   for (int tr = 0; tr < 3; ++tr) {
     if ((psg.r.volume[tr] & 0x10) == 0) continue; // no envelope
     if (!psg.env_running[tr] || !psg.r.envelope_period) continue;
@@ -294,24 +297,24 @@ update_envelope(void)
     if (psg.env_dir[tr]) {                // up
       if (psg.env_level[tr] < 15) {
         ++psg.env_level[tr];
-        return;
+        continue;
       }
     } else {                          // down
       if (psg.env_level[tr] > 0) {
         --psg.env_level[tr];
-        return;
+        continue;
       }
     }
 
     // Reached the end of the envelope
     if (!psg.env_continue[tr]) {          // C = 0   -> Stop
       psg.env_running[tr] = false;
-      return;
+      continue;
     }
 
     if (psg.env_hold[tr]) {               // C=1, H=1 -> No repeat
       psg.env_running[tr] = false;
-      return;
+      continue;
     }
 
     if (psg.env_alternate[tr])            // Reverse direction

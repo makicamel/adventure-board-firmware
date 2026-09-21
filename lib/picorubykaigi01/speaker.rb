@@ -10,13 +10,18 @@ class Speaker
   # PAM8302A enabled in silence puts its noise floor on the speaker.
   attr_reader :router, :sink
 
-  def initialize(sink:, amp_sd_pin: Board::AMP_SD_PIN)
+  # `pan` is where a channel sits until a piece moves it (MML `p`), as a MIDI
+  # pan: 0 left, 64 centre, 127 right. Whoever builds the speaker knows what
+  # is wired to it -- this board has one speaker, on the left output.
+  def initialize(sink:, amp_sd_pin: Board::AMP_SD_PIN, pan: 64)
     @sink = sink
     @amp = amp_sd_pin ? GPIO.new(amp_sd_pin, GPIO::OUT) : nil
     @router = MIDIBASE::Router.new
     @router.connect(:mml, sink)
     @player = nil
-    @channels = 1   # how many channels anything has been sent on so far
+    @pan = pan
+    @channels = 0   # how many channels anything has been sent on so far
+    use_channels(1)
     mute
   end
 
@@ -36,7 +41,7 @@ class Speaker
       router.emit(:mml, [:program_change, ch, 0])
       router.emit(:mml, [:control_change, ch, 7, 127])    # volume
       router.emit(:mml, [:control_change, ch, 11, 127])   # expression
-      router.emit(:mml, [:control_change, ch, 10, 64])    # pan: centre
+      router.emit(:mml, [:control_change, ch, 10, @pan])  # pan: where the speaker is
       router.emit(:mml, [:control_change, ch, 1, 0])      # vibrato depth
       router.emit(:mml, [:control_change, ch, 64, 0])     # sustain
       router.emit(:mml, [:control_change, ch, 68, 0])     # legato
@@ -55,7 +60,7 @@ class Speaker
     halt
     unmute
     tracks = mml.is_a?(Array) ? mml : [mml]
-    @channels = tracks.size if @channels < tracks.size   # track n plays on channel n
+    use_channels(tracks.size)   # track n plays on channel n
     sequence = MIDIBASE::MML::Sequence.new(tracks, loop: loop)
     @player = MIDIBASE::MML::Player.new(
       sequence,
@@ -77,6 +82,19 @@ class Speaker
     self
   end
 
+  # Counts the channels in use, and puts each new one where the speaker is.
+  # A sound generator starts every channel at the centre, so there is
+  # nothing to send for that.
+  private def use_channels(count)
+    ch = @channels
+    while ch < count
+      @router.emit(:mml, [:control_change, ch, 10, @pan]) unless @pan == 64
+      ch += 1
+    end
+    @channels = count if @channels < count
+    self
+  end
+
   # Silence whatever is sounding, leaving the amplifier as it is.
   private def halt
     player = @player
@@ -92,7 +110,7 @@ class Speaker
 
   # A single note, for when a melody would be overkill. 60 is middle C.
   def note_on(note, velocity: 100, channel: 0)
-    @channels = channel + 1 if @channels <= channel
+    use_channels(channel + 1)
     unmute
     @router.emit(:mml, [:note_on, channel, note, velocity])
     self

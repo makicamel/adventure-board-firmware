@@ -371,6 +371,28 @@ check("and puts volume and program back") {
   sink.events.include?([:control_change, 1, 7, 127]) && sink.events.include?([:program_change, 1, 0])
 }
 check("without touching the amplifier") { GPIO.read_at(Board::AMP_SD_PIN) == 1 }
+check("and the pan to the centre, for a speaker that was not told otherwise") {
+  sink.events.include?([:control_change, 1, 10, 64])
+}
+
+GPIO.reset
+sink = RecordingSink.new
+spk = Speaker.new(sink: sink, pan: Board::PSG_SPEAKER_PAN)
+check("a speaker on one side pans its first channel there") {
+  sink.events == [[:control_change, 0, 10, Board::PSG_SPEAKER_PAN]]
+}
+spk.play_mml(["c", "e", "g"])
+check("and every channel a piece brings into use") {
+  sink.events.include?([:control_change, 1, 10, Board::PSG_SPEAKER_PAN]) &&
+    sink.events.include?([:control_change, 2, 10, Board::PSG_SPEAKER_PAN])
+}
+spk.stop
+sink.events.clear
+spk.reset
+check("reset goes back to that side, not to the centre") {
+  sink.events.include?([:control_change, 2, 10, Board::PSG_SPEAKER_PAN]) &&
+    !sink.events.include?([:control_change, 2, 10, 64])
+}
 
 puts "12. the note log reads events back as names"
 log = NoteLog.new
