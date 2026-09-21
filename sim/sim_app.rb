@@ -28,6 +28,15 @@ $app = nil
 $device = DeviceLink.new
 
 
+# Where the code typed into the page is evaluated. A method at the top level
+# on purpose: a `def` in the user's code is then defined where a script's own
+# top-level `def` would be on the board, on Object, and can be called from the
+# rest of that code. Evaluated inside SimApp it landed on SimApp instead, and
+# `draw_bar(...)` two lines later was a NoMethodError -- on the simulator only.
+def run_user_source(source)
+  eval(source)
+end
+
 # Turns a program into HTML for the coloured copy of the code box: one
 # <span class="kN"> per run of bytes that SyntaxHighlight gave the same
 # category. Prism's tokens begin and end on character boundaries, so cutting
@@ -65,22 +74,19 @@ module CodeColors
 end
 
 class SimApp < Funicular::Component
+  # In the order someone new would want them: one dot, then brightness, then
+  # drawing and text, then things that move, then input, then sound.
   EXAMPLES = [
-    ["漢字（要ローカル wasm）", "kanji.rb"],
-    ["文字スクロール（要ローカル wasm）", "scroll.rb"],
-    ["線と矩形（要ローカル wasm）", "shapes.rb"],
-    ["1ドット", "one_dot.rb"],
-    ["ステータス LED", "status_led.rb"],
+    ["1 ドット光らせる", "one_dot.rb"],
+    ["明るさを変える", "gradient.rb"],
+    ["線と四角を描く", "shapes.rb"],
+    ["漢字を出す", "kanji.rb"],
+    ["文字を流す", "scroll.rb"],
+    ["動き続ける", "spinner.rb"],
     ["ボタンで動かす", "buttons.rb"],
-    ["自動で動く（ループ確認）", "spinner.rb"],
-    ["MML でメロディ", "melody.rb"],
-    ["音に合わせて光る", "sound_and_light.rb"],
-    ["L 字（チップ境界をまたぐ）", "l_shape.rb"],
-    ["左端の縦一列（列反転の確認）", "left_column.rb"],
-    ["初期化忘れ（光らない）", "forgot_setup.rb"],
-    ["市松模様", "checker.rb"],
-    ["枠と対角線", "frame.rb"],
-    ["グラデーション", "gradient.rb"]
+    ["ステータス LED", "status_led.rb"],
+    ["メロディを鳴らす", "melody.rb"],
+    ["音と光", "sound_and_light.rb"]
   ]
 
   # Pins as on the board (Board::BUTTON_PINS). B sits left of A there too.
@@ -119,7 +125,7 @@ class SimApp < Funicular::Component
     stop_task
     $user_task = Task.new(name: "sim-user") do
       begin
-        eval(source)
+        run_user_source(source)
       rescue Exception => e
         $app.report("実行エラー", e) if $app
       end
@@ -134,7 +140,6 @@ class SimApp < Funicular::Component
       status: "準備しています…",
       kind: "busy",
       gcc: 32,
-      audio_on: false,
       notes_visible: false,
       held: [],
       device: :none,
@@ -189,16 +194,21 @@ class SimApp < Funicular::Component
       end
 
       div(class: "code-side") do
-        div(class: "controls") do
-          select(id: "examples", onchange: :on_example) { example_options }
-          button(id: "run", class: "primary", onclick: :on_run) { "Run" }
-          button(id: "audio", onclick: :on_audio) { state[:audio_on] ? "音: 有効" : "音を有効にする" }
-          button(id: "notes-toggle", onclick: :on_notes_toggle) do
-            state[:notes_visible] ? "鳴った音を隠す" : "鳴った音を見る"
+        # Two boxes, so that it is plain which buttons act on the picture on
+        # the left and which on a board at the end of a cable -- "Reset" on
+        # its own could have been either.
+        div(class: "group") do
+          span(class: "group-title") { "シミュレータ" }
+          div(class: "controls") do
+            select(id: "examples", onchange: :on_example) { example_options }
+            button(id: "run", class: "primary", onclick: :on_run) { "Run" }
+            button(id: "reset", onclick: :on_reset) { "シミュレータをリセット" }
           end
-          button(id: "reset", onclick: :on_reset) { "Reset" }
         end
-        div(class: "controls") { device_controls }
+        div(class: "group") do
+          span(class: "group-title") { "実機（USB）" }
+          div(class: "controls") { device_controls }
+        end
         div(class: "editor") do
           tag("pre", id: "code-colors") { "" }
           textarea(ref: :codebox, id: "code", spellcheck: "false")
@@ -212,9 +222,11 @@ class SimApp < Funicular::Component
             hidden: state[:device] == :none ? "hidden" : nil)
         # Kept in the document even when hidden: it is how a melody can be
         # checked without hearing it, and the browser harness reads it.
-        div(class: "legend", style: "margin-top:12px",
-            hidden: state[:notes_visible] ? nil : "hidden") do
-          "鳴った音"
+        # Down here by the log it opens, as a line of text rather than a
+        # button: up in the row with Run it was in the way of the buttons
+        # that get pressed all the time.
+        button(id: "notes-toggle", class: "disclosure", onclick: :on_notes_toggle) do
+          state[:notes_visible] ? "▾ 鳴った音" : "▸ 鳴った音を見る"
         end
         # `pre` is not one of the DSL's tags, so it goes through the generic
         # helper.
@@ -242,6 +254,14 @@ class SimApp < Funicular::Component
     button(id: "device-run", class: "primary", onclick: :on_device_run,
            disabled: (connected && !busy) ? nil : "disabled") do
       "実機で実行"
+    end
+    button(id: "device-reboot", onclick: :on_device_reboot,
+           disabled: (connected && !busy) ? nil : "disabled") do
+      "実機を再起動"
+    end
+    button(id: "device-clear", onclick: :on_device_clear,
+           disabled: (connected && !busy) ? nil : "disabled") do
+      "実機の app.rb を空にする"
     end
     span(class: "legend") { "USB でつなぐ。ポートは R2P2 の 1 番目（CDC0）を選ぶ" }
     nil
@@ -335,7 +355,12 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # Run is also what switches the sound on. A browser only lets a page make
+  # sound from inside a click, and this is the click everyone makes anyway;
+  # it used to take a button of its own, which was easy to forget, and then a
+  # melody played in silence.
   def on_run(_event)
+    enable_audio
     box = refs[:codebox]
     run(box ? box[:value].to_s : "")
     nil
@@ -395,6 +420,61 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # "実機で実行" writes to /home/app.rb, which R2P2 runs at every start. This
+  # stops the program and leaves a line that does nothing there instead.
+  def on_device_clear(_event)
+    patch(device: :busy, status: "実機の #{DeviceLink::PATH} を空にしています…", kind: "busy")
+    Task.new(name: "device-clear") do
+      begin
+        $device.clear_program
+        $app.device_cleared(nil) if $app
+      rescue Exception => e
+        $app.device_cleared(e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_cleared(error)
+    patch(device: $device.connected? ? :connected : :none)
+    if error
+      report("実機の app.rb を空にする", error)
+    else
+      patch(kind: "ok", status: "実機のプログラムを止めて、#{DeviceLink::PATH} を何もしない 1 行にしました。" \
+                                "次に起動しても何も走りません。")
+    end
+    nil
+  end
+
+  # Stops the program on the board and restarts it. The link drops while it
+  # restarts and comes back by itself; draw_device reports both.
+  def on_device_reboot(_event)
+    patch(device: :busy, status: "実機を再起動しています…", kind: "busy")
+    Task.new(name: "device-reboot") do
+      begin
+        $device.reboot
+        $app.device_rebooting(nil) if $app
+      rescue Exception => e
+        $app.device_rebooting(e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_rebooting(error)
+    if error
+      patch(device: $device.connected? ? :connected : :none)
+      report("実機の再起動", error)
+    else
+      # Still shown as connected until the port actually goes; draw_device
+      # takes it from there.
+      patch(device: $device.connected? ? :connected : :none, kind: "busy",
+            status: "実機を再起動しました。起動し終わると自動でつなぎ直します。" \
+                    "#{DeviceLink::PATH} に入っているプログラムは、起動するとまた走ります。")
+    end
+    nil
+  end
+
   def device_finished(error)
     state_now = $device.connected? ? :connected : :none
     if error
@@ -407,24 +487,23 @@ class SimApp < Funicular::Component
     nil
   end
 
-  # Synchronous on purpose: the browser only lifts its autoplay block for code
-  # running on the gesture's own stack.
   def on_notes_toggle(_event)
     patch(notes_visible: !state[:notes_visible])
     nil
   end
 
-  def on_audio(_event)
-    begin
-      unless $audio_sink.backend
-        web = WebAudioSpeaker.new
-        web.resume
-        $audio_sink.backend = web
-      end
-      patch(audio_on: true, status: "音を有効にしました。", kind: "ok")
-    rescue Exception => e
-      report("音の有効化", e)
-    end
+  # Has to run on the click's own stack (nothing awaited before it): that is
+  # the only place the browser lifts its autoplay block. Once is enough. A
+  # page that cannot make sound still runs the program, and the note log
+  # still shows what would have played.
+  def enable_audio
+    return if $audio_sink.backend
+    web = WebAudioSpeaker.new
+    web.resume
+    $audio_sink.backend = web
+    nil
+  rescue Exception => e
+    JS.global[:console].error("音を有効にできませんでした: #{e.class}: #{e.message}")
     nil
   end
 
@@ -486,8 +565,12 @@ class SimApp < Funicular::Component
   # The log is read on the heartbeat, like the notes. So is a cable pulled out:
   # the port goes away without anyone clicking anything.
   def draw_device
-    if state[:device] != :none && !$device.connected?
-      patch(device: :none, status: "実機との接続が切れました", kind: "error")
+    if state[:device] == :connected && !$device.connected?
+      patch(device: :none, kind: "busy",
+            status: "実機との接続が切れました。再起動や挿し直しなら、戻ってきたら自動でつなぎ直します。")
+    elsif state[:device] == :none && $device.connected?
+      # The link came back without anyone clicking (DeviceLink#watch_for_return).
+      patch(device: :connected, status: "実機につなぎ直しました。", kind: "ok")
     end
     el = refs[:devicelog]
     return nil unless el
@@ -574,7 +657,7 @@ class SimApp < Funicular::Component
 
   # The run loop is a class method — it outlives any one render — and it pokes
   # the mounted instance, so these two cannot stay private.
-  public :draw, :report, :device_finished
+  public :draw, :report, :device_finished, :device_rebooting, :device_cleared
 end
 
 Funicular.start(SimApp, container: 'app')

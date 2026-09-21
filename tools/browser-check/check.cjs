@@ -3,7 +3,7 @@
 // canvas as text so a result can be asserted on rather than eyeballed.
 //
 //   rake sim:check              all examples
-//   rake sim:check[l_shape]     one example
+//   rake sim:check[one_dot]     one example
 //
 // Screenshots land in tmp/browser-check/ (git-ignored).
 
@@ -205,6 +205,21 @@ async function main() {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 
+  // Every AudioContext the page makes is kept where the check can see it: Run
+  // is what switches the sound on, and that only works from inside the click.
+  await page.addInitScript(() => {
+    const Real = window.AudioContext;
+    window.__audioContexts = [];
+    if (Real) {
+      window.AudioContext = function (...args) {
+        const ctx = new Real(...args);
+        window.__audioContexts.push(ctx);
+        return ctx;
+      };
+      window.AudioContext.prototype = Real.prototype;
+    }
+  });
+
   page.on('console', (m) => {
     const line = `[${m.type()}] ${m.text()}`;
     messages.push(line);
@@ -259,9 +274,9 @@ async function main() {
       const name = opt.value.replace(/\.rb$/, '');
       if (ONLY && name !== ONLY) continue;
 
-      // Each example starts from a fresh board. Without this an example that
-      // resets a chip (forgot_setup does, deliberately) leaves it at its
-      // power-on state, and every later example shows only the other half.
+      // Each example starts from a fresh board. Run alone keeps the board's
+      // state, as a real one does, so whatever one example left in the chips
+      // or the interrupt table would show in the next.
       await page.click('#reset');
       await page.waitForTimeout(300);
 
@@ -284,13 +299,10 @@ async function main() {
       console.log(`\n# example: ${opt.label} (${opt.value})  [${code.length} bytes of code]`);
       console.log(`# status (${cls}): ${st}`);
       console.log(`# code colours: ${await readCodeColors(page)}`);
+      console.log(`# audio after Run: ${await page.evaluate(() =>
+        (window.__audioContexts || []).map((c) => c.state).join(' ') || 'no AudioContext')}, ` +
+        `audio button: ${(await page.$('#audio')) ? 'STILL THERE' : 'gone'}`);
       show(name, await readPanel(page));
-
-      // Audio has to be switched on from a user gesture before a synth exists.
-      if (i === 0) {
-        await page.click('#audio');
-        await page.waitForTimeout(300);
-      }
 
 
       // Examples that read the buttons need someone to press them.

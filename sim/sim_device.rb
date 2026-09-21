@@ -41,12 +41,19 @@ class DeviceLink
     false
   end
 
+  # What `clear_program` leaves in PATH. R2P2 runs PATH at every start, so the
+  # last program sent from this page starts again with the board; with this
+  # in its place the board comes up idle, at its prompt.
+  IDLE_PROGRAM = "# The simulator page cleared the program that was here.\n"
+
   def initialize
     @port = nil
     @rx = ""
     @log = ""
     @in_transfer = false
     @escape = false
+    @wanted = false       # someone pressed connect and has not pressed disconnect
+    @watching = false
   end
 
   # What the board printed, without its terminal escapes, trimmed to the tail.
@@ -58,20 +65,42 @@ class DeviceLink
 
   # Opens the browser's port picker, so it has to run from a click.
   def connect
-    port = JS::WebSerial.connect(baud_rate: 115200)
-    @port = port
-    @rx = ""
-    port.on_receive { |bytes| receive(bytes) }
-    port.on_disconnect { @port = nil }
+    attach(JS::WebSerial.connect(baud_rate: 115200))
+    @wanted = true
+    watch_for_return
     # An Enter brings the prompt back, which shows the link is alive.
     send_text("\r")
     nil
   end
 
   def disconnect
+    @wanted = false
     port = @port
     @port = nil
     port.close if port
+    nil
+  end
+
+  # Stops the program and restarts the board with the shell's own `reboot`
+  # (the watchdog, so the peripherals go back to their power-on state as
+  # well). PATH is left alone: like switching the power off and on, the board
+  # starts the program that is there again. USB drops with the restart: the
+  # port goes away here and comes back through watch_for_return.
+  def reboot
+    raise "実機に接続されていません" unless @port
+    interrupt
+    send_text("reboot\r")
+    nil
+  end
+
+  # Stops the program and puts a line that does nothing in its place, so that
+  # the board no longer runs anything when it starts.
+  def clear_program
+    raise "実機に接続されていません" unless @port
+    interrupt
+    upload(IDLE_PROGRAM, PATH)
+    wait_for_text("[PicoModem] write", TIMEOUT_MS)
+    wait_for_prompt(TIMEOUT_MS)
     nil
   end
 
@@ -127,6 +156,44 @@ class DeviceLink
   end
 
   private
+
+  def attach(port)
+    @port = port
+    @rx = ""
+    port.on_receive { |bytes| receive(bytes) }
+    port.on_disconnect { @port = nil }
+    nil
+  end
+
+  # A port the page was once allowed to use can be opened again without the
+  # picker, and the browser says when one appears. So a board that restarts,
+  # or a cable put back, reconnects by itself -- unless disconnect was pressed.
+  # Nothing is sent on the way back in: the board is still starting, and R2P2
+  # listens for a key at that point.
+  def watch_for_return
+    return nil if @watching
+    @watching = true
+    JS::WebSerial._watch_connect_events
+    JS.global.addEventListener("serial-port-connect") do |_event|
+      Task.new(name: "device-return") do
+        begin
+          come_back
+        rescue Exception => e
+          JS.global[:console].error("実機の再接続に失敗しました: #{e.class}: #{e.message}")
+        end
+      end
+    end
+    nil
+  end
+
+  def come_back
+    raw = JS::WebSerial._take_last_connected_port
+    return nil if raw.nil? || !@wanted || @port
+    port = JS::WebSerial.new(raw)
+    port.open(baud_rate: 115200)
+    attach(port)
+    nil
+  end
 
   def receive(bytes)
     return if bytes == true # the disconnect sentinel
