@@ -70,6 +70,13 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 | 実機を再起動 | Ctrl-C のあとシェルの `reboot`（ウォッチドッグによる再起動。周辺回路も電源投入時の状態に戻る）。`/home/app.rb` は触らないので、**起動するとそのプログラムがまた走る**（R2P2 は起動のたびに `/home/app.rb` を実行する） |
 | 実機の app.rb を空にする | Ctrl-C のあと `/home/app.rb` を何もしない 1 行に書き換える。走っているプログラムが止まり、次に起動しても何も走らない |
 
+**「実機の端末」は本物の端末（xterm.js）。** つないだあとはそこに打てば R2P2 のシェルがそのまま使える（`ls` `free` `irb` `vim` …）。
+基板の出力は stock の `JS::WebSerial#start_terminal_read` が JS 側で直接端末に流し、Ruby 側は「実機で実行」などのあいだだけ
+横から覗く（プロンプト待ちは `capture_*`、PicoModem のフレームは `binary_capture_*`。PicoRuby の Web コンソール
+`picoruby-wasm/demo/www/terminal.html` と同じ作り）。ページが基板と話しているあいだ、打鍵は捨てられる。
+端末にフォーカスがあるあいだ、矢印キー / Z / X はシミュレータのボタンにならない。下辺をドラッグすると高さを変えられる。
+ページ自身が書く行は `[接続] …` と薄い色で出る。
+
 再起動すると USB が一度切れる。**一度許可したポートはブラウザがクリックなしで開き直せる**ので、基板が戻ってくると自動でつなぎ直す
 （ケーブルの挿し直しでも同じ。「実機を切断」を押したあとはつなぎ直さない）。仕組みは stock の `JS::WebSerial` が持っている
 `_watch_connect_events` / `_take_last_connected_port`。戻ってくる途中の基板には何も送らない（起動中の R2P2 はキー入力を待っているため）。
@@ -104,9 +111,10 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 |---|---|---|
 | `sim_panel.rb` | ハードの代役: `I2C` / `GPIO` / `IRQ` / 仮想チップ `VirtualIS31FL3729` / それを 16×16 にまとめる `Panel`。`require` のシムもここ | **なし** |
 | `sim_audio.rb` | 音の側: `Machine` の代替、鳴った音の記録 `NoteLog`、あとから音源を差し替えられる `SwitchableSink`、`WebAudioSpeaker` | あり |
-| `sim_device.rb` | 実機との USB 接続と転送（`DeviceLink`）。サンプルからは呼ばない | あり |
+| `sim_device.rb` | 実機との USB 接続（`DeviceLink`）: 端末への配線、PicoModem での転送、再起動、自動再接続。サンプルからは呼ばない | あり |
 | `sim_app.rb` | ページの UI。Funicular のコンポーネント `SimApp`（ボタン・サンプル選択・状態表示・ユーザのコードの実行）と、コードの色付けの `CodeColors` | あり |
-| `index.html` | ページ、スタイル、JS に残した 2 つ（canvas の描画 `renderPanel`、色付きの層 `setCodeColors`）、ソースの読み込み | — |
+| `index.html` | ページ、スタイル、JS に残した 3 つ（canvas の描画 `renderPanel`、色付きの層 `setCodeColors`、端末を作る `deviceTerminal`）、ソースの読み込み | — |
+| `xterm/` | xterm.js 6.0.0 とフィットのアドオン（MIT、そのまま同梱） | — |
 | `examples/` | ページで選べるサンプル。実機の `/home/examples` にも同じものが入る | — |
 | `test/panel_test.rb` | ヘッドレス検証 | **なし** |
 

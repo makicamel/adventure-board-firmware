@@ -25,7 +25,7 @@ $board.speaker.router.connect(:mml, $notelog)
 $app = nil
 # The real board over USB. Page machinery like the note log: a sample never
 # sees it, it only carries the sample to the board.
-$device = DeviceLink.new
+$device = nil   # made once the page is up: it needs the terminal's box (SimApp#component_mounted)
 
 
 # Where the code typed into the page is evaluated. A method at the top level
@@ -143,13 +143,13 @@ class SimApp < Funicular::Component
       notes_visible: false,
       held: [],
       device: :none,
-      device_seen: false,   # the board has been connected at least once
       device_supported: DeviceLink.supported?
     }
   end
 
   def component_mounted
     $app = self
+    wire_device
     wire_keyboard
     start_monitor
     draw
@@ -215,14 +215,15 @@ class SimApp < Funicular::Component
           textarea(ref: :codebox, id: "code", spellcheck: "false")
         end
         div(id: "status", class: state[:kind]) { state[:status] }
-        # Shown from the first connection on, and kept while the link is
-        # down: that is when the log says what the reconnection is doing.
-        div(class: "legend", style: "margin-top:12px",
-            hidden: state[:device_seen] ? nil : "hidden") do
-          "実機の出力"
+        # The board's shell. There from the start (xterm.js has to open into
+        # a box that has a size) wherever the browser can do WebSerial.
+        # Not `hidden: nil`: on the first render Funicular writes a nil
+        # attribute as hidden="" (only its own list of boolean attributes is
+        # treated as such), and the box would start out hidden.
+        if state[:device_supported]
+          div(class: "legend", style: "margin-top:12px") { "実機の端末（つないだあとは、ここに打てる）" }
+          div(id: "devicelog")
         end
-        tag("pre", ref: :devicelog, id: "devicelog",
-            hidden: state[:device_seen] ? nil : "hidden")
         # Kept in the document even when hidden: it is how a melody can be
         # checked without hearing it, and the browser harness reads it.
         # Down here by the log it opens, as a line of text rather than a
@@ -395,7 +396,7 @@ class SimApp < Funicular::Component
         patch(device: :none, status: "実機を切断しました", kind: "ok")
       else
         $device.connect
-        patch(device: :connected, device_seen: true, kind: "ok",
+        patch(device: :connected, kind: "ok",
               status: "実機に接続しました。シェルの出力は下に出ます。")
       end
     rescue Exception => e
@@ -574,13 +575,19 @@ class SimApp < Funicular::Component
       # The link came back without anyone clicking (DeviceLink#watch_for_return).
       patch(device: :connected, status: "実機につなぎ直しました。", kind: "ok")
     end
-    el = refs[:devicelog]
-    return nil unless el
-    text = $device.log
-    return nil if text == $device_log_shown
-    $device_log_shown = text
-    el[:textContent] = text
-    el[:scrollTop] = el[:scrollHeight].to_i
+    nil
+  end
+
+  # The board's shell lives in an xterm.js terminal (index.html makes it),
+  # and what is typed there goes to the board through the link.
+  def wire_device
+    return nil unless state[:device_supported]
+    term = JS.global.deviceTerminal
+    return nil unless term
+    $device = DeviceLink.new(term)
+    term.onData do |data|
+      $device.type(data.to_s)
+    end
     nil
   end
 
@@ -625,16 +632,26 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # Arrow keys and Z / X are the board's buttons -- unless the keys are going
+  # somewhere else: the code box, or the terminal (xterm has a hidden textarea
+  # of its own).
   def wire_keyboard
     JS.document.addEventListener('keydown') do |event|
       pin = KEY_PINS[event[:key].to_s]
-      hold(pin, true) if pin
+      hold(pin, true) if pin && !typing?(event)
     end
     JS.document.addEventListener('keyup') do |event|
       pin = KEY_PINS[event[:key].to_s]
-      hold(pin, false) if pin
+      hold(pin, false) if pin && !typing?(event)
     end
     nil
+  end
+
+  def typing?(event)
+    tag = event[:target][:tagName].to_s
+    tag == "TEXTAREA" || tag == "INPUT"
+  rescue Exception
+    false
   end
 
   def load_example(path)

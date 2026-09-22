@@ -185,8 +185,8 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
   stock パッケージで動く**。C 拡張（`psg` / `gpio` / `pwm` / `vram` / `shinonome`）は動かない
 - **実機の USB シリアルをブラウザ（WebSerial）で使うときは、WSL から外しておく。**
   `usbipd attach` したままだと Windows のブラウザのポート一覧に出ない
-- **`JS::WebSerial` の `binary_capture_*` は、`start_terminal_read`（xterm へ流す読み取り）と
-  組でしか動かない。** `on_receive` で受けるなら、フレームは自前で切り出す（`sim/sim_device.rb`）
+- **`JS::WebSerial` の `binary_capture_*` / `capture_*` は、`start_terminal_read`（xterm へ流す読み取り）と
+  組でしか動かない。** `on_receive` で受けるなら、フレームは自前で切り出す必要がある（ページは今は端末読みに統一した）
 
 - **gem の初期化が 1 つ失敗すると、それより後ろの gem は全部初期化されない。しかも何も出ない。**
   `mrb_open()` は例外を抱えたままの VM を返し、`picorb_init` は NULL しか見ていない。wasm に入れた
@@ -209,13 +209,20 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **`Task.new` のブロックは、書いた場所のオブジェクトを `self` として走らない。** インスタンス変数は読めず、自分のメソッドも
   呼べない（`NoMethodError` か、`@x` が nil で黙って何もしない）。`link = self` で渡して名前で呼ぶ。イベントリスナのブロックも同じ
 - **`JS::WebSerial#close` は `on_receive` で読んでいるポートでは永久に戻らない**（読み取りループを止める仕組みが端末用の
-  `start_terminal_read` にしか無い）。待たない `JS::WebSerial._close_port(raw)` を使う（`sim/sim_device.rb` の `close_without_waiting`）
+  `start_terminal_read` にしか無い）。ページは `start_terminal_read`（xterm.js に直接流す）で読むので今は問題ない。
+  `on_receive` で読むなら、待たない `JS::WebSerial._close_port(raw)` を使う
+- **実機の端末（xterm.js）と転送の作りは [sim/README.md](sim/README.md) の「実機で実行」。** プロンプト待ちは `capture_peek`、
+  PicoModem は `binary_capture_read`（オンのあいだ端末には流れない）。転送のあと基板が出す `[PicoModem] write` とプロンプトは
+  バイナリ側に先に入っていることがあるので、`$> ` までバイナリ側で読み切ってから端末に書く（切り替えの隙間で落ちる）
 - **`JS::Object` 同士の `==` は同じ JS オブジェクトでも偽になる**（参照 ID の比較で、Ruby 側から見るたびに新しい ID が付く）。
   見分けたければ JS オブジェクトにプロパティで印を付ける
 - **WebSerial の再接続は `tools/browser-check/reconnect-check.cjs`**（偽の `navigator.serial`）で実機なしに確かめられる
 - **ハートビートで「前回表示した文字列」と比べるなら、`<<` で伸ばした文字列を渡さない。**
   覚えておいた値も同じオブジェクトなので一緒に伸び、いつ比べても等しくなって表示が止まる。
   `@log = @log + out` のように新しい文字列を作る
+- **属性に `nil` を渡すと、最初の描画では `hidden=""` のように空文字で書かれる**（`setAttribute(key, nil.to_s)`。
+  `disabled` など Funicular 自身の真偽属性の一覧にあるものだけ外される）。更新時は外れるので、
+  「最初から出ているはずの要素が隠れている」ときはこれ。出し分けは `if` でタグごと切り替える
 - **Funicular がマウントする要素を、スクリプト読み込み時に掴んではいけない。**
   まだ存在しない。遅延取得する
 
