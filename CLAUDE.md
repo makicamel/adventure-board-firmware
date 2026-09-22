@@ -4,7 +4,8 @@ PicoRuby のフォーク。**picorubykaigi01-board**（RP2350A / 16×16 LED マ�
 音声 / ボタン / GROVE、PicoRubyKaigi の学習用配布基板）のファームウェアを作る。
 
 試作基板 r1 が手元にある（**Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド）。
-r1 は USB が死んでいるので J2 から SWD / UART で触る。
+r1 の USB は元は死んでいたが、手で配線して USB シリアルが使えるようになっている（Windows 側では 16c0:400f、CDC が複数）。
+書き込みと UART コンソールは J2 の Debug Probe から、ブラウザの WebSerial は USB から。**USB 側は WSL に attach しない**。
 **手順書: [dev-docs/device-bringup/probe-workflow.md](dev-docs/device-bringup/probe-workflow.md)**
 （経緯は [r1-board.md](dev-docs/device-bringup/r1-board.md)）。
 基板が来るまでの開発機は **Raspberry Pi Pico 2 W** だった。
@@ -205,6 +206,13 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - クラスメソッドからインスタンスを叩くなら `public :foo` が要る
 - **速く変わるものは state に置かない。** canvas / テキストエリア / ログは `ref` で持つ
   （毎回 VDOM 差分が走る。テキストエリアを state にするとカーソルが飛ぶ）
+- **`Task.new` のブロックは、書いた場所のオブジェクトを `self` として走らない。** インスタンス変数は読めず、自分のメソッドも
+  呼べない（`NoMethodError` か、`@x` が nil で黙って何もしない）。`link = self` で渡して名前で呼ぶ。イベントリスナのブロックも同じ
+- **`JS::WebSerial#close` は `on_receive` で読んでいるポートでは永久に戻らない**（読み取りループを止める仕組みが端末用の
+  `start_terminal_read` にしか無い）。待たない `JS::WebSerial._close_port(raw)` を使う（`sim/sim_device.rb` の `close_without_waiting`）
+- **`JS::Object` 同士の `==` は同じ JS オブジェクトでも偽になる**（参照 ID の比較で、Ruby 側から見るたびに新しい ID が付く）。
+  見分けたければ JS オブジェクトにプロパティで印を付ける
+- **WebSerial の再接続は `tools/browser-check/reconnect-check.cjs`**（偽の `navigator.serial`）で実機なしに確かめられる
 - **ハートビートで「前回表示した文字列」と比べるなら、`<<` で伸ばした文字列を渡さない。**
   覚えておいた値も同じオブジェクトなので一緒に伸び、いつ比べても等しくなって表示が止まる。
   `@log = @log + out` のように新しい文字列を作る
@@ -431,7 +439,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ r1 の GROVE2（J5）: 信号線 2 本をジャンパでつなぎ、導通（両方向）と
   PIO UART（TX=GPIO28 → RX=GPIO29、0〜255 の全バイト）を確認。
   ADC とピン順（同じ部品なので逆の可能性が高い）は未確認
-- ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB が死んでいるので必須）。
+- ✅ R2P2 コンソールを UART にも出す（`R2P2_CONSOLE_UART=1`。r1 は USB を手で直したが、Probe の UART からも同時に叩ける）。
   `R2P2_PORT=/dev/ttyACM0 tools/r2p2dev.py run ...` でプローブの UART から叩ける
 - ✅ シミュレータのページから USB で実機に送って実行（[実機で実行]、WebSerial + PicoModem）。
   USB を直した基板で確認。何度も実行すると実機が応答しなくなる件は、PSG（core1）を止めずにフラッシュへ書いていたのが原因で、修正済み

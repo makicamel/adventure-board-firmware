@@ -143,6 +143,7 @@ class SimApp < Funicular::Component
       notes_visible: false,
       held: [],
       device: :none,
+      device_seen: false,   # the board has been connected at least once
       device_supported: DeviceLink.supported?
     }
   end
@@ -214,12 +215,14 @@ class SimApp < Funicular::Component
           textarea(ref: :codebox, id: "code", spellcheck: "false")
         end
         div(id: "status", class: state[:kind]) { state[:status] }
+        # Shown from the first connection on, and kept while the link is
+        # down: that is when the log says what the reconnection is doing.
         div(class: "legend", style: "margin-top:12px",
-            hidden: state[:device] == :none ? "hidden" : nil) do
+            hidden: state[:device_seen] ? nil : "hidden") do
           "実機の出力"
         end
         tag("pre", ref: :devicelog, id: "devicelog",
-            hidden: state[:device] == :none ? "hidden" : nil)
+            hidden: state[:device_seen] ? nil : "hidden")
         # Kept in the document even when hidden: it is how a melody can be
         # checked without hearing it, and the browser harness reads it.
         # Down here by the log it opens, as a line of text rather than a
@@ -263,7 +266,6 @@ class SimApp < Funicular::Component
            disabled: (connected && !busy) ? nil : "disabled") do
       "実機の app.rb を空にする"
     end
-    span(class: "legend") { "USB でつなぐ。ポートは R2P2 の 1 番目（CDC0）を選ぶ" }
     nil
   end
 
@@ -393,7 +395,7 @@ class SimApp < Funicular::Component
         patch(device: :none, status: "実機を切断しました", kind: "ok")
       else
         $device.connect
-        patch(device: :connected, kind: "ok",
+        patch(device: :connected, device_seen: true, kind: "ok",
               status: "実機に接続しました。シェルの出力は下に出ます。")
       end
     rescue Exception => e

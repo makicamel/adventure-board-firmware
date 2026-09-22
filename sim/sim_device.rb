@@ -54,6 +54,9 @@ class DeviceLink
     @escape = false
     @wanted = false       # someone pressed connect and has not pressed disconnect
     @watching = false
+    @returning = false
+    @seen_ports = nil
+    @probe = nil
   end
 
   # What the board printed, without its terminal escapes, trimmed to the tail.
@@ -65,7 +68,9 @@ class DeviceLink
 
   # Opens the browser's port picker, so it has to run from a click.
   def connect
-    attach(JS::WebSerial.connect(baud_rate: 115200))
+    port = JS::WebSerial.connect(baud_rate: 115200)
+    attach(port)
+    raw_of(port)[:picorubyShell] = true   # the one that was picked: tried first when it comes back
     @wanted = true
     watch_for_return
     # An Enter brings the prompt back, which shows the link is alive.
@@ -77,7 +82,7 @@ class DeviceLink
     @wanted = false
     port = @port
     @port = nil
-    port.close if port
+    close_without_waiting(port) if port
     nil
   end
 
@@ -158,40 +163,175 @@ class DeviceLink
   private
 
   def attach(port)
+    wire(port)
     @port = port
+    nil
+  end
+
+  # What comes in on the port goes to receive; `@port` is set separately,
+  # once the port is known to be the shell, because the page takes `@port`
+  # to mean "connected".
+  def wire(port)
     @rx = ""
     port.on_receive { |bytes| receive(bytes) }
-    port.on_disconnect { @port = nil }
+    port.on_disconnect do
+      @port = nil if @port == port
+      @probe = nil if @probe == port
+      note("接続が切れました")
+    end
     nil
   end
 
   # A port the page was once allowed to use can be opened again without the
   # picker, and the browser says when one appears. So a board that restarts,
   # or a cable put back, reconnects by itself -- unless disconnect was pressed.
-  # Nothing is sent on the way back in: the board is still starting, and R2P2
-  # listens for a key at that point.
+  #
+  # Which port is not taken from the event: the board has three (shell,
+  # debug, MIDI), they come up together, and the page may have been allowed
+  # more than one of them over time. Every allowed port is tried, and the one
+  # that shows the shell's prompt is kept. Nothing is typed at a board that is
+  # still starting: its own boot text ends in the prompt, and only a port that
+  # stays silent gets an Enter.
   def watch_for_return
     return nil if @watching
     @watching = true
     JS::WebSerial._watch_connect_events
+    # A block given to Task.new (or to an event listener) does not run with
+    # this object as self, so the link is handed in by name.
+    link = self
     JS.global.addEventListener("serial-port-connect") do |_event|
+      JS::WebSerial._take_last_connected_port   # not used; cleared so it does not pile up
       Task.new(name: "device-return") do
-        begin
-          come_back
-        rescue Exception => e
-          JS.global[:console].error("実機の再接続に失敗しました: #{e.class}: #{e.message}")
-        end
+        sleep_ms 1000                            # the other two ports are enumerating too
+        link.look_for_return(true)
+      end
+    end
+    # And a look every few seconds regardless, in case the browser's notice
+    # does not come.
+    Task.new(name: "device-watch") do
+      while true
+        sleep_ms 3000
+        link.look_for_return(false)
       end
     end
     nil
   end
 
-  def come_back
-    raw = JS::WebSerial._take_last_connected_port
-    return nil if raw.nil? || !@wanted || @port
+  # `announced`: the browser said a port appeared (as opposed to the periodic
+  # look), which is worth a line in the log even when nothing comes of it.
+  def look_for_return(announced)
+    return nil if !@wanted || @port || @returning
+    come_back(announced)
+  rescue Exception => e
+    note("再接続に失敗しました: #{e.class}: #{e.message}")
+    nil
+  end
+
+  def come_back(announced)
+    @returning = true
+    ports = JS.global[:navigator][:serial].getPorts.await
+    n = ports[:length].to_i
+    if n != @seen_ports
+      @seen_ports = n
+      note("ブラウザが許可済みとして持っているポート: #{n} 本")
+    end
+    if announced || 0 < n
+      note("#{announced ? 'ポートが戻ってきました。' : ''}許可済みの #{n} 本からシェルを探します")
+    end
+    list = ordered(ports, n)
+    i = 0
+    while i < n && @port.nil?
+      try_port(i, list[i])
+      i += 1
+    end
+    if @port
+      note("つなぎ直しました")
+    elsif 0 < n
+      note("シェルのポートが見つかりませんでした。数秒後にもう一度探します")
+    end
+    nil
+  ensure
+    @returning = false
+  end
+
+  # Keeps the port if the shell's prompt shows up on it: within a boot's
+  # worth of time by itself, or right after an Enter.
+  # The port that was the shell last time is tried first: the browser hands
+  # out the same object for the same port, so after the first return the
+  # right one is found at once instead of after the others' time-outs. The
+  # object is marked rather than remembered, because every look at it from
+  # here is a new wrapper and two wrappers never compare equal.
+  def ordered(ports, n)
+    list = []
+    i = 0
+    while i < n
+      raw = ports[i]
+      if raw[:picorubyShell]
+        list.unshift(raw)
+      else
+        list << raw
+      end
+      i += 1
+    end
+    list
+  end
+
+  def try_port(i, raw)
     port = JS::WebSerial.new(raw)
-    port.open(baud_rate: 115200)
-    attach(port)
+    begin
+      port.open(baud_rate: 115200)
+    rescue Exception => e
+      note("ポート #{i + 1}: 開けません（#{e.message}）")
+      return nil
+    end
+    @probe = port
+    wire(port)
+    ok = prompt_within(10_000)
+    unless ok
+      port.write("\r")
+      ok = prompt_within(2_000)
+    end
+    @probe = nil
+    if ok
+      @port = port
+      raw[:picorubyShell] = true
+      note("ポート #{i + 1}: シェルです")
+    else
+      note("ポート #{i + 1}: 応答なし")
+      close_without_waiting(port)
+    end
+    nil
+  end
+
+  # Not port.close: JS::WebSerial#close waits for the read loop to stop, and
+  # the loop behind on_receive in the stock bridge never does (only the
+  # terminal one honours the stop), so that wait never ends. The port is
+  # closed without waiting.
+  def close_without_waiting(port)
+    JS::WebSerial._close_port(raw_of(port))
+    nil
+  end
+
+  # The SerialPort behind a JS::WebSerial, which keeps it to itself.
+  def raw_of(port)
+    port.instance_variable_get(:@js_port)
+  end
+
+  def prompt_within(timeout_ms)
+    deadline = now_ms + timeout_ms
+    until @rx.include?("$> ")
+      return false if deadline < now_ms || @probe.nil?
+      sleep_ms 50
+    end
+    @rx = ""
+    true
+  end
+
+  # A line about the link itself, in the device log next to what the board
+  # prints, marked so the two are not mistaken for each other.
+  def note(text)
+    @log = @log + "\n[接続] #{text}\n"
+    puts "[device] #{text}"
     nil
   end
 
@@ -325,4 +465,6 @@ class DeviceLink
   def now_ms
     JS.global[:performance].now.to_f.to_i
   end
+
+  public :look_for_return   # called from the tasks above
 end
