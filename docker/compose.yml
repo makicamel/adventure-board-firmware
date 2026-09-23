@@ -23,7 +23,7 @@ x-common: &common
     # from the repository, and the repository itself is a 1.2 GB context.
     context: .
     dockerfile: Dockerfile
-  image: picorubykaigi01-board-firmware:latest
+  image: adventure-board-firmware:latest
   # Everything the build writes goes into the bind mount below, so the
   # container runs as the invoking user instead of root. `rake docker:...`
   # fills these in; the defaults cover the usual single-user Linux/WSL2 host.

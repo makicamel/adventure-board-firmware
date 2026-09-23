@@ -1,7 +1,10 @@
-# picorubykaigi01-board-firmware
+# adventure-board-firmware
 
-PicoRuby のフォーク。**picorubykaigi01-board**（RP2350A / 16×16 LED マトリクス /
-音声 / ボタン / GROVE、PicoRubyKaigi の学習用配布基板）のファームウェアを作る。
+PicoRuby のフォーク。**Adventure Board**（基板リポジトリでの名前は picorubykaigi01-board。
+RP2350A / 16×16 LED マトリクス / 音声 / ボタン / GROVE、PicoRubyKaigi 2026 の学習用配布基板）のファームウェアを作る。
+
+リポジトリは `github.com/picorubykaigi/adventure-board-firmware`（2026-09-23 に `kishima/picorubykaigi01-board-firmware` から移した。
+ブランチは `main`。upstream の picoruby は `upstream` リモートから merge する）。ローカルのディレクトリ名は移行前のまま。
 
 試作基板 r1 が手元にある（**Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド）。
 r1 の USB は元は死んでいたが、手で配線して USB シリアルが使えるようになっている（Windows 側では 16c0:400f、CDC が複数）。

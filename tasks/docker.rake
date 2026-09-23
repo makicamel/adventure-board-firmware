@@ -17,7 +17,7 @@
 require "shellwords"
 
 DOCKER_COMPOSE_FILE = "#{MRUBY_ROOT}/docker/compose.yml"
-DOCKER_IMAGE = "picorubykaigi01-board-firmware:latest"
+DOCKER_IMAGE = "adventure-board-firmware:latest"
 
 # Environment variables the native r2p2 tasks read. They are turned into cmake
 # defines by tasks/picoruby/r2p2.rake, so forwarding the ones that are set on
