@@ -263,6 +263,10 @@ class SimApp < Funicular::Component
            disabled: (connected && !busy) ? nil : "disabled") do
       "実機を再起動"
     end
+    button(id: "device-install", onclick: :on_device_install,
+           disabled: (connected && !busy) ? nil : "disabled") do
+      "実機の app.rb にする"
+    end
     button(id: "device-clear", onclick: :on_device_clear,
            disabled: (connected && !busy) ? nil : "disabled") do
       "実機の app.rb を空にする"
@@ -423,13 +427,39 @@ class SimApp < Funicular::Component
     nil
   end
 
-  # "実機で実行" writes to /home/app.rb, which R2P2 runs at every start. This
-  # stops the program and leaves a line that does nothing there instead.
+  # The code becomes the board's own program: /home/app.rb, which R2P2 runs
+  # at every start -- what a board does on its own, with no computer.
+  def on_device_install(_event)
+    box = refs[:codebox]
+    source = box ? box[:value].to_s : ""
+    patch(device: :busy, status: "実機の #{DeviceLink::APP_PATH} に書いています…", kind: "busy")
+    Task.new(name: "device-install") do
+      begin
+        $device.install(source)
+        $app.device_installed(nil) if $app
+      rescue Exception => e
+        $app.device_installed(e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_installed(error)
+    patch(device: $device.connected? ? :connected : :none)
+    if error
+      report("実機の app.rb にする", error)
+    else
+      patch(kind: "ok", status: "#{DeviceLink::APP_PATH} に書いて実行しています。電源を入れるたびにこのプログラムが動きます。")
+    end
+    nil
+  end
+
+  # Back to a board that starts at its prompt.
   def on_device_clear(_event)
-    patch(device: :busy, status: "実機の #{DeviceLink::PATH} を空にしています…", kind: "busy")
+    patch(device: :busy, status: "実機の #{DeviceLink::APP_PATH} を空にしています…", kind: "busy")
     Task.new(name: "device-clear") do
       begin
-        $device.clear_program
+        $device.clear_app
         $app.device_cleared(nil) if $app
       rescue Exception => e
         $app.device_cleared(e) if $app
@@ -443,8 +473,8 @@ class SimApp < Funicular::Component
     if error
       report("実機の app.rb を空にする", error)
     else
-      patch(kind: "ok", status: "実機のプログラムを止めて、#{DeviceLink::PATH} を何もしない 1 行にしました。" \
-                                "次に起動しても何も走りません。")
+      patch(kind: "ok", status: "実機のプログラムを止めて、#{DeviceLink::APP_PATH} を何もしない 1 行にしました。" \
+                                "電源を入れても何も走りません。")
     end
     nil
   end
@@ -472,8 +502,7 @@ class SimApp < Funicular::Component
       # Still shown as connected until the port actually goes; draw_device
       # takes it from there.
       patch(device: $device.connected? ? :connected : :none, kind: "busy",
-            status: "実機を再起動しました。起動し終わると自動でつなぎ直します。" \
-                    "#{DeviceLink::PATH} に入っているプログラムは、起動するとまた走ります。")
+            status: "実機を再起動しました。起動し終わると自動でつなぎ直します。")
     end
     nil
   end
@@ -485,7 +514,7 @@ class SimApp < Funicular::Component
       report("実機で実行", error)
     else
       patch(device: state_now, kind: "ok",
-            status: "実機で実行しています（#{DeviceLink::PATH}）。止めるには、もう一度実行するか切断してください。")
+            status: "実機で実行しています。止めるには、端末で Ctrl-C を押すか、もう一度実行してください。")
     end
     nil
   end
@@ -676,7 +705,7 @@ class SimApp < Funicular::Component
 
   # The run loop is a class method — it outlives any one render — and it pokes
   # the mounted instance, so these two cannot stay private.
-  public :draw, :report, :device_finished, :device_rebooting, :device_cleared
+  public :draw, :report, :device_finished, :device_rebooting, :device_installed, :device_cleared
 end
 
 Funicular.start(SimApp, container: 'app')

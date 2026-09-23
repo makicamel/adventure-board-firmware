@@ -35,6 +35,10 @@ const FAKE_SERIAL = () => {
       this.written.push(dec.decode(chunk));
       if (!this.shell) return;
       if (this.modem) { this.modemBytes(chunk); return; }
+      if (this.running) {           // a program has the console: only Ctrl-C gets through
+        if (chunk.includes(0x03)) { this.running = false; this.emit('^C\r\n$> '); }
+        return;
+      }
       for (const b of chunk) {
         if (b === 0x02) { this.modem = { buf: [] }; this.emit('\x06'); continue; }
         if (b === 0x03) { this.line = ''; this.emit('^C\r\n$> '); continue; }
@@ -102,12 +106,14 @@ const FAKE_SERIAL = () => {
       this.events.push('drop'); shell.drop(); midi.drop();
       setTimeout(() => {
         this.events.push('back'); midi.connected = true; shell.connected = true;
-        shell.bootText = '....\r\nLoading app.rb\r\nStarting shell...\r\n$> ';
+        if (window.__appRuns) { shell.bootText = '....\r\nLoading app.rb\r\n'; shell.running = true; }   // app.rb runs on and on: no prompt
+        else shell.bootText = '....\r\nLoading app.rb\r\nStarting shell...\r\n$> ';
         if (window.__announce) { serial.dispatchEvent(new Event('connect')); }
       }, 3000);
     },
   };
   window.__announce = !location.search.includes('noannounce');
+  window.__appRuns = location.search.includes('appruns');
 };
 
 // What the terminal shows, line by line, from xterm's buffer.
@@ -130,15 +136,15 @@ async function termText(page) {
     });
   }).listen(8097);
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
-  for (const announce of [true, false]) {
+  for (const [announce, appRuns] of [[true, false], [false, false], [true, true]]) {
     const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
     const console_ = [];
     page.on('console', (m) => console_.push(`[${m.type()}] ${m.text()}`));
     page.on('pageerror', (e) => console_.push(`[pageerror] ${e.message}`));
     await page.addInitScript(FAKE_SERIAL);
-    await page.goto('http://127.0.0.1:8097/sim/' + (announce ? '' : '?noannounce'));
+    await page.goto('http://127.0.0.1:8097/sim/?' + (announce ? '' : 'noannounce') + (appRuns ? '&appruns' : ''));
     await page.waitForFunction(() => (document.getElementById('status') || {}).className === 'ok', null, { timeout: 60000 });
-    console.log(`\n=== browser ${announce ? 'announces' : 'does not announce'} the returning port ===`);
+    console.log(`\n=== browser ${announce ? 'announces' : 'does not announce'} the returning port${appRuns ? '; app.rb runs on after the boot (no prompt)' : ''} ===`);
     await page.click('#device-connect');
     await page.waitForFunction(() => document.getElementById('status').textContent.includes('接続しました'), null, { timeout: 10000 });
     console.log('# connected:', await page.textContent('#status'));
@@ -157,6 +163,11 @@ async function termText(page) {
     console.log('# run:', await page.textContent('#status'));
     if (announce) await page.screenshot({ path: '/work/tmp/browser-check/terminal.png' });
     console.log('# board files:', await page.evaluate(() => Object.keys(window.__board.shell.files).map((k) => k + ' (' + window.__board.shell.files[k].length + ' bytes)').join(', ')), '| ran:', await page.evaluate(() => window.__board.shell.ran.join(' ')));
+    await page.click('#device-install');
+    await page.waitForFunction(() => document.getElementById('status').textContent.includes('電源を入れるたび'), null, { timeout: 15000 })
+      .catch(() => console.log('# install did not finish'));
+    console.log('# install:', await page.textContent('#status'));
+    console.log('# board files:', await page.evaluate(() => Object.keys(window.__board.shell.files).join(', ')), '| ran:', await page.evaluate(() => window.__board.shell.ran.join(' ')));
     await page.evaluate(() => { window.__board.shell.written = []; });
     await page.click('#device-reboot');
     const t0 = Date.now();

@@ -10,8 +10,10 @@
 # away from the terminal while it is on. This is how PicoRuby's own web
 # console (picoruby-wasm/demo/www/terminal.html) does it.
 #
-# "実機で実行" writes the code to PATH and runs it. The transfer is
-# PicoModem's frames, which the board's shell enters on Ctrl-B.
+# "実機で実行" writes the code to RUN_PATH and runs it, once. "app.rb にする"
+# writes it to APP_PATH, which R2P2 runs every time the board starts: that
+# is how a program lives on a board with no computer attached. The transfer
+# is PicoModem's frames, which the board's shell enters on Ctrl-B.
 class DeviceLink
   STX = 0x02
   ACK = 0x06
@@ -31,11 +33,11 @@ class DeviceLink
   TX_GAP_MS   = 20
   TIMEOUT_MS  = 5000
 
-  PATH = "/home/app.rb"
+  RUN_PATH = "/home/run.rb"   # what "実機で実行" runs; nothing runs it later
+  APP_PATH = "/home/app.rb"   # what R2P2 runs at every start
 
-  # What `clear_program` leaves in PATH. R2P2 runs PATH at every start, so the
-  # last program sent from this page starts again with the board; with this
-  # in its place the board comes up idle, at its prompt.
+  # What `clear_app` leaves in APP_PATH: a board that starts with this comes
+  # up idle, at its prompt.
   IDLE_PROGRAM = "# The simulator page cleared the program that was here.\n"
 
   def self.supported?
@@ -92,9 +94,9 @@ class DeviceLink
 
   # Stops the program and restarts the board with the shell's own `reboot`
   # (the watchdog, so the peripherals go back to their power-on state as
-  # well). PATH is left alone: like switching the power off and on, the board
-  # starts the program that is there again. USB drops with the restart: the
-  # port goes away here and comes back through watch_for_return.
+  # well): like switching the power off and on, so APP_PATH runs again if it
+  # holds a program. USB drops with the restart: the port goes away here and
+  # comes back through watch_for_return.
   def reboot
     talking do
       interrupt
@@ -102,21 +104,31 @@ class DeviceLink
     end
   end
 
-  # Stops the program and puts a line that does nothing in its place, so that
-  # the board no longer runs anything when it starts.
-  def clear_program
-    talking do
-      interrupt
-      upload(IDLE_PROGRAM, PATH)
-    end
-  end
-
-  # Stop whatever is running, write the code to PATH, and run it.
+  # Stop whatever is running, write the code to RUN_PATH, and run it.
   def run(source)
     talking do
       interrupt
-      upload(source, PATH)
-      send_text("#{PATH}\r")
+      upload(source, RUN_PATH)
+      send_text("#{RUN_PATH}\r")
+    end
+  end
+
+  # Stops the program and makes the code the board's own: written to
+  # APP_PATH and started right away, as it will be at every start from now.
+  def install(source)
+    talking do
+      interrupt
+      upload(source, APP_PATH)
+      send_text("#{APP_PATH}\r")
+    end
+  end
+
+  # Stops the program and puts a line that does nothing in APP_PATH, so that
+  # the board no longer runs anything when it starts.
+  def clear_app
+    talking do
+      interrupt
+      upload(IDLE_PROGRAM, APP_PATH)
     end
   end
 
@@ -188,16 +200,32 @@ class DeviceLink
   end
 
   def wait_for_text(text, timeout_ms)
+    wait_for_any([text], timeout_ms)
+  end
+
+  # Waits until the capture holds one of `texts`; returns that one.
+  def wait_for_any(texts, timeout_ms)
     raw = raw_of(@port || @probe)
     deadline = now_ms + timeout_ms
-    until JS::WebSerial.capture_peek(raw).to_s.include?(text)
-      raise "実機の応答がありません（#{text} を待っています）" if deadline < now_ms
+    seen = nil
+    while seen.nil?
+      got = JS::WebSerial.capture_peek(raw).to_s
+      i = 0
+      while i < texts.size
+        if got.include?(texts[i])
+          seen = texts[i]
+          break
+        end
+        i += 1
+      end
+      break if seen
+      raise "実機の応答がありません（#{texts[0]} を待っています）" if deadline < now_ms
       sleep_ms 10
     end
     # Seen; start afresh so the next wait does not find this one again.
     JS::WebSerial.capture_stop(raw)
     JS::WebSerial.capture_start(raw)
-    nil
+    seen
   end
 
   def wait_for_prompt(timeout_ms)
@@ -432,9 +460,17 @@ class DeviceLink
     list
   end
 
-  # Keeps the port if the shell's prompt shows up on it: within a boot's
-  # worth of time by itself, or right after an Enter. A port that is being
-  # tried is read into the terminal like the real one, so the boot log shows.
+  # What R2P2 prints as it starts, before any prompt. A board whose app.rb
+  # runs on and on (a program sent from this page, say) never gets to the
+  # prompt, but its boot text still says which port is the shell.
+  BOOT_TEXT = ["$> ", "Loading ", "Press 's'", "Starting shell"]
+
+  # Keeps the port if the shell shows up on it: its boot text or prompt
+  # within a boot's worth of time, or a prompt right after an Enter. Failing
+  # both, the port that was the shell before is kept anyway -- a program is
+  # probably running on it, and typing at it or Ctrl-C will tell. A port
+  # that is being tried is read into the terminal like the real one, so the
+  # boot log shows.
   def try_port(i, raw)
     port = JS::WebSerial.new(raw)
     begin
@@ -451,13 +487,17 @@ class DeviceLink
     end
     ok = false
     watching_text do
-      ok = prompt_within(10_000)
+      ok = seen_within(BOOT_TEXT, 10_000)
       unless ok
         port.write("\r")
-        ok = prompt_within(2_000)
+        ok = seen_within(["$> "], 2_000)
       end
     end
     @probe = nil
+    if !ok && raw[:picorubyShell]
+      ok = true
+      note("ポート #{i + 1}: 応答はありませんが、前にシェルだったポートなのでつなぎます（プログラムが動いているのかもしれません）")
+    end
     if ok
       @port = port
       raw[:picorubyShell] = true
@@ -469,8 +509,8 @@ class DeviceLink
     nil
   end
 
-  def prompt_within(timeout_ms)
-    wait_for_prompt(timeout_ms)
+  def seen_within(texts, timeout_ms)
+    wait_for_any(texts, timeout_ms)
     true
   rescue Exception
     false
