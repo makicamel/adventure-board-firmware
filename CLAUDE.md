@@ -303,6 +303,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   （`require 'adventure_board/led_matrix'`）。隠さないこと——
   何を読み込んでいるかはサンプルが教えることの一部で、実費でもある。
   `Board` 側は構築だけ遅延させる（使わないハードを起こさない）
+- **サンプルの時間は `sleep_ms` の回数ではなく時計（`Machine.uptime_us`）で決める。** 1 コマの描画時間がビルド
+  （debug / prod）とシミュレータで数倍違うので、回数で作った曲はビルドを変えると速さが変わる（`sound_and_light.rb` で実際に起きた）
 - **サンプルは require 1 本ごとに `GC.start` を呼ぶ。** `require.rb` は
   Sandbox を回収しないので、1 本 28KB が積み上がる。まとめて最後に呼んでも
   `max_free` は戻らない（12,328 のまま）。1 本ごとなら 20,736 まで増える
@@ -333,10 +335,16 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
   `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
 - 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
+- **配布・リリースは prod ビルド**（2026-09-23 に決定。`R2P2_CONSOLE_UART=1 rake docker:r2p2:picoruby:pico2:prod` →
+  `rake docker:flash:picoruby:pico2:prod`。r1 で起動・シェル・サンプルを確認済み）。debug は残してあり、調べたいときに
+  `…:debug` を焼き直すだけ。prod では **C の `printf`（`[R2P2] installed …`、`PSG: PWM …` など）が一切出ない**ので、
+  起動ログにそれが無くても異常ではない。`puts` は出る。ヒープは prod のほうが 12KB ほど広い
+- **prod の速さ（r1 実測）**: `blit` 3.4ms（debug 17ms）、`show` 7.9ms（13ms）、`vram.draw_rect` 1 回 0.17ms（0.45ms）、
+  音と光の 1 ステップ 11.6ms（31ms）。**起動後の最初の実行だけ数倍遅い**ことがある（2 回目から安定）
 - **debug ビルドの Ruby は 1 メソッド呼び出しが約 100µs、`String#setbyte` 1 回が約 180µs**（r1、-O0 でフラッシュ上）。
   256 ドットを 1 つずつ Ruby で回すと 0.5 秒かかる。フレームごとの処理はドット単位のループにせず、
   ページ（`String`）単位で C に任せる（`frame=` / `reverse` / `draw_bitmap`）。`LedMatrix#blit` と `draw_text` で
-  文字スクロールの 1 コマが 650ms → 40ms になった。prod（`-O2`）は未計測
+  文字スクロールの 1 コマが 650ms → 40ms になった（debug）
 - **debug ビルドは `-O0`、prod は `-O2`。** r1 は UART コンソールのために debug しか使わないので、
   時間に追われる処理（PSG の core1 など）は debug でだけ間に合わなくなる。締め切りのある関数には
   `__attribute__((optimize("O2")))` を付け、RAM に置く（`.time_critical`）。2 つのコアは同じフラッシュから

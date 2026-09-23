@@ -8,7 +8,7 @@ GC.start
 require 'adventure_board/speaker'      # スピーカー
 GC.start
 
-STEP_MS = 10   # 時間の最小単位。小さくすると速くなる
+UNIT_MS = 40   # STEPS の 1 単位の長さ。小さくすると速くなる
 
 # 「歓喜の歌」。NOTES は音の番号（60 がド、1 増えると半音上。nil は休符）、STEPS はその長さ（8 で 4 分音符）
 NOTES = [64, 64, 65, 67,  67, 65, 64, 62,  60, 60, 62, 64,  64, 62, 62, nil]
@@ -40,15 +40,19 @@ while true
 
   speaker.note_on(note) if note                  # 鳴らす
 
-  step = 0
-  while step < steps                             # 音が鳴っているあいだは、右端の棒だけ描き直す
+  total = steps * UNIT_MS                        # この音の長さ（ms）
+  started = Machine.uptime_us / 1000
+  sounding = !note.nil?
+  while (elapsed = Machine.uptime_us / 1000 - started) < total   # 時計で測るので、基板でもシミュレータでも同じ速さ
     matrix.draw_rect(15, 0, 1, 16, 0)            # 右端の列を消して
-    draw_bar(16, heights[15], 0xFF - step * 0xC0 / steps)   # 今の音の棒。だんだん暗く
+    draw_bar(16, heights[15], 0xFF - 0xC0 * elapsed / total)   # 今の音の棒。だんだん暗く
     matrix.blit                                  # VRAM の内容をマトリクスへ写す（1 ドットずつ set するより速い）
     matrix.show
-    speaker.note_off(note) if note && step == steps - 1     # 最後の 1 単位は音を止めて、次の音と区切る
-    sleep_ms STEP_MS
-    step += 1
+    if sounding && total - UNIT_MS <= elapsed    # 最後の 1 単位は音を止めて、次の音と区切る
+      speaker.note_off(note)
+      sounding = false
+    end
+    sleep_ms 10
   end
 
   i = (i + 1) % NOTES.size                       # 最後まで行ったら最初へ
