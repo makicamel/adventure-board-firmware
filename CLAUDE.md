@@ -68,7 +68,7 @@ rake docker:flash:picoruby:pico2:debug
 export R2P2_PORT=/dev/ttyACM0                                # 以後 r2p2dev.py はこの tty を使う
 tools/r2p2dev.py watch 30                                    # 起動ログ。Starting shell... まで何も送らない
 tools/r2p2dev.py run 'ls /lib' 'free'
-tools/r2p2dev.py push local.rb /home/devtest/x.rb            # dfucli 経由。irb は使わない
+tools/r2p2dev.py push local.rb /home/x.rb                    # dfucli 経由。irb は使わない
 ```
 
 - J2: 1=GND 2=SWCLK 3=SWDIO 4=UART_RX(GPIO1)←Probe TX 5=UART_TX(GPIO0)→Probe RX
@@ -310,6 +310,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   基板の正式名称が Adventure Board になったため）。サンプルは `require 'adventure_board'`。古い名前のファームが入っていた基板では、
   新しいファームが最初の起動で `/lib/picorubykaigi01*` と古い印を消してから書き直す（`system_files.c` の `remove_old_library`）。
   **`/home/examples` は触らないので、古いサンプルは `require 'picorubykaigi01'` のまま壊れる**。r1 は `wipefs` して焼き直した
+- **`devtest/` の仕組みは廃止した**（2026-09-23。ホストの `devtest/*.rb` をファームに焼き込んで `/home/devtest/` に書いていた）。
+  スクリプトは `r2p2dev.py push` かページで送る。新しいファームは最初の起動で基板の `/home/devtest/` も消す
 - **ファームは変わったファイルだけ書く。** `/etc/adventure-board-files` に
   中身のハッシュを置いて比べる。`/lib` は更新されるが、
   **`/home/examples` は一度置いたら二度と触らない**（ユーザの編集物なので）。

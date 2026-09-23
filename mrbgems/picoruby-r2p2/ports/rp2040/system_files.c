@@ -84,30 +84,37 @@ write_bytes(lfs_t *lfs, const char *path, const void *data, size_t size)
 }
 
 /* True when the board already holds exactly what this firmware carries. */
-/* The board library used to be /lib/picorubykaigi01; a board that had it
- * keeps it after the firmware moves on, since the installer only writes.
- * Taken away once, the first time a firmware with the new name runs (the
- * stamp does not match then). One level deep is all there was. */
+/* A directory of files, one level deep, and the directory itself. */
 static void
-remove_old_library(lfs_t *lfs)
+remove_dir(lfs_t *lfs, const char *dir_path)
 {
-  static const char *old_dir = "/lib/picorubykaigi01";
   lfs_dir_t dir;
-  if (lfs_dir_open(lfs, &dir, old_dir) == LFS_ERR_OK) {
-    struct lfs_info info;
-    char path[64];
-    while (lfs_dir_read(lfs, &dir, &info) > 0) {
-      if (info.type != LFS_TYPE_REG) continue;
-      snprintf(path, sizeof(path), "%s/%s", old_dir, info.name);
-      lfs_remove(lfs, path);
-    }
-    lfs_dir_close(lfs, &dir);
-    if (lfs_remove(lfs, old_dir) == LFS_ERR_OK) {
-      printf("[R2P2] removed %s\n", old_dir);
-    }
+  if (lfs_dir_open(lfs, &dir, dir_path) != LFS_ERR_OK) return;
+  struct lfs_info info;
+  char path[64];
+  while (lfs_dir_read(lfs, &dir, &info) > 0) {
+    if (info.type != LFS_TYPE_REG) continue;
+    snprintf(path, sizeof(path), "%s/%s", dir_path, info.name);
+    lfs_remove(lfs, path);
   }
+  lfs_dir_close(lfs, &dir);
+  if (lfs_remove(lfs, dir_path) == LFS_ERR_OK) {
+    printf("[R2P2] removed %s\n", dir_path);
+  }
+}
+
+/* What earlier firmware left on a board and this one no longer has: the
+ * board library under its old name, and /home/devtest, where scratch
+ * scripts baked into the firmware used to be written (files are sent to
+ * the board now). The installer only ever writes, so these are taken away
+ * here, once -- the first boot whose stamp does not match. */
+static void
+remove_old_files(lfs_t *lfs)
+{
+  remove_dir(lfs, "/lib/picorubykaigi01");
   lfs_remove(lfs, "/lib/picorubykaigi01.rb");
   lfs_remove(lfs, "/etc/picorubykaigi01-files");
+  remove_dir(lfs, "/home/devtest");
 }
 
 static bool
@@ -156,7 +163,7 @@ picorb_install_system_files(void)
       watchdog_hw->scratch[0] = 0;
       return;
     }
-    remove_old_library(lfs);
+    remove_old_files(lfs);
     bool complete = true;
     while (entry->path != NULL) {
       if (entry->refresh || !file_exists(lfs, entry->path)) {

@@ -42,15 +42,6 @@ Dir.glob("#{ROOT}/examples/*.rb").sort.each do |path|
   name = File.basename(path)
   MANIFEST << ["examples/#{name}", "/home/examples/#{name}", false]
 end
-# Scratch scripts for bring-up, git-ignored and usually absent. Writing files
-# on the device means going through irb, which has so little memory left that
-# a slightly long line kills it mid-write and leaves the file open; carrying
-# them in the firmware costs a reflash and never touches the filesystem.
-Dir.glob("#{ROOT}/devtest/*.rb").sort.each do |path|
-  name = File.basename(path)
-  MANIFEST << ["devtest/#{name}", "/home/devtest/#{name}", true]
-end
-
 def c_identifier(destination)
   destination.gsub(/[^A-Za-z0-9]/, "_").sub(/\A_+/, "")
 end

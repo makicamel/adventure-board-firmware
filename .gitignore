@@ -57,4 +57,3 @@ tmp/
 /mrbgems/picoruby-r2p2/ports/rp2040/system_files_data.c
 
 # Scratch scripts carried to the device during bring-up (see tools/gen_system_files.rb)
-/devtest/
