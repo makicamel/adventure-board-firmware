@@ -1,116 +1,124 @@
-[![C/C++ CI](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml)
+# Adventure Board firmware
 
-## PicoRuby
+[PicoRubyKaigi 2026](https://picorubykaigi.org/) の学習用基板 **Adventure Board** のファームウェアです。
+中身は [PicoRuby](https://github.com/picoruby/picoruby) と、そのシェル環境
+[R2P2](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-r2p2) です。
+PicoRuby / R2P2 そのものの説明（言語、シェルのコマンド、ビルドの仕組み）は本家を見てください。
+ここにはこの基板に固有のことだけを書きます。
 
-PicoRuby is an alternative mruby implementation which is:
+## 基板
 
-- Small foot print (depending on build config)
-  - RAM: 512 KB or less (PicoRuby with networking)
-  - RAM: 128 KB or less (FemtoRuby)
-- Portable
-  - Depends on only standard C library such as glibc, Newlib or Newlib-nano, and emcc
-- Reference microcontroller boards
-  - Raspberry Pi Pico 2 W - Arm Cortex-M33, 520 KB RAM, 4 MB Flash with CYW43 network module
-  - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB Flash
+| | |
+|---|---|
+| マイコン | RP2350A（Raspberry Pi Pico 2 相当。無線なし） |
+| LED マトリクス | 白 LED 16×16。LED ドライバ IS31FL3729 × 2（上半分 / 下半分）、I2C |
+| 音 | PWM → RC フィルタ → PAM8302A → スピーカー。音源は PicoRuby の PSG（3 声） |
+| ボタン | 十字（↑ ← → ↓）と A / B の 6 個 |
+| LED | 緑のステータス LED（プログラムから操作できる）、赤の電源 LED |
+| GROVE | 2 口（I2C と、UART / PIO） |
+| J1 | ブレッドボード用 2×10 ヘッダ（GPIO 13 本、3V3 / 5V / GND） |
 
-### FemtoRuby?
+## まず動かす
 
-From version 4.x, we call the artifacts below:
+1. **ファームを焼く。** BOOTSEL を押しながら USB をつなぎ、現れたドライブに `.uf2` をコピーします。
+   `.uf2` は [Releases](https://github.com/picorubykaigi/adventure-board-firmware/releases) か、自分でビルドした `dist/picoruby-pico2-prod/` にあります。
+2. **USB でつなぐ。** R2P2 のシェル（`$>`）が USB シリアルに出ます。ポートは 3 つ見えるので、`$>` が出るものを選びます。
+3. **サンプルを走らせる。** シェルで `/home/examples/one_dot.rb` のようにパスを打つと動きます。
+   最初の起動でファームが `/lib`（ボードライブラリ）と `/home/examples`（サンプル）を書き出します。
 
-- PicoRuby (used to be MicroRuby) ... mruby VM version
-- FemtoRuby (used to be PicoRuby) ... mruby/c VM version
+ブラウザで使うほうが楽です。次の「シミュレータ」を見てください。
 
-mruby VM version is mainly being developed.
+## シミュレータ（ブラウザ）
 
-### API documentation with some demo videos
-
-[https://picoruby.org/](https://picoruby.org/)
-
-<img src="docs/logos/fukuokarubyaward.png" width="212">
-
-### Depends on
-
-- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2) as mruby-compiler
-- [Estalloc (picoruby/estalloc)](https://github.com/picoruby/estalloc)
-- [Littlefs (littlefs-project/littlefs)](https://github.com/littlefs-project/littlefs)
-- [mruby (mruby/mruby)](https://github.com/mruby/mruby)
-- [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
-
-### Used by
-
-- [R2P2](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-r2p2): PicoRuby shell system for Raspberry Pi Pico
-- [R2P2-ESP32](https://github.com/picoruby/R2P2-ESP32): ESP32 port
-- [PicoRuby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
-- [PRK Firmware](https://github.com/picoruby/prk_firmware): Keyboard firmware for Raspberry Pi Pico
-
-## Testing
-
-For detailed information on testing PicoRuby, refer to the [Testing Guide](docs/testing-guide.md).
-
-### Build
-
-- Prerequisites
-  - C toolchain
-  - git
-  - ruby (should be CRuby 3.4+)
+基板がなくても、ブラウザで同じコードを動かせます。LED マトリクス、ボタン、音が再現されます。
+基板を USB でつなげば、同じページから実機で走らせたり、実機のシェルを端末として使ったりできます。
 
 ```console
-git clone --recurse-submodules https://github.com/picoruby/picoruby
-cd picoruby/
-git submodule update --init --recursive # If you forgot --recurse-submodules when git clone
-rake                    # same for `rake picoruby:prod`
-rake picoruby:debug     # for debug build
-
-bin/picoruby -e 'puts "Hello World!"'
-
+rake sim:server      # → http://localhost:8080/sim/
 ```
-- Building on a mac
-  - openssl is not linked in homebrew to avoid mixing with system ssl
-  - extend the C/LD flags to point to the right locations:
+
+- **Run**: 欄のコードをブラウザの中の基板で走らせる。
+- **実機で実行**: 欄のコードを USB の先の基板に送って走らせる（`/home/run.rb`）。
+- **実機の app.rb にする**: 電源を入れるたびに動く、基板の「作品」にする（`/home/app.rb`）。
+- **実機の端末**: R2P2 のシェルがそのまま使えます（`ls`、`free`、`irb`、`vim` …）。
+
+ページのコードは [`sim/`](sim/) にあり、[sim/README.md](sim/README.md) に仕組みと注意（漢字と図形を出すにはローカルで
+`rake sim:wasm` した wasm が要る、など）があります。公開版は準備中です。
+
+## プログラムの書き方
+
+サンプルは [`sim/examples/`](sim/examples/)（シミュレータでも実機でも動く 10 本）と
+[`examples/`](examples/)（実機だけ: GROVE で基板 2 枚をつなぐ、音のエンベロープ）にあります。
+まず `one_dot.rb` を読んでください。
+
+```ruby
+require 'adventure_board'
+GC.start                               # 読み込みで使ったメモリを片付ける
+require 'adventure_board/led_matrix'   # LED マトリクス
+GC.start
+
+matrix.clear       # 全部消す
+matrix.set(1, 1)   # x=1, y=1（左上）を点ける。座標は 1〜16
+matrix.show        # ここで初めて LED に反映される
+```
+
+**ボードライブラリ `adventure_board`** がハードを Ruby から見えるようにしています（`lib/adventure_board/`）。
+使うものだけ `require` します（1 本読むごとに約 28KB のメモリを使うので、`GC.start` を挟みます）。
+
+| `require 'adventure_board/…'` | 使えるもの |
+|---|---|
+| `led_matrix` | `matrix.set(x, y, 明るさ)` `clear` `fill` `show` `brightness=`、描画 `draw_text` `draw_line` `draw_rect` `clear_drawing` `blit`、`pen=` |
+| `buttons` | `buttons.each_press { \|name\| }`（押した分を順に取り出す）、`pressed?(:a)`（いま押されているか）。名前は `:up :down :left :right :a :b` |
+| `speaker` | `speaker.play_mml("t120 o4 l8 cdefgab>c")`（MML。3 声まで、`loop: true`）、`note_on` / `note_off`、`stop`、`reset` |
+| `status_led` | `board.status_led.on` / `off` / `toggle` |
+| `grove_link` | GROVE で基板 2 枚をつなぐ（`examples/grove_link_chat.rb`） |
+
+- 繰り返しは `while true` と `sleep_ms` で書きます。シミュレータでも実機でも同じです。
+- ボタンは押した瞬間がキューに積まれるので、ループが遅くても取りこぼしません。
+- 明るさは見た目に比例するよう補正してあります（`set` の 3 番目の引数、0〜255）。
+- 音の記法（MML）は [picoruby-midibase-mml の README](mrbgems/picoruby-midibase-mml/README_MML.md)。
+  エンベロープや音色など PSG の機能は `examples/envelope.rb` と `sim/examples/melody.rb` に例があります。
+- 時間は `sleep_ms` の回数ではなく `Machine.uptime_us` で測ると、シミュレータと実機で同じ速さになります。
+
+**基板を PC なしで動かす**には `/home/app.rb` にプログラムを置きます。R2P2 が起動のたびに実行します
+（ページの「実機の app.rb にする」がこれをします。起動時に `s` を押すと飛ばせます）。
+
+## ビルド
+
+ビルドはすべて Docker の中で行います（ホストには Docker だけあればよい）。
 
 ```console
-rake LDFLAGS=-L$(brew --prefix openssl@3)/lib CFLAGS=-I$(brew --prefix openssl@3)/include
+rake docker:r2p2:picoruby:pico2:prod       # → dist/picoruby-pico2-prod/*.uf2, *.elf
+rake docker:r2p2:picoruby:pico2:debug      # 調べるとき用（-O0。Ruby も数倍遅い）
+rake docker:flash:picoruby:pico2:prod      # Debug Probe（SWD）で焼く。UF2 なら BOOTSEL でコピー
+rake sim:check                             # ヘッドレスのブラウザでサンプルを全部走らせて確認
 ```
 
-#### FemtoRuby (mruby/c VM version)
+配布するのは **prod** です。詳細は [docker/README.md](docker/README.md)。
 
-```console
-rake femtoruby:prod
-# or
-rake femtoruby:debug
-```
+## 本家との違い
 
-#### Cross compilation
+このリポジトリは picoruby のフォークで、`main` に基板固有のものが載っています。
+本家のファイルへの変更は [dev-docs/upstream-changes.md](dev-docs/upstream-changes.md) に全部列挙してあり、
+本家で直すべきものは [dev-docs/upstream-issues.md](dev-docs/upstream-issues.md) に記録しています。
 
-See an example: [build_config/r2p2-picoruby-pico2.rb](build_config/r2p2-picoruby-pico2.rb)
+基板固有の追加は次のとおりです。
 
-### Binaries
+| 場所 | 内容 |
+|---|---|
+| `lib/adventure_board*` | ボードライブラリ |
+| `mrbgems/picoruby-is31fl3729/` | LED ドライバ IS31FL3729 |
+| `mrbgems/picoruby-pio-uart/` | PIO で作る UART（GROVE で基板同士をつなぐ） |
+| `mrbgems/picoruby-adc-capture/` | 基板自身の ADC で音の出力を録る（検証用） |
+| `mrbgems/picoruby-syntax-highlight/` | シミュレータのコード欄の色付け（[family-mruby](https://github.com/family-mruby/family-mruby) から） |
+| `sim/` | ブラウザのシミュレータと実機の端末 |
+| `sim/examples/` `examples/` | サンプル |
+| `tools/` `docker/` | 書き込み・検証・ビルドの道具 |
+| `dev-docs/` | 開発の記録（ハードの仕様、実機で踏んだ穴、音の調査） |
 
-`rake` command will make three kinds of executable binary
+開発の手順と落とし穴は [CLAUDE.md](CLAUDE.md) にまとめてあります。
 
-- bin/mrbc
-  - `bin/mrbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
-- bin/picoruby
-  - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
-  - `bin/picoruby -e "puts 'Hello1'"` also works
-- bin/r2p2
-  - POSIX version of R2P2 (See [mrbgems/picoruby-r2p2](mrbgems/picoruby-r2p2) for the Raspi Pico edition)
+## ライセンス
 
-### Acknowledgement
-
-Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of
-the Ruby Association Grant Program
-[2020](https://www.ruby.or.jp/en/news/20201022)
-and
-[2021](https://www.ruby.or.jp/en/news/20211025).
-
-See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
-
-### Stargazers over time
-[![Stargazers over time](https://starchart.cc/picoruby/picoruby.svg?variant=adaptive)](https://starchart.cc/picoruby/picoruby)
-
-### License
-
-Copyright © 2020- HASUMI Hitoshi. See MIT-LICENSE for further details.
-
-Copyright © 2020-2021 Monstarlab. See MIT-LICENSE for further details.
+PicoRuby と同じ [MIT ライセンス](LICENSE)です。同梱している xterm.js（`sim/xterm/`）と
+picoruby-syntax-highlight も MIT です。
