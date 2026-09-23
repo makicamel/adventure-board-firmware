@@ -50,10 +50,12 @@ class LedMatrix
 
   # The chip's PWM is linear in light, and the eye is not: on the real board
   # 0x0F still looks a third lit and 0xC0 is hard to tell from 0xFF. Squaring
-  # the value (gamma 2.0) makes 0..255 read as brightness instead. Every dot
-  # passes through set, including blit, so this is the one place it happens;
-  # the VRAM keeps the values the drawing was made with. Rounded up so that
-  # anything above zero still lights.
+  # the value (gamma 2.0) makes 0..255 read as brightness instead. It happens
+  # once per brightness, on the way in: in `set`, and in the drawing methods
+  # as a colour goes into the VRAM -- so the VRAM holds duties and blit is a
+  # copy. (It used to happen in blit, per dot, in Ruby: 256 calls a frame,
+  # half a second on the board.) Rounded up so that anything above zero still
+  # lights.
   def duty_of(v)
     return 0 if v <= 0
     return 255 if 255 <= v
@@ -88,15 +90,19 @@ class LedMatrix
   # brightness, since BDFFont calls draw_bitmap without one.
   #
   # picoruby-shinonome carries the 16x16 JIS font, which is the whole reason
-  # this panel is 16x16 rather than 12x12.
-  begin
-    include Shinonome::Drawable
-  rescue NameError
-    # No picoruby-shinonome in this build; only the shape API is available.
-  end
+  # this panel is 16x16 rather than 12x12. Its glyphs are looked up straight
+  # from draw_text below (its Drawable mixin would do the same, one call at a
+  # time, without the cache).
 
   # The brightness the drawing methods use when none is given, 0..255.
   attr_accessor :pen
+
+  # One string per page, from `pages`, which is the chip's own layout: 16
+  # bytes a row, 8 rows. The one cheap call that puts a value into the VRAM
+  # as a duty; `duty` is what the drawing methods hand the VRAM.
+  def duty(color)
+    duty_of(color || @pen)
+  end
 
   # Built on first use: a board without picoruby-vram can still light dots.
   #
@@ -109,27 +115,62 @@ class LedMatrix
   # What BDFFont::Drawable calls, and so what makes draw_shinonome work. The
   # font is a bitmap, so its pixels take the pen.
   def draw_bitmap(x:, y:, w:, h:, data:, color: nil)
-    vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data, color: color || @pen)
+    vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data, color: duty(color))
     nil
   end
 
+  # Only the fonts that come with picoruby-shinonome; the lookup is the
+  # expensive part (some 3 ms a glyph on the board), so the glyphs of the
+  # last few strings are kept, which is what a scrolling text is: the same
+  # string drawn at every x. Glyphs that fall outside the panel are not
+  # drawn at all.
   def draw_text(text, x = 0, y = 0, font: "go16")
-    draw_shinonome(font, x, y, text)
+    key = font + text
+    cache = (@glyphs ||= {})
+    result = cache[key]
+    unless result
+      cache.clear if 8 <= cache.size
+      result = case font
+               when "go16"  then Shinonome.go16(text, 1)
+               when "min16" then Shinonome.min16(text, 1)
+               when "go12"  then Shinonome.go12(text, 1)
+               when "min12" then Shinonome.min12(text, 1)
+               when "maru12" then Shinonome.maru12(text, 1)
+               else raise ArgumentError, "unknown font: #{font}"
+               end
+      return self if result.nil?
+      cache[key] = result
+    end
+    height = result[0]
+    widths = result[2]
+    glyphs = result[3]
+    return self if y + height <= 0 || HEIGHT <= y
+    color = duty(nil)
+    gx = x
+    i = 0
+    while i < widths.size
+      w = widths[i]
+      if 0 < gx + w && gx < WIDTH
+        vram.draw_bitmap(x: gx, y: y, w: w, h: height, data: glyphs[i], color: color)
+      end
+      gx += w
+      i += 1
+    end
     self
   end
 
   def set_pixel(x, y, color = nil)
-    vram.set_pixel(x, y, color || @pen)
+    vram.set_pixel(x, y, duty(color))
     self
   end
 
   def draw_line(x0, y0, x1, y1, color = nil)
-    vram.draw_line(x0, y0, x1, y1, color || @pen)
+    vram.draw_line(x0, y0, x1, y1, duty(color))
     self
   end
 
   def draw_rect(x, y, w, h, color = nil)
-    vram.draw_rect(x, y, w, h, color || @pen)
+    vram.draw_rect(x, y, w, h, duty(color))
     self
   end
 
@@ -138,24 +179,26 @@ class LedMatrix
     self
   end
 
-  # Copy the drawing buffer onto the dots. Both are a byte per pixel now, so
-  # this is a straight copy: the buffer holds the brightness the drawing was
-  # made with.
+  # Copy the drawing buffer onto the dots. A VRAM page is 16 bytes a row, 8
+  # rows, holding duties: exactly a chip's frame, so the top chip takes its
+  # page as it is. The bottom chip's columns run the other way, so each of
+  # its rows is reversed -- eight String#reverse calls, not 256 dots.
   def blit
     pages = vram.pages
     pi = 0
     while pi < pages.size
       page = pages[pi]
-      top = page[1].to_i * 8
       data = page[2].to_s
-      ly = 0
-      while ly < 8
-        x = 0
-        while x < WIDTH
-          set(x + 1, top + ly + 1, data.getbyte(ly * WIDTH + x) || 0)
-          x += 1
+      if page[1].to_i == 0
+        @top.frame = data
+      else
+        flipped = ""
+        ly = 0
+        while ly < 8
+          flipped << data.byteslice(ly * WIDTH, WIDTH).to_s.reverse
+          ly += 1
         end
-        ly += 1
+        @bottom.frame = flipped
       end
       pi += 1
     end

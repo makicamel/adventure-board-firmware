@@ -327,6 +327,10 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `/lib` を書いている最中に消すと、書きかけが残って USB が死ぬ。
   `r2p2dev.py` の `reset` / `wipefs` はプロンプトが返るまで待つ
 - 戻せなくなったら **BOOTSEL** → `tools/r2p2dev.py recover`
+- **debug ビルドの Ruby は 1 メソッド呼び出しが約 100µs、`String#setbyte` 1 回が約 180µs**（r1、-O0 でフラッシュ上）。
+  256 ドットを 1 つずつ Ruby で回すと 0.5 秒かかる。フレームごとの処理はドット単位のループにせず、
+  ページ（`String`）単位で C に任せる（`frame=` / `reverse` / `draw_bitmap`）。`LedMatrix#blit` と `draw_text` で
+  文字スクロールの 1 コマが 650ms → 40ms になった。prod（`-O2`）は未計測
 - **debug ビルドは `-O0`、prod は `-O2`。** r1 は UART コンソールのために debug しか使わないので、
   時間に追われる処理（PSG の core1 など）は debug でだけ間に合わなくなる。締め切りのある関数には
   `__attribute__((optimize("O2")))` を付け、RAM に置く（`.time_critical`）。2 つのコアは同じフラッシュから
