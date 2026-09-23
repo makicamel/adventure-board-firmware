@@ -107,6 +107,13 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 （[../dev-docs/upstream-issues.md](../dev-docs/upstream-issues.md) の 4）。
 音を使わないスクリプトでも起きるなら別の原因なので、記録すること。
 
+## 見た目
+
+[picorubykaigi.org](https://picorubykaigi.org/) からリンクされるので、そのサイトの見た目に合わせてある。
+色は `index.html` の `:root` の変数（クリーム `#eceade`、文字 `#26242f`、赤 `#e8404b`、青レール `#5f7cb8`）と
+上端の赤・青のレール（サイトの `styles.css` の SVG）。フォントは Google Fonts の DotGothic16（本文）と Jersey 10（見出し）で、
+ネットが無ければシステムのフォントに落ちる。LED パネルと端末は「画面」なので暗いまま。端末の 16 色もサイトの赤・緑・黄。
+
 ## 構成
 
 | ファイル | 役割 | JS 依存 |
