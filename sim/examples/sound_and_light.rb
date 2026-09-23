@@ -8,7 +8,7 @@ GC.start
 require 'adventure_board/speaker'      # スピーカー
 GC.start
 
-STEP_MS = 50   # 時間の最小単位。小さくすると速くなる
+STEP_MS = 10   # 時間の最小単位。小さくすると速くなる
 
 # 「歓喜の歌」。NOTES は音の番号（60 がド、1 増えると半音上。nil は休符）、STEPS はその長さ（8 で 4 分音符）
 NOTES = [64, 64, 65, 67,  67, 65, 64, 62,  60, 60, 62, 64,  64, 62, 62, nil]
