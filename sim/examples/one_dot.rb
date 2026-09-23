@@ -1,8 +1,8 @@
 # 左上の 1 個だけ光らせる。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear       # 全部消す

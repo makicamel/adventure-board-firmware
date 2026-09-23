@@ -1,8 +1,8 @@
 # T6: 和音。2 声（ドミ）→ 3 声（ドミソ）を v15、休みをはさんで v10 で同じことをする。
 # v15 の和音だけ汚く、v10 ならきれいなら、PSG のソフトクリップ（S3）。
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 puts "T6: v15 で 2 声 → 3 声、休み、v10 で 2 声 → 3 声（1 小節 2 秒）"

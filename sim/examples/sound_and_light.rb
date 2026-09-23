@@ -1,11 +1,11 @@
 # メロディを 1 音ずつ鳴らし、音の高さを棒グラフにして流す。
 # 音と光を同じループで進めるので、ずれない。鳴り始めが一番明るく、音が伸びるあいだに暗くなる。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/speaker'      # スピーカー
+require 'adventure_board/speaker'      # スピーカー
 GC.start
 
 STEP_MS = 50   # 時間の最小単位。小さくすると速くなる

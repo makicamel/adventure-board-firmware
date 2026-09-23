@@ -47,12 +47,12 @@ load "sim/sim_panel.rb"
   mrbgems/picoruby-midibase-mml/mrblib/player.rb
 ].each { |f| load f }
 load "mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb"
-load "lib/picorubykaigi01.rb"
+load "lib/adventure_board.rb"
 # A program requires the peripherals it uses; these tests use all of them.
-require "picorubykaigi01/led_matrix"
-require "picorubykaigi01/speaker"
-require "picorubykaigi01/status_led"
-require "picorubykaigi01/buttons"
+require "adventure_board/led_matrix"
+require "adventure_board/speaker"
+require "adventure_board/status_led"
+require "adventure_board/buttons"
 
 # Router timestamps with Machine.uptime_us, which neither bin/picoruby nor the
 # wasm build provides. Defined before sim_audio.rb so that its own stand-in,

@@ -1,8 +1,8 @@
 # 何も押さなくても動き続ける。繰り返しは while true と sleep_ms で書く。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
 t = 0                   # 何周目か

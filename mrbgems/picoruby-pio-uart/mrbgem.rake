@@ -1,6 +1,6 @@
 MRuby::Gem::Specification.new('picoruby-pio-uart') do |spec|
   spec.license = 'MIT'
-  spec.author  = 'picorubykaigi01-board'
+  spec.author  = 'PicoRubyKaigi 2026'
   spec.summary = 'PIO + DMA engine behind UART\'s PIO_UART0 unit'
 
   # No Ruby side and no gem dependencies: this is the engine that

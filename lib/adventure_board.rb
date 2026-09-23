@@ -1,7 +1,7 @@
-# Board support for picorubykaigi01-board.
+# Board support for Adventure Board.
 #
 # This file is not a gem. It is meant to live on the device's filesystem as
-# /lib/picorubykaigi01.rb and be picked up by `require 'picorubykaigi01'`, so
+# /lib/adventure_board.rb and be picked up by `require 'adventure_board'`, so
 # that anyone can open it, read the pin numbers and change them. The register
 # level work is in the picoruby-is31fl3729 gem; what is here is the part worth
 # reading.
@@ -15,15 +15,15 @@
 # peripherals live one class per file beside it, and a program requires the
 # ones it uses:
 #
-#   require 'picorubykaigi01'
-#   require 'picorubykaigi01/led_matrix'
+#   require 'adventure_board'
+#   require 'adventure_board/led_matrix'
 #
 # That is not ceremony. Compiling Ruby on the device costs about six times the
 # source size in contiguous heap and leaves about five times it resident, so
 # loading the LED matrix in order to blink the status LED is a real price a
 # program pays. Measurements in dev-docs/device-bringup/require-memory.md.
 
-require 'picorubykaigi01/board'
+require 'adventure_board/board'
 
 # --- what a program calls ----------------------------------------------------
 #

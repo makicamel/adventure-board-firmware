@@ -2,9 +2,9 @@
 # MML の s<形> と m<周期> で指定する。v を書くと固定の音量に戻る。
 # 実機専用（シミュレータの音源にはこの機能が無い）。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/speaker'      # スピーカー
+require 'adventure_board/speaker'      # スピーカー
 GC.start
 
 def play(title, mml)

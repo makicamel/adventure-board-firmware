@@ -23,7 +23,7 @@ namespace :sim do
   task :check, [:example] do |_t, args|
     compose = "docker compose -f #{Shellwords.escape("#{MRUBY_ROOT}/docker/compose.yml")}"
     env = "HOST_UID=#{Process.uid} HOST_GID=#{Process.gid}"
-    unless system("docker image inspect picorubykaigi01-browser-check:latest",
+    unless system("docker image inspect adventure-board-browser-check:latest",
                   out: File::NULL, err: File::NULL)
       sh "#{env} #{compose} build browser"
     end

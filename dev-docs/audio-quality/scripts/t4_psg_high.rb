@@ -1,8 +1,8 @@
 # T4: 高い音階（o6〜o7）を矩形波と三角波で。
 # 矩形波だけ、音程と関係ない音（ピー、キーンという別の高さ）が混じるなら折り返し（S2）。
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 def play_and_wait(label, mml)

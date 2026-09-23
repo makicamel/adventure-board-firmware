@@ -1,4 +1,4 @@
-# Build environment for picorubykaigi01-board firmware (PicoRuby / R2P2, RP2350A).
+# Build environment for Adventure Board firmware (PicoRuby / R2P2, RP2350A).
 #
 # Prerequisites are taken from mrbgems/picoruby-r2p2/README.md:
 #   git, Ruby (CRuby 3.4+) + Bundler, cmake >= 3.22, arm-none-eabi-gcc,

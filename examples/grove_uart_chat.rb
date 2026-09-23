@@ -2,11 +2,11 @@
 # 2 枚とも同じこのコードを走らせる。クロスケーブルが要る（ストレートでは送信同士がぶつかる）。
 # 実機専用。ケーブルを選ばないのは grove_link_chat.rb。詳しくは examples/README.md。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/buttons'      # ボタン
+require 'adventure_board/buttons'      # ボタン
 GC.start
 
 uart = board.grove_uart(baudrate: 115200)   # GROVE-B を UART として開く

@@ -1,7 +1,7 @@
 # T26: エンベロープの減衰を ADC で録る（和音 s0 m700 を 1 回、2.5 秒）
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 speaker.reset
 puts "T26: addr=#{ADCCapture.addr}"

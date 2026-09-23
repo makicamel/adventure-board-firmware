@@ -39,7 +39,7 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   conf.gem core: 'picoruby-drb'
   conf.gem core: 'picoruby-sqlite3'
 
-  # The picorubykaigi01-board simulator needs the drawing and font gems, which
+  # The Adventure Board simulator needs the drawing and font gems, which
   # the stock package leaves out, plus the LED driver. Guarded so that an
   # ordinary `rake wasm:build_prod` still produces the upstream package; see
   # `rake sim:wasm`.

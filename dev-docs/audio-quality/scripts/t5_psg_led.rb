@@ -1,11 +1,11 @@
 # T5: 同じ音を、LED マトリクス消灯のときと、市松模様で点灯しているときで比べる。
 # 点灯中だけ汚い・ジーという音が乗るなら、電源ノイズ（H3）。
 # 全点灯 + 音声は USB 500mA を超えるおそれがあるので、半分だけ点ける。
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/led_matrix'
+require 'adventure_board/led_matrix'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 def play_and_wait(label, mml)

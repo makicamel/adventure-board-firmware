@@ -3,9 +3,9 @@
 # 12.5kS/s・8bit で 32768 点 = 直近の 2.6 秒が RAM のリングに残る。中身は SWD で吸い出す
 # （addr と oldest を控える。tools 側の手順は report.md）。
 # ブチッが聞こえたら 2 秒以内に A ボタン（SW6）。押さなければ曲を繰り返し続ける。
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 require 'gpio'
 

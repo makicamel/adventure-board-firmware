@@ -33,7 +33,7 @@
 #define INSTALL_TIMEOUT_MS  8000
 
 /* Beside R2P2's own /etc/ruby-description, which is the same idea for /bin. */
-#define STAMP_PATH "/etc/picorubykaigi01-files"
+#define STAMP_PATH "/etc/adventure-board-files"
 #define STAMP_MAX  32
 
 /* Create every directory along the path, ignoring the ones already there. */
@@ -84,6 +84,32 @@ write_bytes(lfs_t *lfs, const char *path, const void *data, size_t size)
 }
 
 /* True when the board already holds exactly what this firmware carries. */
+/* The board library used to be /lib/picorubykaigi01; a board that had it
+ * keeps it after the firmware moves on, since the installer only writes.
+ * Taken away once, the first time a firmware with the new name runs (the
+ * stamp does not match then). One level deep is all there was. */
+static void
+remove_old_library(lfs_t *lfs)
+{
+  static const char *old_dir = "/lib/picorubykaigi01";
+  lfs_dir_t dir;
+  if (lfs_dir_open(lfs, &dir, old_dir) == LFS_ERR_OK) {
+    struct lfs_info info;
+    char path[64];
+    while (lfs_dir_read(lfs, &dir, &info) > 0) {
+      if (info.type != LFS_TYPE_REG) continue;
+      snprintf(path, sizeof(path), "%s/%s", old_dir, info.name);
+      lfs_remove(lfs, path);
+    }
+    lfs_dir_close(lfs, &dir);
+    if (lfs_remove(lfs, old_dir) == LFS_ERR_OK) {
+      printf("[R2P2] removed %s\n", old_dir);
+    }
+  }
+  lfs_remove(lfs, "/lib/picorubykaigi01.rb");
+  lfs_remove(lfs, "/etc/picorubykaigi01-files");
+}
+
 static bool
 stamp_matches(lfs_t *lfs)
 {
@@ -130,6 +156,7 @@ picorb_install_system_files(void)
       watchdog_hw->scratch[0] = 0;
       return;
     }
+    remove_old_library(lfs);
     bool complete = true;
     while (entry->path != NULL) {
       if (entry->refresh || !file_exists(lfs, entry->path)) {

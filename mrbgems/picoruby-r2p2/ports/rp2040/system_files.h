@@ -23,7 +23,7 @@ extern const char picorb_system_files_stamp[];
 /*
  * Put the board library and the samples on the filesystem.
  *
- * Called before the VM starts, so that `require 'picorubykaigi01'` works on a
+ * Called before the VM starts, so that `require 'adventure_board'` works on a
  * board that has only ever had a UF2 dropped on it.
  *
  * A file the board does not have is written. A file it does have is replaced

@@ -1,4 +1,4 @@
-# Simulation core for the picorubykaigi01 LED matrix.
+# Simulation core for the Adventure Board's LED matrix.
 #
 # Deliberately free of any JS dependency: everything that is interesting here —
 # decoding register writes and composing two chips into one 16x16 panel — can
@@ -305,7 +305,7 @@ end
 
 # The simulated panel: what the two chips add up to, seen from the front.
 #
-# The coordinate composition here mirrors LedMatrix in lib/picorubykaigi01.rb
+# The coordinate composition here mirrors LedMatrix in lib/adventure_board.rb
 # rather than being shared with it: LedMatrix drives the chips and this reads
 # them, so keeping the two independent is what makes the test meaningful. Rows
 # 1..8 are U10 at 0x34 and rows 9..16 are U11 at 0x35, whose columns are wired

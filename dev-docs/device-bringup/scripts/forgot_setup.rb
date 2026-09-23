@@ -1,9 +1,9 @@
 # よくある間違い: LED ドライバに電流と倍率を設定し忘れると、1 個も光らない。
 # 試したあとは「シミュレータをリセット」を押す（実機なら再起動する）。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
 led = IS31FL3729.new(i2c: board.i2c, address: LedMatrix::TOP_ADDRESS)   # 上半分のドライバを直接触る

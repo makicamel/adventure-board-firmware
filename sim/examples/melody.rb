@@ -1,9 +1,9 @@
 # MML（音楽を文字で書く記法）で 3 声の曲を鳴らす。メロディ、分散和音、ベース。
 # PSG は 3 声なので、トラックは 3 本まで。シミュレータでは、鳴った音をページ下の「鳴った音を見る」で確かめられる。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/speaker'      # スピーカー
+require 'adventure_board/speaker'      # スピーカー
 GC.start
 
 speaker.reset   # 前のプログラムが残した音量や音色の設定を初期値に戻す

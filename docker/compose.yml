@@ -1,4 +1,4 @@
-# Docker build environment for the picorubykaigi01-board firmware.
+# Docker build environment for the Adventure Board firmware.
 #
 #   docker compose -f docker/compose.yml build            # build the image
 #   docker compose -f docker/compose.yml run --rm build   # build the firmware
@@ -15,7 +15,7 @@
 # checkout turns into plain text files, and the build fails on them.
 # docker/build.sh copies the finished .uf2/.elf to ./dist.
 
-name: picorubykaigi01-firmware
+name: adventure-board-firmware
 
 x-common: &common
   build:
@@ -103,7 +103,7 @@ services:
     build:
       context: .
       dockerfile: browser.Dockerfile
-    image: picorubykaigi01-browser-check:latest
+    image: adventure-board-browser-check:latest
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /work
     volumes:

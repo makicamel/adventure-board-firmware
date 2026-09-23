@@ -1,11 +1,11 @@
 # 文字を右から左へ流す。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
-text = "PicoRubyKaigi 第一回 ようこそ"
+text = "PicoRubyKaigiへようこそ"
 x = 16                  # 右端の外から始める
 
 matrix.pen = 0xC0       # 文字の明るさ（draw_text は明るさを取らないので pen で決める）

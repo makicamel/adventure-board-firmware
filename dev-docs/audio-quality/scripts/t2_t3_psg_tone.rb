@@ -4,9 +4,9 @@
 # 判定:
 #   T1 はきれい、T2 は汚い、T3 はきれい → 折り返し（S2）
 #   T1 はきれい、T2 も T3 も汚い       → キャリア（S1）
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 def play_and_wait(label, mml)

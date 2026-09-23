@@ -2,9 +2,9 @@
 # 続けて矩形波で同じことをする。
 #   小さい音ならきれい         → クリップ（H2）か、鳴らしたときの電源の揺れ（H3）
 #   小さくしてもざらざらのまま → 音量に関係ない雑音（電源ノイズ、アンプ・スピーカー自体）
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 def play_and_wait(label, mml)

@@ -1,6 +1,6 @@
 # Docker build environment
 
-Firmware for **picorubykaigi01-board** (RP2350A, no wireless) is built inside a
+Firmware for **Adventure Board** (RP2350A, no wireless) is built inside a
 container so the toolchain does not have to be installed on the host.
 
 ## Prerequisites
@@ -144,7 +144,7 @@ Without a probe: hold BOOTSEL while plugging the board in, then copy the
   files the host `rake` cannot use: loading the build system rewrites
   `src/version.c`, which fails on a root-owned one.
 - `BOARD=pico2` uses the stock Raspberry Pi Pico 2 board definition from
-  pico-sdk. picorubykaigi01-board is a custom RP2350A design (W25Q32/W25Q64
+  pico-sdk. Adventure Board is a custom RP2350A design (W25Q32/W25Q64
   flash, 12 MHz crystal), so a dedicated board header under
   `mrbgems/picoruby-r2p2/lib/pico-sdk/src/boards/include/boards/` — or a
   `PICO_BOARD_HEADER_DIRS` entry pointing at one kept in this repository — is

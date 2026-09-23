@@ -2,9 +2,9 @@
 # パルス幅を 1 周期ずつ読めば、PSG が出したサンプル列をそのまま復元できる。
 #   オシロ: J3、X1、DC、1V/div、2ms/div で P → CSV（5MS/s × 100,000 点 = 20ms ≒ 440Hz の 9 周期）
 # TIMBRE を変えて流す: 1 = 三角波、0 = 矩形波。全音符 8 秒（t30）をループ。止めるにはリセット。
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start
-require 'picorubykaigi01/speaker'
+require 'adventure_board/speaker'
 GC.start
 
 TIMBRE = 1

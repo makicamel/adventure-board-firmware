@@ -1,11 +1,11 @@
 # ボタンでドットを動かす。A で明るく、B で十字線。押しっぱなしで連続して動く。
 # シミュレータでは画面のボタンか、キーボード（矢印キー / Z=A / X=B）。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/buttons'      # ボタン
+require 'adventure_board/buttons'      # ボタン
 GC.start
 
 DELAY = 6      # 押しっぱなしにしてから連続で動き出すまで（ループ何周ぶんか）

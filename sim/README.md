@@ -34,7 +34,7 @@ matrix.show             # これを呼ぶまでチップには届かない
 ```
 
 **書き方は実機とまったく同じ。** シミュレータ専用の構文は無い。
-サンプルの先頭にある `require 'picorubykaigi01'` は実機で必要なもので、
+サンプルの先頭にある `require 'adventure_board'` は実機で必要なもので、
 ブラウザでは（ソースが連結済みなので）何もしない。
 繰り返しは `while true` + `sleep_ms` で書く。ブラウザではこのコードが
 専用のタスクで走り、`sleep_ms` のあいだ画面に制御が戻るので固まらない。
@@ -55,7 +55,7 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 `board.i2c` は LED ドライバのバス（ここでは仮想、実機では I2C0）。
 
 **シミュレータ専用の構文はありません。** `board` / `matrix` / `buttons` /
-`speaker` はすべて `lib/picorubykaigi01.rb` — 実機にも載るボードレイヤ — が
+`speaker` はすべて `lib/adventure_board.rb` — 実機にも載るボードレイヤ — が
 定義しています。ここで書いたサンプルはそのまま基板で動きます。
 違うのは起動時にペリフェラルを組む部分だけで、それはサンプルの外にあります。
 
@@ -127,7 +127,7 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 | `examples/` | ページで選べるサンプル。実機の `/home/examples` にも同じものが入る | — |
 | `test/panel_test.rb` | ヘッドレス検証 | **なし** |
 
-`LedMatrix` / `Buttons` / `Speaker` などサンプルが呼ぶものは `sim/` ではなく `lib/picorubykaigi01/`（実機と同じボードレイヤ）にある。
+`LedMatrix` / `Buttons` / `Speaker` などサンプルが呼ぶものは `sim/` ではなく `lib/adventure_board/`（実機と同じボードレイヤ）にある。
 
 面白い部分（レジスタのデコードと 2 チップの座標合成）はすべて `sim_panel.rb` に
 あり、JS に依存しない。だから**ブラウザ無しで検証できる**:

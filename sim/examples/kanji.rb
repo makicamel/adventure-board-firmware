@@ -1,8 +1,8 @@
 # 漢字を 1 文字出す。16×16 のフォントがこのマトリクスにちょうど収まる。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear

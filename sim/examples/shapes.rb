@@ -1,8 +1,8 @@
 # 線と四角を描く。色の代わりに明るさ（0〜255）を渡す。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
 
 matrix.clear

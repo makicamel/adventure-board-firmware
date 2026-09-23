@@ -2,13 +2,13 @@
 # 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは普通のストレートでよい。
 # 実機専用（シミュレータでは動かない）。配線の事情は examples/README.md。
 
-require 'picorubykaigi01'
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'picorubykaigi01/led_matrix'   # LED マトリクス
+require 'adventure_board/led_matrix'   # LED マトリクス
 GC.start
-require 'picorubykaigi01/buttons'      # ボタン
+require 'adventure_board/buttons'      # ボタン
 GC.start
-require 'picorubykaigi01/grove_link'   # GROVE-B の基板間リンク
+require 'adventure_board/grove_link'   # GROVE-B の基板間リンク
 GC.start
 
 matrix.clear

@@ -1,6 +1,6 @@
 # adventure-board-firmware
 
-PicoRuby のフォーク。**Adventure Board**（基板リポジトリでの名前は picorubykaigi01-board。
+PicoRuby のフォーク。**Adventure Board**（基板リポジトリでの名前は Adventure Board。
 RP2350A / 16×16 LED マトリクス / 音声 / ボタン / GROVE、PicoRubyKaigi 2026 の学習用配布基板）のファームウェアを作る。
 
 リポジトリは `github.com/picorubykaigi/adventure-board-firmware`（2026-09-23 に `kishima/picorubykaigi01-board-firmware` から移した。
@@ -249,14 +249,14 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 シミュレータの存在意義が消える。`every(ms) { }` と、`sim/` にだけあった
 `matrix` / `buttons` / `speaker` / `board` / `panel` で 2 度指摘を受けた。
 
-- サンプルが呼べるものは**すべて `lib/picorubykaigi01.rb`**（ボードレイヤ）に置く
+- サンプルが呼べるものは**すべて `lib/adventure_board.rb`**（ボードレイヤ）に置く
 - `sim/` に置いてよいのは、実 gem と**同じ API を持つハードの代役**だけ
   （`I2C` / `GPIO` / `IRQ` / 仮想チップ）
 - ループは実機と同じ `while true` + `sleep_ms`
   （`sleep_ms` はタスクを suspend してブラウザにイベントループを返すので固まらない）
 - ペリフェラルの生成だけは両者で本当に違うので、**サンプルの外**で行う
   （実機は `Board.boot` の既定値、シミュレータは `sim_app.rb` が `$board` を用意）
-- サンプルは `require 'picorubykaigi01'` から始める。実機では `/lib` から読み、
+- サンプルは `require 'adventure_board'` から始める。実機では `/lib` から読み、
   ブラウザでは連結済みなので require シムが握り潰す。両方で正しい
 
 **サンプルのコメントの書き方**（`sim/examples/` と `examples/` で共通。2026-09-22 に全部そろえた）:
@@ -300,13 +300,17 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - **`require` 1 回の固定費が約 28KB**で、GC を呼ばないと返ってこない。
   コンパイルにはソースの約 6 倍の**連続**領域が要り、常駐は約 5 倍。
   **サンプルは使うペリフェラルを自分で require する**
-  （`require 'picorubykaigi01/led_matrix'`）。隠さないこと——
+  （`require 'adventure_board/led_matrix'`）。隠さないこと——
   何を読み込んでいるかはサンプルが教えることの一部で、実費でもある。
   `Board` 側は構築だけ遅延させる（使わないハードを起こさない）
 - **サンプルは require 1 本ごとに `GC.start` を呼ぶ。** `require.rb` は
   Sandbox を回収しないので、1 本 28KB が積み上がる。まとめて最後に呼んでも
   `max_free` は戻らない（12,328 のまま）。1 本ごとなら 20,736 まで増える
-- **ファームは変わったファイルだけ書く。** `/etc/picorubykaigi01-files` に
+- **ボードライブラリは `lib/adventure_board.rb` + `lib/adventure_board/`**（2026-09-23 に `picorubykaigi01` から改名。
+  基板の正式名称が Adventure Board になったため）。サンプルは `require 'adventure_board'`。古い名前のファームが入っていた基板では、
+  新しいファームが最初の起動で `/lib/picorubykaigi01*` と古い印を消してから書き直す（`system_files.c` の `remove_old_library`）。
+  **`/home/examples` は触らないので、古いサンプルは `require 'picorubykaigi01'` のまま壊れる**。r1 は `wipefs` して焼き直した
+- **ファームは変わったファイルだけ書く。** `/etc/adventure-board-files` に
   中身のハッシュを置いて比べる。`/lib` は更新されるが、
   **`/home/examples` は一度置いたら二度と触らない**（ユーザの編集物なので）。
   サンプルを直したら `tools/r2p2dev.py wipefs` で消してから焼く
@@ -319,7 +323,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - **r1 基板では SWD の halt が効かない**（両コアが `unknown`）。メモリの読み書きと
   `program` は通る。ウォッチドッグ再起動は halt を `catch` で包んで書く
   （`flash.sh` / `r2p2dev.py` は対応済み）。書き込み後は UART に
-  `installed /etc/picorubykaigi01-files` が出るまで SWD を触らない
+  `installed /etc/adventure-board-files` が出るまで SWD を触らない
 - **`r2p2dev.py reset` の直後に `run` しない。** ターゲットの起動中にプローブの
   UART へ送ると Debug Probe が USB ごと固まり、**抜き差しでしか戻らない**
   （usbipd の detach/attach では戻らない）。起動ログが流れ終わってから叩く
@@ -427,13 +431,13 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA のエンジン。`UART` の `:PIO_UART0`
   ユニットとして見える。`gets` / `irq` まで実機ループバックで検証済み）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular。コードの欄は Prism で色付け
-- ✅ `lib/picorubykaigi01.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
+- ✅ `lib/adventure_board.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる
 - ✅ 明るさは見た目に比例（`LedMatrix#duty_of` でガンマ 2.0。テーブル無し、
   `set` の 1 箇所だけ。シミュレータは描画時に平方根で戻す）
 - ✅ `/lib` への配布 — ファームが内蔵し初回起動時に書き出す（UF2 1本。実機未検証）
-- ✅ Pico 2 W 実機で `require 'picorubykaigi01'` → `/home/examples/status_led.rb` が動く
+- ✅ Pico 2 W 実機で `require 'adventure_board'` → `/home/examples/status_led.rb` が動く
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
 - ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
