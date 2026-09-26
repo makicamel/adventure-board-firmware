@@ -108,7 +108,16 @@ class GPIO
   def self.reset
     @state = {}
     @handlers = {}
+    bb = breadboard
+    bb.reset_pins if bb
     nil
+  end
+
+  # The breadboard on J1, when the page has one (sim_breadboard.rb). A J1 pin
+  # with something plugged into its socket reads what the circuit says, and
+  # a J1 output drives the circuit.
+  def self.breadboard
+    Object.const_defined?(:Breadboard) ? Breadboard.current : nil
   end
 
   def self.read_at(pin)
@@ -155,20 +164,36 @@ class GPIO
 
   def initialize(pin, flags = IN, alt_function = 0)
     @pin = pin
-    @flags = flags
+    setmode(flags)
   end
 
   def setmode(flags, alt_function = 0)
     @flags = flags
+    bb = GPIO.breadboard
+    if bb
+      if (flags & OUT) != 0
+        # An output starts low, as the chip's does.
+        GPIO.write_at(@pin, 0) if GPIO.state[@pin].nil?
+        bb.gpio_output(@pin, GPIO.read_at(@pin))
+      else
+        pull = (flags & PULL_UP) != 0 ? :up : ((flags & PULL_DOWN) != 0 ? :down : nil)
+        bb.gpio_input(@pin, pull)
+      end
+    end
     0
   end
 
   def read
-    GPIO.read_at(@pin)
+    bb = GPIO.breadboard
+    v = bb ? bb.gpio_read(@pin) : nil
+    v.nil? ? GPIO.read_at(@pin) : v
   end
 
   def write(value)
     GPIO.write_at(@pin, value)
+    bb = GPIO.breadboard
+    bb.gpio_output(@pin, GPIO.read_at(@pin)) if bb && (@flags & OUT) != 0
+    0
   end
 
   def high?

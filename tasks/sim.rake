@@ -81,6 +81,7 @@ namespace :sim do
     FileUtils.cd MRUBY_ROOT do
       sh "bin/picoruby sim/test/panel_test.rb"
       sh "bin/picoruby sim/test/circuit_test.rb"
+      sh "bin/picoruby sim/test/breadboard_test.rb"
     end
   end
 end

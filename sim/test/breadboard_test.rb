@@ -1,0 +1,194 @@
+# Headless check of the breadboard (sim/sim_breadboard.rb) through the GPIO
+# stand-in: code written for the board drives and reads the circuit.
+#
+#   bin/picoruby sim/test/breadboard_test.rb
+#
+# Run from the repository root.
+
+$failures = 0
+$checks = 0
+
+def check(label)
+  $checks += 1
+  ok = yield
+  if ok
+    puts "  ok   #{label}"
+  else
+    puts "  FAIL #{label}"
+    $failures += 1
+  end
+rescue => e
+  puts "  FAIL #{label} (#{e.class}: #{e.message})"
+  $failures += 1
+end
+
+$LOAD_PATH = ["."]
+load "sim/sim_panel.rb"
+load "sim/board_layout.rb"
+load "sim/sim_circuit.rb"
+load "sim/sim_breadboard.rb"
+
+# A fresh breadboard and fresh pins for each case.
+def fresh(text = "")
+  GPIO.reset
+  bb = Breadboard.new
+  Breadboard.current = bb
+  errors = bb.load_text(text)
+  raise errors.join(", ") unless errors.empty?
+  bb
+end
+
+def led_id(bb)
+  i = 0
+  while i < bb.parts.size
+    return bb.parts[i][0] if bb.parts[i][1] == "led"
+    i += 1
+  end
+  nil
+end
+
+puts "Holes"
+check("a1 and j17 are holes")      { Breadboard.parse_hole("a1") == [0, 1] && Breadboard.parse_hole("j17") == [9, 17] }
+check("k1, a18, a0, a01 are not")  { %w[k1 a18 a0 a01].all? { |h| Breadboard.parse_hole(h).nil? } }
+check("J1-5 is J1's fifth socket") { Breadboard.parse_hole("J1-5") == [:j1, 5] && Breadboard.parse_hole("J1-21").nil? }
+check("a3 and e3 are one strip")   { Breadboard.node_of("a3") == Breadboard.node_of("e3") }
+check("e3 and f3 are not")         { Breadboard.node_of("e3") != Breadboard.node_of("f3") }
+check("J1-5 is GPIO2, J1-2 GND")   { Breadboard.node_of("J1-5") == "GPIO2" && Breadboard.node_of("J1-2") == "GND" }
+
+BLINK = <<~TEXT
+  wire J1-5 a3
+  resistor b3 b7
+  led c7 c9
+  wire J1-3 d9
+TEXT
+
+puts "Blinking an LED on GPIO2"
+check("lit while the pin is high, dark while low") do
+  bb = fresh(BLINK)
+  led = GPIO.new(2, GPIO::OUT)
+  dark_at_start = bb.led_current(led_id(bb)) < 1.0e-6
+  led.write(1)
+  lit = bb.led_current(led_id(bb))
+  led.write(0)
+  dark = bb.led_current(led_id(bb))
+  puts "       #{(lit * 1000).round(2)} mA lit"
+  dark_at_start && lit > 0.0013 && lit < 0.0015 && dark < 1.0e-6
+end
+check("brightness follows the current") do
+  bb = fresh(BLINK)
+  GPIO.new(2, GPIO::OUT).write(1)
+  one = bb.led_brightness(led_id(bb))
+  bb = fresh(BLINK.sub("resistor b3 b7", "resistor b3 b5\nresistor c5 b7"))
+  GPIO.new(2, GPIO::OUT).write(1)
+  two = bb.led_brightness(led_id(bb))
+  puts "       one resistor #{one.round(3)}, two #{two.round(3)}"
+  two / one > 0.45 && two / one < 0.58
+end
+check("the wrong way round stays dark") do
+  bb = fresh(BLINK.sub("led c7 c9", "led c9 c7"))
+  GPIO.new(2, GPIO::OUT).write(1)
+  bb.led_current(led_id(bb)).abs < 1.0e-6
+end
+check("reset lets go of the pin") do
+  bb = fresh(BLINK)
+  GPIO.new(2, GPIO::OUT).write(1)
+  GPIO.reset
+  bb.led_current(led_id(bb)) < 1.0e-6
+end
+check("no warnings") do
+  bb = fresh(BLINK)
+  GPIO.new(2, GPIO::OUT).write(1)
+  bb.warnings.empty?
+end
+
+SWITCH = <<~TEXT
+  switch e11
+  wire J1-6 a11
+  wire J1-18 a13
+TEXT
+
+puts "A tact switch on GPIO3"
+check("pull-up: high when open, low when pressed") do
+  bb = fresh(SWITCH)
+  pin = GPIO.new(3, GPIO::IN | GPIO::PULL_UP)
+  up = pin.read
+  bb.press(bb.parts[0][0])
+  down = pin.read
+  bb.release(bb.parts[0][0])
+  up == 1 && down == 0 && pin.read == 1
+end
+check("the legs across the groove are joined") do
+  bb = fresh("switch e11\nwire J1-6 j11\nwire J1-3 a13\n")
+  pin = GPIO.new(3, GPIO::IN | GPIO::PULL_UP)
+  bb.press(bb.parts[0][0])
+  pin.read == 0
+end
+check("press and release arrive as edges") do
+  bb = fresh(SWITCH)
+  pin = GPIO.new(3, GPIO::IN | GPIO::PULL_UP)
+  seen = []
+  pin.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE) { |_p, e| seen << e }
+  bb.press(bb.parts[0][0])
+  bb.release(bb.parts[0][0])
+  seen == [GPIO::EDGE_FALL, GPIO::EDGE_RISE]
+end
+check("no pull-up: floats while open") do
+  bb = fresh(SWITCH)
+  GPIO.new(3, GPIO::IN)
+  !bb.solution.driven?(bb.node_for("GPIO3"))
+end
+
+puts "Mistakes"
+check("an LED straight from a pin to GND") do
+  bb = fresh("wire J1-5 a3\nled b3 b5\nwire J1-3 c5\n")
+  GPIO.new(2, GPIO::OUT).write(1)
+  bb.warnings.any? { |w| w.include?("GPIO2") } && bb.warnings.any? { |w| w.include?("LED") }
+end
+check("3V3 wired to GND") do
+  bb = fresh("wire J1-4 J1-3\n")
+  bb.warnings.any? { |w| w.include?("3V3") }
+end
+check("a pin driven high wired to GND") do
+  bb = fresh("wire J1-5 J1-3\n")
+  GPIO.new(2, GPIO::OUT).write(1)
+  bb.warnings.any? { |w| w.include?("GPIO2") }
+end
+check("5 V into a pin") do
+  bb = fresh("wire J1-1 a1\nresistor b1 b5\nwire J1-5 c5\n")
+  GPIO.new(2, GPIO::IN)
+  bb.warnings.any? { |w| w.include?("GPIO2") && w.include?("3.3 V") }
+end
+
+puts "Placing"
+check("one leg per hole") do
+  bb = fresh(BLINK)
+  bb.place(:resistor, %w[b3 a20]).is_a?(String) && bb.place(:resistor, %w[b3 f3]).is_a?(String)
+end
+check("a switch goes on row e") { fresh.place(:switch, ["d3"]).is_a?(String) }
+check("a switch needs two columns to its right") { fresh.place(:switch, ["e16"]).is_a?(String) }
+check("text comes back the same") do
+  bb = fresh(BLINK + SWITCH)
+  bb.to_text == BLINK + SWITCH
+end
+check("a bad line is reported, the rest placed") do
+  bb = Breadboard.new
+  errors = bb.load_text("wire J1-5 a3\nled z1 a2\n")
+  errors.size == 1 && errors[0].start_with?("2 行目") && bb.parts.size == 1
+end
+
+puts "The buttons are left alone"
+check("a button pin still reads its press") do
+  fresh(BLINK)
+  b = GPIO.new(17, GPIO::IN | GPIO::PULL_UP)
+  up = b.read
+  GPIO.press(17)
+  up == 1 && b.read == 0
+end
+
+puts
+puts "#{$checks - $failures}/#{$checks} checks passed"
+if 0 < $failures
+  puts "FAILED"
+else
+  puts "OK"
+end
