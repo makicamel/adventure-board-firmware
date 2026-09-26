@@ -213,6 +213,36 @@ class Breadboard
     errors
   end
 
+  # The wiring a program asks for in its comments, as text for load_text; nil
+  # when it has none. A comment line is taken when it starts with a part's
+  # name followed by its holes, and whatever comes after them is a note:
+  #
+  #   #   led c7 c9           赤 LED。長い足を c7
+  #
+  # On the board these are only comments, so the same file is the program
+  # and the instructions for wiring it.
+  def self.wiring_in(source)
+    out = ""
+    lines = source.to_s.split("\n")
+    i = 0
+    while i < lines.size
+      line = lines[i].strip
+      i += 1
+      next unless line.start_with?("#")
+      words = line[1, line.size - 1].to_s.split(" ")
+      next if words.empty? || !KINDS.include?(words[0])
+      want = words[0] == "switch" ? 1 : 2
+      holes = []
+      j = 1
+      while j < words.size && holes.size < want && parse_hole(words[j])
+        holes << words[j]
+        j += 1
+      end
+      out << words[0] << " " << holes.join(" ") << "\n" if holes.size == want
+    end
+    out.empty? ? nil : out
+  end
+
   # --- what the pins see ---------------------------------------------------
 
   # The GPIO stand-in reports how each pin is set up. Pins not on J1, or on

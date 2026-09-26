@@ -146,7 +146,32 @@ async function watchStatusLed(page, samples = 8, gapMs = 120) {
   return seen;
 }
 
+// The breadboard's LEDs: renderParts leaves their brightness (0..1, linear in
+// current) on the #parts canvas, sampled here like the status LED.
+async function watchBreadboardLeds(page, samples = 8, gapMs = 150) {
+  const seen = [];
+  for (let i = 0; i < samples; i++) {
+    seen.push(await page.getAttribute('#parts', 'data-leds'));
+    await page.waitForTimeout(gapMs);
+  }
+  console.log(`--- breadboard LEDs over ${samples} samples ---`);
+  console.log('  ' + seen.join(' '));
+  return seen;
+}
+
 const INTERACTIVE = {
+  breadboard_led: async (page) => {
+    // Loading the example wires the breadboard from its comments.
+    console.log(`# wiring: ${JSON.stringify(await page.evaluate(() => {
+      const t = document.getElementById('bb-text'); return t ? t.value : '(text box closed)';
+    }))}`);
+    const seen = (await watchBreadboardLeds(page)).map((v) => parseFloat(v || '0'));
+    const lit = seen.filter((v) => v > 0.2);
+    console.log(`# blinking: ${lit.length > 0 && seen.some((v) => v === 0)}, ` +
+      `lit at ${lit.length ? lit[0] : '-'} (1 kOhm: about 0.28)`);
+    const w = await page.$('#bb-warnings');
+    console.log(`# warnings: ${w ? await w.textContent() : '(none)'}`);
+  },
   status_led: async (page) => {
     const seen = await watchStatusLed(page);
     const blinked = seen.includes('on') && seen.includes('off');

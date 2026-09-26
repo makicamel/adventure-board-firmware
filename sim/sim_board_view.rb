@@ -483,6 +483,22 @@ module BoardView
     WIRE_COLORS[n % WIRE_COLORS.size]
   end
 
+  # A sample that says in its comments how it is wired gets that wiring, and
+  # the breadboard is shown so that it can be seen.
+  def use_example_wiring(source)
+    text = Breadboard.wiring_in(source)
+    return nil if text.nil?
+    Breadboard.current.load_text(text)
+    save_breadboard
+    @zoom = :breadboard
+    @pending = nil
+    @bb_msg = "サンプルの配線にしました"
+    @parts_shown = nil
+    refresh
+    fill_bb_text
+    nil
+  end
+
   # --- keeping it --------------------------------------------------------------
 
   # Per viewer, in this browser: what they built last time comes back.
@@ -514,5 +530,5 @@ module BoardView
     nil
   end
 
-  public :board_view, :draw_breadboard, :load_breadboard
+  public :board_view, :draw_breadboard, :load_breadboard, :use_example_wiring
 end

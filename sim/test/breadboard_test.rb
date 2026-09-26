@@ -179,6 +179,17 @@ check("a bad line is reported, the rest placed") do
   errors.size == 1 && errors[0].start_with?("2 行目") && bb.parts.size == 1
 end
 
+puts "Wiring written in a program's comments"
+check("the breadboard sample's wiring is read") do
+  text = Breadboard.wiring_in(File.read("sim/examples/breadboard_led.rb")) rescue nil
+  text == BLINK
+end
+check("notes after the holes are left out, other comments ignored") do
+  Breadboard.wiring_in("# led c7 c9 long leg first\n# wire is a word\n# switch e3\nputs 1\n") ==
+    "led c7 c9\nswitch e3\n"
+end
+check("no wiring, no text") { Breadboard.wiring_in("# just a program\nputs 1\n").nil? }
+
 puts "Clicks to holes (BoardView)"
 check("every hole is found at its own centre") do
   ok = true

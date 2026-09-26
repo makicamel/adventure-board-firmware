@@ -87,6 +87,7 @@ class SimApp < Funicular::Component
     ["動き続ける", "spinner.rb"],
     ["ボタンで動かす", "buttons.rb"],
     ["ステータス LED", "status_led.rb"],
+    ["ブレッドボードの LED", "breadboard_led.rb"],
     ["メロディを鳴らす", "melody.rb"],
     ["音と光", "sound_and_light.rb"]
   ]
@@ -653,7 +654,9 @@ class SimApp < Funicular::Component
       begin
         if response[:ok]
           box = refs[:codebox]
-          box[:value] = response.text.await if box
+          text = response.text.await.to_s
+          box[:value] = text if box
+          use_example_wiring(text)
         else
           report("サンプルの取得", RuntimeError.new("#{path}: #{response[:status].to_i}"))
         end

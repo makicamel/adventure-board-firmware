@@ -365,6 +365,8 @@
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, cv.width, cv.height);
     const lines = spec.split('\n').filter((l) => l.length > 0).map((l) => l.split(' '));
+    // The LEDs' brightness, where the headless check can read it.
+    cv.dataset.leds = lines.filter((w) => w[0] === 'led').map((w) => w[5]).join(',');
     const num = (w, i) => parseFloat(w[i]);
     // Switches, then resistors, then wires over them, then LEDs, then light.
     for (const w of lines) if (w[0] === 'switch')
