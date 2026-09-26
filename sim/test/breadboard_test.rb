@@ -27,6 +27,9 @@ load "sim/sim_panel.rb"
 load "sim/board_layout.rb"
 load "sim/sim_circuit.rb"
 load "sim/sim_breadboard.rb"
+# The page's view, for the geometry that turns a click into a hole. Nothing
+# in it that matters here touches the browser.
+load "sim/sim_board_view.rb"
 
 # A fresh breadboard and fresh pins for each case.
 def fresh(text = "")
@@ -174,6 +177,39 @@ check("a bad line is reported, the rest placed") do
   bb = Breadboard.new
   errors = bb.load_text("wire J1-5 a3\nled z1 a2\n")
   errors.size == 1 && errors[0].start_with?("2 行目") && bb.parts.size == 1
+end
+
+puts "Clicks to holes (BoardView)"
+check("every hole is found at its own centre") do
+  ok = true
+  r = 0
+  while r < 10
+    c = 1
+    while c <= 17
+      name = Breadboard.hole_name(r, c)
+      xy = BoardView.hole_xy(name)
+      ok = false unless BoardView.hole_near(xy[0], xy[1]) == name
+      c += 1
+    end
+    r += 1
+  end
+  n = 1
+  while n <= 20
+    xy = BoardView.hole_xy("J1-#{n}")
+    ok = false unless BoardView.hole_near(xy[0], xy[1]) == "J1-#{n}"
+    n += 1
+  end
+  ok
+end
+check("a little off still counts") do
+  xy = BoardView.hole_xy("c7")
+  BoardView.hole_near(xy[0] + 1.0, xy[1] - 1.0) == "c7"
+end
+check("the groove and the edge are no hole") do
+  mid = BoardView.hole_xy("e7")
+  f = BoardView.hole_xy("f7")
+  BoardView.hole_near(mid[0], (mid[1] + f[1]) / 2.0).nil? &&
+    BoardView.hole_near(BoardLayout::BREADBOARD_CENTER[0] - 23.0, mid[1]).nil?
 end
 
 puts "The buttons are left alone"

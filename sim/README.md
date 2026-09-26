@@ -14,7 +14,7 @@ rake sim:server
 ページが `mrbgems/picoruby-is31fl3729/mrblib/is31fl3729.rb` を
 **コピーではなく実ファイルとして**読むため。
 
-右のテキストエリアに Ruby を書いて Run。左のパネルに結果が出る。
+右のテキストエリアに Ruby を書いて Run。左の基板の絵に結果が出る。
 
 | ボタン | すること |
 |---|---|
@@ -107,6 +107,63 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 （[../dev-docs/upstream-issues.md](../dev-docs/upstream-issues.md) の 4）。
 音を使わないスクリプトでも起きるなら別の原因なので、記録すること。
 
+## 基板の絵とブレッドボード
+
+左は KiCad で描いた基板（PV1）の絵で、LED マトリクス・ボタン・ステータス LED・ブレッドボードに挿した部品が、
+実物と同じ位置に重なる。上のタブで「基板全体」「LED マトリクス」「ブレッドボード」を切り替える
+（LED マトリクスやブレッドボードを押しても大きくなる）。
+
+ブレッドボードを大きくすると、部品の棚が出る。部品を選んで穴を押す。
+
+| 部品 | 挿し方 |
+|---|---|
+| ジャンパ線 | 端を 2 か所。J1 の穴も使える |
+| 抵抗 1kΩ | 足を 2 か所（セットは 2 本。何本でも置ける） |
+| 赤 LED | 長い足（＋、アノード）、短い足（−、カソード）の順。逆に挿すと光らない |
+| タクトスイッチ | e の段を 1 か所。溝をまたいで e・f の 2 列に 4 本の足が挿さる。**溝をはさんだ足どうしは最初からつながっていて**、押すと左右の列がつながる（実物と同じ） |
+
+J1 の GPIO は、コードからは実機と同じに見える。`GPIO.new(2, GPIO::OUT).write(1)` で GPIO2 の先の LED が光り、
+スイッチの先の `GPIO.new(3, GPIO::IN | GPIO::PULL_UP).read` は押すと 0 になる。`irq` も立つ。
+何もつながっていない入力は宙に浮いていて、読むたびに値が変わる。
+
+回路は本当に計算している（`sim_circuit.rb`）。各点の電圧を連立方程式で解き、LED は電流と電圧の曲線どおりに扱う。
+明るさは電流に比例する: 抵抗 1 本で 1.4 mA、直列 2 本で 0.74 mA（約半分）、並列 2 本で 2.6 mA。
+次のときは、絵の下に警告が出る。
+
+- GPIO から 12 mA を超えて流れる（抵抗を入れ忘れた LED など）
+- LED に 20 mA を超えて流れる
+- 3V3・5V が GND とつながっている
+- GPIO に 3.6 V を超える電圧がかかっている（5V を入れたなど）
+
+配線は「▸ 配線を文字で見る・貼り付ける」で文字にできる。1 行 1 部品で、貼り付けて「この配線にする」で戻せる。
+
+```text
+wire J1-5 a3        ジャンパ線（J1-5 は GPIO2）
+resistor b3 b7      1kΩ
+led c7 c9           アノードが先
+wire J1-3 d9        J1-3 は GND
+switch e11          足は e11 e13 f11 f13
+```
+
+配線はブラウザに覚えさせてあり、ページを開き直すと戻る（見ている人ごと。ほかの人とは共有されない）。
+「シミュレータをリセット」は、ピンの設定だけを戻し、挿した部品はそのまま残す。
+
+### 基板の絵の作り方
+
+`sim/board/board.webp` と、位置の表 `sim/board_layout.rb` は、基板リポジトリの `.kicad_pcb` から作る。
+
+```console
+rake sim:board_art                      # 既定は tmp/picorubykaigi01-board（BOARD_DIR で変えられる）
+```
+
+KiCad の 3D モデル入りイメージ（`kicad/kicad:9.0-full`、約 5GB）の中で、上から見た絵を描き、切り抜き、
+LED マトリクス・ブレッドボード・J1・ボタンの位置を書き出す（`tools/board-art/build.py`）。基板の clone には書き込まない。
+
+- 描画は `--quality basic`。`high` だと、ブレッドボードのまわりに暗い影が出る
+- 基板データにはレジストとシルクの色が無いので、描くための写しの中で緑と白を入れている
+- U1（RP2350）のモデルは KiCad 5 の書き方（`${KISYS3DMOD}/….wrl`）で、KiCad 9 では見つからない。写しの中だけ `.step` に差し替える
+- LED マトリクスの LED には 3D モデルが無い。シミュレータが上に光を重ねるので困らない
+
 ## 見た目
 
 [picorubykaigi.org](https://picorubykaigi.org/) からリンクされるので、そのサイトの見た目に合わせてある。
@@ -118,14 +175,19 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 
 | ファイル | 役割 | JS 依存 |
 |---|---|---|
-| `sim_panel.rb` | ハードの代役: `I2C` / `GPIO` / `IRQ` / 仮想チップ `VirtualIS31FL3729` / それを 16×16 にまとめる `Panel`。`require` のシムもここ | **なし** |
+| `sim_panel.rb` | ハードの代役: `I2C` / `GPIO` / `IRQ` / 仮想チップ `VirtualIS31FL3729` / それを 16×16 にまとめる `Panel`。`require` のシムもここ。`GPIO` は J1 のピンをブレッドボードに問い合わせる | **なし** |
+| `board_layout.rb` | 基板の絵の上の位置（mm）。`rake sim:board_art` が作る。手で直さない | **なし** |
+| `sim_circuit.rb` | 回路の計算（節点の電圧を解く。LED は曲線どおり） | **なし** |
+| `sim_breadboard.rb` | ブレッドボードに挿したもの、文字での保存と復元、J1 のピンから見た回路 | **なし** |
+| `sim_board_view.rb` | 基板の絵とその上に重ねるもの、拡大、部品の棚（`SimApp` に混ぜる） | あり |
 | `sim_audio.rb` | 音の側: `Machine` の代替、鳴った音の記録 `NoteLog`、あとから音源を差し替えられる `SwitchableSink`、`WebAudioSpeaker` | あり |
 | `sim_device.rb` | 実機との USB 接続（`DeviceLink`）: 端末への配線、PicoModem での転送、再起動、自動再接続。サンプルからは呼ばない | あり |
 | `sim_app.rb` | ページの UI。Funicular のコンポーネント `SimApp`（ボタン・サンプル選択・状態表示・ユーザのコードの実行）と、コードの色付けの `CodeColors` | あり |
-| `index.html` | ページ、スタイル、JS に残した 3 つ（canvas の描画 `renderPanel`、色付きの層 `setCodeColors`、端末を作る `deviceTerminal`）、ソースの読み込み | — |
+| `index.html` | ページ、スタイル、JS に残した 4 つ（canvas の描画 `renderPanel`、部品の描画 `renderParts`、色付きの層 `setCodeColors`、端末を作る `deviceTerminal`）、ソースの読み込み | — |
+| `board/board.webp` | 基板の絵（KiCad の 3D 描画）。`rake sim:board_art` が作る | — |
 | `xterm/` | xterm.js 6.0.0 とフィットのアドオン（MIT、そのまま同梱） | — |
 | `examples/` | ページで選べるサンプル。実機の `/home/examples` にも同じものが入る | — |
-| `test/panel_test.rb` | ヘッドレス検証 | **なし** |
+| `test/*_test.rb` | ヘッドレス検証（パネル、回路の計算、ブレッドボード） | **なし** |
 
 `LedMatrix` / `Buttons` / `Speaker` などサンプルが呼ぶものは `sim/` ではなく `lib/adventure_board/`（実機と同じボードレイヤ）にある。
 

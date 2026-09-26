@@ -97,6 +97,7 @@ rake sim:test               # 中核のヘッドレス検証（ブラウザ不�
 rake sim:check              # ヘッドレス Chromium でページを操作して結果を報告
 rake sim:check[one_dot]     # サンプル 1 つだけ
 rake sim:server             # 手で見るとき → http://localhost:8080/sim/
+rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から作り直す（kicad/kicad:9.0-full、約 5GB）
 ```
 
 `sim:check` は canvas を読み戻して **16×16 のテキスト**にするので、
@@ -226,6 +227,11 @@ rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 - **属性に `nil` を渡すと、最初の描画では `hidden=""` のように空文字で書かれる**（`setAttribute(key, nil.to_s)`。
   `disabled` など Funicular 自身の真偽属性の一覧にあるものだけ外される）。更新時は外れるので、
   「最初から出ているはずの要素が隠れている」ときはこれ。出し分けは `if` でタグごと切り替える
+- **`patch` は、別の `patch` の描き直しの途中に来ると黙って捨てられる**（`return if @updating`）。クリックの処理は
+  それぞれ別のタスクで走り、描き直しが重いと途中で切り替わる。ブレッドボードの穴を 190 個の要素で描いたら、
+  部品を選んだ直後のクリックが古い部品のまま、あるいは丸ごと消えた。すぐ読み返す値は state ではなくインスタンス変数に置き、
+  描き直しの依頼が捨てられたらハートビートで出し直す（`BoardView#refresh`）。要素の数も減らす（穴はクリック位置から計算）
+- **`patch` はコンポーネントで定義し直せない**（`DSLCollisionError`）。中を見たいときは呼ぶ側に `puts` を置く
 - **Funicular がマウントする要素を、スクリプト読み込み時に掴んではいけない。**
   まだ存在しない。遅延取得する
 
@@ -441,6 +447,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA のエンジン。`UART` の `:PIO_UART0`
   ユニットとして見える。`gets` / `irq` まで実機ループバックで検証済み）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular。コードの欄は Prism で色付け
+- ✅ シミュレータの左を PV1 の基板の絵（KiCad の 3D 描画）にし、ブレッドボードで回路を組めるようにした
+  （ジャンパ線・抵抗 1kΩ・赤 LED・タクトスイッチ。回路は節点解析で本当に解く。J1 の GPIO はコードから実機と同じに見える）。
+  使い方は [sim/README.md](sim/README.md) の「基板の絵とブレッドボード」
 - ✅ `lib/adventure_board.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
 - ✅ フォント描画（`picoruby-shinonome`）と VRAM 描画 API。16×16 に漢字が出る
 - ✅ `picoruby-vram` に 8bit 階調（`layout: :gray8`）。線も文字も明るさを持てる

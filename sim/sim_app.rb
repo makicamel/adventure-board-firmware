@@ -74,6 +74,8 @@ module CodeColors
 end
 
 class SimApp < Funicular::Component
+  include BoardView
+
   # In the order someone new would want them: one dot, then brightness, then
   # drawing and text, then things that move, then input, then sound.
   EXAMPLES = [
@@ -88,12 +90,6 @@ class SimApp < Funicular::Component
     ["メロディを鳴らす", "melody.rb"],
     ["音と光", "sound_and_light.rb"]
   ]
-
-  # Pins as on the board (Board::BUTTON_PINS). B sits left of A there too.
-  BUTTON_PINS = [
-    [17, "↑", "up"], [18, "←", "left"], [19, "→", "right"], [20, "↓", "down"]
-  ]
-  AB_PINS = [[21, "B"], [22, "A"]]
 
   KEY_PINS = {
     "ArrowUp" => 17, "ArrowLeft" => 18, "ArrowRight" => 19, "ArrowDown" => 20,
@@ -143,12 +139,16 @@ class SimApp < Funicular::Component
       notes_visible: false,
       held: [],
       device: :none,
-      device_supported: DeviceLink.supported?
+      device_supported: DeviceLink.supported?,
+      # Bumped to render the board picture again; what it shows is kept in
+      # BoardView's instance variables.
+      bb_version: 0
     }
   end
 
   def component_mounted
     $app = self
+    load_breadboard
     wire_device
     wire_keyboard
     start_monitor
@@ -160,6 +160,7 @@ class SimApp < Funicular::Component
 
   # A re-render can hand back a fresh canvas, which would be blank.
   def component_updated
+    @parts_shown = nil
     draw
     nil
   end
@@ -169,28 +170,17 @@ class SimApp < Funicular::Component
   def render
     div(class: "wrap") do
       div(class: "panel-side") do
-        canvas(ref: :panel, id: "panel", width: "452", height: "452")
+        board_view
         div(class: "controls") do
           label(for: "gcc") { "明るさ (GCC)" }
           input(type: "range", id: "gcc", min: "0", max: "64",
                 value: state[:gcc].to_s, oninput: :on_gcc)
           span { state[:gcc].to_s }
         end
-        div(class: "pad") do
-          div(class: "dpad") { dpad_buttons }
-          div(class: "ab") { ab_buttons }
-        end
-        div(class: "leds") do
-          # The green status LED and, beside it, the red power one that is
-          # wired straight to 3V3 on the board and so is always lit.
-          span(ref: :status_led, id: "status-led", class: "led green off") { "" }
-          span(class: "led red") { "" }
-          span(class: "legend") { "ステータス LED (GPIO16) / 電源 LED" }
-        end
         div(class: "legend") do
-          span { "上半分 = U10 (0x34) / 下半分 = U11 (0x35、列が左右反転)" }
+          span { "ボタンは絵の上で押すか、キーボードで（矢印キー / Z=A / X=B）" }
           br
-          span { "ボタンはキーボードでも操作できます（矢印キー / Z=A / X=B）" }
+          span { "LED マトリクスやブレッドボードを押すと大きくなります" }
         end
       end
 
@@ -282,36 +272,6 @@ class SimApp < Funicular::Component
       i += 1
     end
     nil
-  end
-
-  def dpad_buttons
-    list = BUTTON_PINS
-    i = 0
-    while i < list.size
-      pad_button(list[i][0], list[i][1], "grid-area:#{list[i][2]}", "btn")
-      i += 1
-    end
-    nil
-  end
-
-  def ab_buttons
-    list = AB_PINS
-    i = 0
-    while i < list.size
-      pad_button(list[i][0], list[i][1], nil, "btn round")
-      i += 1
-    end
-    nil
-  end
-
-  # The handlers are symbols, not blocks, so nothing closes over `pin` — which
-  # is what went wrong the last time these were built in a loop.
-  def pad_button(pin, glyph, style, base)
-    klass = state[:held].include?(pin) ? "#{base} held" : base
-    button(class: klass, style: style, "data-pin": pin.to_s,
-           onmousedown: :on_press, onmouseup: :on_release,
-           onmouseleave: :on_release, ontouchstart: :on_press,
-           ontouchend: :on_release) { glyph }
   end
 
   # --- handlers ------------------------------------------------------------
@@ -565,6 +525,7 @@ class SimApp < Funicular::Component
 
   def draw
     JS.global.renderPanel($panel.levels_hex)
+    draw_breadboard
     draw_status_led
     draw_notes
     draw_device

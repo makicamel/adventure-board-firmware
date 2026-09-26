@@ -110,25 +110,35 @@
     background: var(--well); border: 2px solid #3d3a48; border-radius: 6px;
   }
   #devicelog .xterm { height: 100%; }
-  .pad { display: flex; gap: 28px; align-items: center; margin: 14px 0 4px; }
-  .dpad {
-    display: grid; gap: 4px;
-    grid-template-areas: ". up ." "left . right" ". down .";
-  }
-  .ab { display: flex; gap: 10px; }
-  .btn {
-    width: 44px; height: 44px; padding: 0; font-size: 16px;
-    background: var(--card); border: 2px solid #3d3a48; color: var(--ink);
-    border-radius: 6px; cursor: pointer; user-select: none;
-  }
-  .btn.round { border-radius: 50%; }
-  .leds { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; }
-  .led { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-  .led.green { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,.6); }
-  .led.green.off { background: #1f2a22; box-shadow: none; }
-  .led.red { background: #f87171; box-shadow: 0 0 8px #f8717199; }
-  .leds .legend { margin-left: 4px; }
-  .btn.held { background: var(--red); border-color: var(--redd); color: #fff; }
+  /* The board: KiCad's picture with the moving parts laid over it, all
+     placed in percent of the picture (sim_board_view.rb). The view is a
+     window onto part of it; zooming moves and scales #board inside. */
+  .zoom-tabs { margin-top: 0; }
+  .zoom-tabs .tab.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  #board-view { position: relative; overflow: hidden; border-radius: 8px; background: #2b2a30; }
+  #board { position: absolute; left: 0; top: 0; }
+  #board .board-img { position: absolute; inset: 0; width: 100%; height: 100%;
+                      user-select: none; pointer-events: none; }
+  #board canvas { position: absolute; background: transparent; border: none; border-radius: 0; }
+  /* The LEDs' own panel, blended so that only light shows over the board. */
+  #panel { mix-blend-mode: screen; cursor: zoom-in; }
+  .zoom-matrix #panel { cursor: default; }
+  #parts { pointer-events: none; }
+  .board-btn { position: absolute; border-radius: 50%; cursor: pointer; user-select: none; }
+  .board-btn:hover { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .6); }
+  .board-btn.held { background: rgba(232, 64, 75, .45); box-shadow: inset 0 0 0 2px var(--red); }
+  #board .led { position: absolute; border-radius: 2px; }
+  #board .led.green { background: #9dffc4; box-shadow: 0 0 10px 4px rgba(74, 222, 128, .85); }
+  #board .led.green.off { background: transparent; box-shadow: none; }
+  #board .led.red { background: #ff8a80; box-shadow: 0 0 8px 3px rgba(248, 113, 113, .75); }
+  .bb-area { position: absolute; cursor: zoom-in; }
+  .hole-area { position: absolute; cursor: crosshair; }
+  .bb-switch { position: absolute; cursor: pointer; border-radius: 4px; user-select: none; }
+  .bb-switch.held { box-shadow: inset 0 0 0 3px var(--red); }
+  .shelf .tool.on { background: var(--red); border-color: var(--redd); color: #fff; }
+  #bb-text { height: 120px; margin-top: 6px; }
+  #bb-warnings .warning { margin-top: 8px; padding: 6px 10px; border-radius: 4px; font-size: 13px;
+                          background: #fbe3e5; color: var(--redd); border: 1px solid #f0a3ab; }
 </style>
 </head>
 <body>
@@ -259,6 +269,121 @@
 </script>
 
 <script>
+// What is plugged into the breadboard, drawn onto the #parts canvas over it.
+// Ruby hands over one line per part (BoardView#parts_spec): the kind, each
+// leg's hole in canvas pixels (20 per millimetre), and then a wire's colour,
+// an LED's brightness (0..1, linear in current) or a switch's state.
+(function () {
+  const MM = 20;
+  function canvas() { return document.getElementById('parts'); }
+
+  function legs(ctx, pts, cx, cy) {
+    ctx.strokeStyle = '#c8ccd2'; ctx.lineWidth = 0.45 * MM; ctx.lineCap = 'round';
+    for (const [x, y] of pts) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke();
+    }
+  }
+
+  function wire(ctx, x1, y1, x2, y2, color) {
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0, 0, 0, .35)'; ctx.lineWidth = 1.1 * MM;
+    ctx.beginPath(); ctx.moveTo(x1, y1 + 0.2 * MM); ctx.lineTo(x2, y2 + 0.2 * MM); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 0.9 * MM;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.fillStyle = '#b8bcc4';
+    for (const [x, y] of [[x1, y1], [x2, y2]]) {
+      ctx.beginPath(); ctx.arc(x, y, 0.3 * MM, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // 1 kOhm: brown, black, red, then gold.
+  function resistor(ctx, x1, y1, x2, y2) {
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    legs(ctx, [[x1, y1], [x2, y2]], cx, cy);
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+    const L = 6.0 * MM, W = 2.2 * MM;
+    ctx.fillStyle = '#dcc79c'; ctx.strokeStyle = '#8f7a55'; ctx.lineWidth = 0.15 * MM;
+    ctx.beginPath(); ctx.roundRect(-L / 2, -W / 2, L, W, W / 2); ctx.fill(); ctx.stroke();
+    const bands = ['#6b3a1e', '#151515', '#d22b2b', '#c9a53a'];
+    const at = [-1.8, -0.9, 0.0, 1.9];
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = bands[i];
+      ctx.fillRect(at[i] * MM - 0.25 * MM, -W / 2 + 0.1 * MM, 0.5 * MM, W - 0.2 * MM);
+    }
+    ctx.restore();
+  }
+
+  // Seen from above: a 5 mm dome, flat on the cathode's side. Light is
+  // linear in current; the square root is how bright that looks, the same
+  // correction the LED matrix gets.
+  function led(ctx, x1, y1, x2, y2, level, glows) {
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    const b = Math.sqrt(Math.max(0, Math.min(1, level)));
+    if (glows) {
+      if (b <= 0) return;
+      const r = (3 + 9 * b) * MM;
+      const g = ctx.createRadialGradient(cx, cy, 1.5 * MM, cx, cy, r);
+      g.addColorStop(0, 'rgba(255, 70, 40, ' + Math.min(1, 1.3 * b).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255, 60, 40, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    legs(ctx, [[x1, y1], [x2, y2]], cx, cy);
+    const R = 2.5 * MM;
+    const lo = [120, 16, 16], hi = [255, 80, 60];
+    const c = lo.map((v, i) => Math.round(v + (hi[i] - v) * b));
+    ctx.fillStyle = 'rgb(' + c.join(',') + ')';
+    ctx.strokeStyle = '#5a0c0c'; ctx.lineWidth = 0.2 * MM;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // The flat on the cathode (second leg) side.
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+    ctx.strokeStyle = '#3a0808'; ctx.lineWidth = 0.35 * MM;
+    ctx.beginPath(); ctx.moveTo(R * 0.8, -R * 0.6); ctx.lineTo(R * 0.8, R * 0.6); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.25 + 0.5 * b).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(cx - R * 0.35, cy - R * 0.35, R * 0.28, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Four legs (e, e+2, f, f+2), a 6 mm body and its round cap.
+  function tact(ctx, pts, down) {
+    const cx = (pts[0][0] + pts[3][0]) / 2, cy = (pts[0][1] + pts[3][1]) / 2;
+    const S = 6.0 * MM;
+    ctx.fillStyle = '#9aa0a8';
+    for (const [x, y] of pts) ctx.fillRect(x - 0.5 * MM, y - 0.5 * MM, 1.0 * MM, 1.0 * MM);
+    ctx.fillStyle = '#30343a'; ctx.strokeStyle = '#6b7079'; ctx.lineWidth = 0.2 * MM;
+    ctx.beginPath(); ctx.roundRect(cx - S / 2, cy - S / 2, S, S, 0.5 * MM); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = down ? '#0a0a0a' : '#1b1b1b'; ctx.strokeStyle = '#555';
+    ctx.beginPath(); ctx.arc(cx, cy, (down ? 1.5 : 1.75) * MM, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+
+  window.renderParts = function (spec) {
+    const cv = canvas();
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const lines = spec.split('\n').filter((l) => l.length > 0).map((l) => l.split(' '));
+    const num = (w, i) => parseFloat(w[i]);
+    // Switches, then resistors, then wires over them, then LEDs, then light.
+    for (const w of lines) if (w[0] === 'switch')
+      tact(ctx, [[num(w, 1), num(w, 2)], [num(w, 3), num(w, 4)], [num(w, 5), num(w, 6)], [num(w, 7), num(w, 8)]], w[9] === '1');
+    for (const w of lines) if (w[0] === 'resistor') resistor(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4));
+    for (const w of lines) if (w[0] === 'wire') wire(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), w[5]);
+    for (const w of lines) if (w[0] === 'led') led(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), num(w, 5), false);
+    for (const w of lines) if (w[0] === 'led') led(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), num(w, 5), true);
+    // The hole the first leg went into, while the second is being chosen.
+    for (const w of lines) if (w[0] === 'pending') {
+      ctx.strokeStyle = '#2fb36a'; ctx.lineWidth = 0.4 * MM;
+      ctx.fillStyle = 'rgba(47, 179, 106, .45)';
+      ctx.beginPath(); ctx.arc(num(w, 1), num(w, 2), 1.1 * MM, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  };
+})();
+</script>
+
+<script>
 // The loader turns every <script type="text/ruby"> into its own mruby task, and
 // tasks are scheduled cooperatively rather than run to completion in order. The
 // three sources here depend on one another, so they are fetched and concatenated
@@ -271,6 +396,11 @@
   const M = '../mrbgems/';
   const SOURCES = [
     'sim_panel.rb',
+    // The breadboard: where things are on the board, the circuit solver, and
+    // what is plugged in. The GPIO stand-in in sim_panel.rb reads J1 from it.
+    'board_layout.rb',
+    'sim_circuit.rb',
+    'sim_breadboard.rb',
     // picoruby-midibase and its MML front end are pure Ruby, so the real
     // parser, sequencer and router run here. Only the sound generator is
     // replaced: PSG is a C extension, WebAudio takes its place.
@@ -296,6 +426,7 @@
     '../lib/adventure_board.rb',
     'sim_audio.rb',
     'sim_device.rb',
+    'sim_board_view.rb',
     'sim_app.rb'
   ];
   try {

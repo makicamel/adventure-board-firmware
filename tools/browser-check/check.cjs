@@ -33,6 +33,7 @@ const MIME = {
   // Without this the browser refuses to compile the module by streaming and
   // falls back to an ArrayBuffer, which works but is slower and noisy.
   '.wasm': 'application/wasm',
+  '.webp': 'image/webp',
 };
 
 function serve() {
