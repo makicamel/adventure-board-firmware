@@ -64,6 +64,18 @@ namespace :sim do
     puts "sim/vendor is ready; the page will load it instead of the CDN."
   end
 
+  # The picture of the board and the table of where things are on it, both
+  # from the board repository's .kicad_pcb (a clone in tmp/ by default). The
+  # -full image is the one that carries KiCad's 3D models.
+  desc "Render sim/board/board.webp and sim/board_layout.rb from the KiCad board"
+  task :board_art do
+    board = File.expand_path(ENV["BOARD_DIR"] || "#{MRUBY_ROOT}/tmp/picorubykaigi01-board")
+    abort "no .kicad_pcb in #{board}. Set BOARD_DIR." if Dir["#{board}/*.kicad_pcb"].empty?
+    sh "docker run --rm --user #{Process.uid}:#{Process.gid} -e HOME=/tmp " \
+       "-v #{Shellwords.escape(board)}:/board:ro -v #{Shellwords.escape(MRUBY_ROOT)}:/work " \
+       "kicad/kicad:9.0-full python3 /work/tools/board-art/build.py /board /work/sim"
+  end
+
   desc "Run the headless check of the simulator core"
   task :test do
     FileUtils.cd MRUBY_ROOT do
