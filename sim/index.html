@@ -353,6 +353,19 @@
     ctx.beginPath(); ctx.arc(cx - R * 0.35, cy - R * 0.35, R * 0.28, 0, Math.PI * 2); ctx.fill();
   }
 
+  // Which leg is which. From above the legs' lengths do not show, so the hole
+  // each one is in gets the sign: red + for the anode, black - for the
+  // cathode, the colours a meter's leads have.
+  function legMark(ctx, x, y, sign, color) {
+    const r = 0.95 * MM;
+    ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.18 * MM;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold ' + Math.round(1.5 * MM) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(sign, x, y + 0.08 * MM);
+  }
+
   // Four legs (e, e+2, f, f+2), a 6 mm body and its round cap.
   function tact(ctx, pts, down) {
     const cx = (pts[0][0] + pts[3][0]) / 2, cy = (pts[0][1] + pts[3][1]) / 2;
@@ -381,6 +394,11 @@
     for (const w of lines) if (w[0] === 'wire') wire(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), w[5]);
     for (const w of lines) if (w[0] === 'led') led(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), num(w, 5), false);
     for (const w of lines) if (w[0] === 'led') led(ctx, num(w, 1), num(w, 2), num(w, 3), num(w, 4), num(w, 5), true);
+    // + and - where the LED's legs go in, over its light so they stay legible.
+    for (const w of lines) if (w[0] === 'led') {
+      legMark(ctx, num(w, 1), num(w, 2), '+', '#d62828');
+      legMark(ctx, num(w, 3), num(w, 4), '−', '#1b1b1b');
+    }
     // The hole the first leg went into, while the second is being chosen.
     for (const w of lines) if (w[0] === 'pending') {
       ctx.strokeStyle = '#2fb36a'; ctx.lineWidth = 0.4 * MM;

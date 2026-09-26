@@ -201,9 +201,12 @@ check("a bad line is reported, the rest placed") do
 end
 
 puts "Wiring written in a program's comments"
-check("the breadboard sample's wiring is read") do
+check("the breadboard sample's wiring is read, and lights its LED") do
   text = Breadboard.wiring_in(File.read("sim/examples/breadboard_led.rb")) rescue nil
-  text == BLINK
+  bb = fresh(text.to_s)
+  GPIO.new(2, GPIO::OUT).write(1)
+  text == "wire J1-5 a13\nresistor b13 b9\nled c9 g10\nwire h10 J1-3\n" &&
+    bb.led_current(led_id(bb)) > 0.00055 && bb.warnings.empty?
 end
 check("notes after the holes are left out, other comments ignored") do
   Breadboard.wiring_in("# led c7 c9 long leg first\n# wire is a word\n# switch e3\nputs 1\n") ==
