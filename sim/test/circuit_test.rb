@@ -57,13 +57,13 @@ gpio_high(par, :pin)
 par.resistor(:pin, :a, 1000, :r1).resistor(:pin, :a, 1000, :r2).led(:a, :gnd, :led).solve
 parallel = par.current(:led)
 puts "       one #{ma(one)} mA, two in series #{ma(two)} mA, two side by side #{ma(parallel)} mA"
-check("one resistor: about 1.4 mA") { one > 0.00130 && one < 0.00150 }
-check("two in series: about half") { two / one > 0.45 && two / one < 0.58 }
-check("two side by side: about double") { parallel / one > 1.7 && parallel / one < 2.1 }
-check("the LED drops about 1.8 V") do
+check("one resistor: about 0.6 mA") { one > 0.00055 && one < 0.00070 }
+check("two in series: a bit over half") { two / one > 0.48 && two / one < 0.65 }
+check("two side by side: nearly double") { parallel / one > 1.6 && parallel / one < 2.0 }
+check("the blue LED drops about 2.65 V") do
   c = led_through([1000])
   v = c.voltage("r0")
-  v > 1.75 && v < 1.90
+  v > 2.55 && v < 2.75
 end
 check("no warnings with a resistor") { led_through([1000]).warnings.empty? }
 
@@ -74,12 +74,18 @@ check("an LED the wrong way round stays dark") do
   c.resistor(:pin, :a, 1000, :r).led(:gnd, :a, :led).solve
   c.current(:led).abs < 1.0e-6
 end
-check("an LED with no resistor: the pin and the LED are both over") do
+check("an LED with no resistor on a pin: several mA, under both limits") do
   c = Circuit.new
   gpio_high(c, :pin)
   c.led(:pin, :gnd, :led).solve
-  kinds = c.warnings.map { |w| [w[0], w[1]] }
-  kinds.include?([:overcurrent, :gpio]) && kinds.include?([:led_overcurrent, :led])
+  a = c.current(:led)
+  a > 0.004 && a < 0.012 && c.warnings.empty?
+end
+check("an LED with no resistor on 5V: the LED is over") do
+  c = Circuit.new
+  c.source(:v5, 5.0, 0.2, 0.5, :rail)
+  c.led(:v5, :gnd, :led).solve
+  c.warnings.any? { |w| w[0] == :led_overcurrent && w[1] == :led }
 end
 check("3V3 shorted to GND through a switch") do
   c = Circuit.new
@@ -127,7 +133,7 @@ check("a GPIO at 0 V lights an LED from 3V3") do
   c.source(:pin, 0.0, 50, 0.012, :gpio)
   c.resistor(:v33, :a, 1000, :r).led(:a, :pin, :led).solve
   a = c.current(:led)
-  a > 0.00130 && a < 0.00150 && c.current(:gpio) < 0
+  a > 0.00055 && a < 0.00070 && c.current(:gpio) < 0
 end
 
 puts

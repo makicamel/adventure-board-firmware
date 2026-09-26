@@ -1,6 +1,6 @@
 # The breadboard's circuit, solved for the voltage at every point and the
 # current through every part. Only what the kit and the simulator offer:
-# resistors, red LEDs, tact switches, and the pins that drive them (supply
+# resistors, blue LEDs, tact switches, and the pins that drive them (supply
 # rails and GPIO outputs, each a voltage behind a small resistance).
 #
 # Nodal analysis: each point's voltage is an unknown, Kirchhoff's current law
@@ -11,10 +11,12 @@
 # Points are whatever the caller names them (the breadboard uses its strips);
 # :gnd is 0 V and is not an unknown. Units are volts, ohms and amperes.
 class Circuit
-  # Red LED: 1.80 V at 1 mA and 2.0 V at 20 mA, which is what a common
-  # 3 mm / 5 mm red part does.
-  LED_NVT = 0.0667
-  LED_IS = 1.0e-3 / Math.exp(1.80 / LED_NVT)
+  # Blue LED: 2.70 V at 1 mA and 3.0 V at 20 mA, which is what a common
+  # 3 mm / 5 mm blue part does. From a 3.3 V pin that leaves little for the
+  # resistor, so currents are small -- and a blue LED is bright at them.
+  LED_ON_V = 2.70
+  LED_NVT = 0.30 / Math.log(20.0)
+  LED_IS = 1.0e-3 / Math.exp(LED_ON_V / LED_NVT)
   LED_MAX_A = 0.020
   # A closed switch's contact.
   SWITCH_OHMS = 0.05
@@ -119,7 +121,7 @@ class Circuit
     led_v = []
     i = 0
     while i < @leds.size
-      led_v << 1.5
+      led_v << LED_ON_V - 0.3
       i += 1
     end
     x = nil

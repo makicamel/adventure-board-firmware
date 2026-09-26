@@ -41,10 +41,10 @@ module BoardView
   PARTS_PX_PER_MM = 20
 
   TOOLS = [
-    ["press", "押す"],
+    ["press", "動かす・押す"],
     ["wire", "ジャンパ線"],
     ["resistor", "抵抗 1kΩ"],
-    ["led", "赤 LED"],
+    ["led", "青 LED"],
     ["switch", "タクトスイッチ"],
     ["remove", "外す"]
   ]
@@ -209,8 +209,16 @@ module BoardView
     nil
   end
 
-  # Tact switches on the breadboard are pressed like the board's own.
+  # Tact switches on the breadboard are pressed like the board's own. Always
+  # inside one box, so that plugging one in or out does not shift the
+  # elements after it: Funicular matches elements by position, and a shift
+  # made it build the LED matrix's canvas anew, which renderPanel went on
+  # not drawing into.
   def switch_caps
+    div(class: "switch-caps") { switch_cap_list }
+  end
+
+  def switch_cap_list
     bb = Breadboard.current
     parts = bb.parts
     i = 0
@@ -283,6 +291,7 @@ module BoardView
     zoom = name == "matrix" ? :matrix : (name == "breadboard" ? :breadboard : :full)
     @zoom = zoom
     @pending = nil
+    @moving = nil
     @bb_msg = tool_hint(view_tool)
     @parts_shown = nil
     refresh
@@ -292,6 +301,7 @@ module BoardView
     tool = event.target.getAttribute('data-tool').to_s
     @tool = tool
     @pending = nil
+    @moving = nil
     @bb_msg = tool_hint(tool)
     @parts_shown = nil
     refresh
@@ -304,7 +314,7 @@ module BoardView
     when "led" then "LED の長い足（＋、アノード）を挿す穴を押してください"
     when "switch" then "スイッチは溝をまたいで挿します。e の段の、左上の足の穴を押してください"
     when "remove" then "外したい部品の足の穴か、スイッチを押してください"
-    else "スイッチは押せます。部品を挿すときは、上で部品を選んでください"
+    else "足の挿さった穴を押すと、その足を挿し直せます。スイッチは押せます。部品を足すときは上で選んでください"
     end
   end
 
@@ -324,7 +334,9 @@ module BoardView
   def on_hole(hole)
     bb = Breadboard.current
     tool = view_tool
-    if tool == "remove"
+    if tool == "press"
+      move_leg(bb, hole)
+    elsif tool == "remove"
       id = part_at(bb, hole)
       if id
         bb.remove(id)
@@ -352,6 +364,38 @@ module BoardView
       end
     end
     nil
+  end
+
+  # The first click lifts the leg in a hole, the second puts it in another;
+  # the same hole again puts it back where it was.
+  def move_leg(bb, hole)
+    if @moving
+      from = @pending
+      id, k = @moving
+      @moving = nil
+      @pending = nil
+      if hole == from
+        @bb_msg = "やめました"
+        @parts_shown = nil
+        return refresh
+      end
+      result = bb.move_leg(id, k, hole)
+      return breadboard_changed(result ? result : "#{from} から #{hole} に挿し直しました")
+    end
+    leg = bb.leg_at(hole)
+    if leg.nil?
+      @bb_msg = tool_hint("press")
+      return refresh
+    end
+    if bb.part(leg[0])[1] == "switch"
+      @bb_msg = "スイッチは「外す」で外してから挿し直してください"
+      return refresh
+    end
+    @moving = leg
+    @pending = hole
+    @bb_msg = "#{hole} の足を持ち上げました。挿し直す穴を押してください（同じ穴を押すとやめます）"
+    @parts_shown = nil
+    refresh
   end
 
   def part_at(bb, hole)
@@ -487,7 +531,12 @@ module BoardView
   # the breadboard is shown so that it can be seen.
   def use_example_wiring(source)
     text = Breadboard.wiring_in(source)
-    return nil if text.nil?
+    if text.nil?
+      # A sample without wiring is about the board itself; zoomed in on the
+      # breadboard, the LED matrix it draws on would be out of sight.
+      set_zoom("full") if view_zoom == :breadboard
+      return nil
+    end
     Breadboard.current.load_text(text)
     save_breadboard
     @zoom = :breadboard

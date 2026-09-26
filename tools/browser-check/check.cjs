@@ -168,9 +168,24 @@ const INTERACTIVE = {
     const seen = (await watchBreadboardLeds(page)).map((v) => parseFloat(v || '0'));
     const lit = seen.filter((v) => v > 0.2);
     console.log(`# blinking: ${lit.length > 0 && seen.some((v) => v === 0)}, ` +
-      `lit at ${lit.length ? lit[0] : '-'} (1 kOhm: about 0.28)`);
+      `lit at ${lit.length ? lit[0] : '-'} (1 kOhm: about 0.31)`);
     const w = await page.$('#bb-warnings');
     console.log(`# warnings: ${w ? await w.textContent() : '(none)'}`);
+    // A switch plugged in, then a sample for the LED matrix: the view goes
+    // back to the whole board, and the matrix still lights. (A switch used
+    // to make Funicular build the matrix's canvas anew, and nothing drew
+    // into the new one.)
+    await page.click('#bb-text-toggle');
+    await page.waitForTimeout(300);
+    await page.fill('#bb-text', 'switch e12\n');
+    await page.click('#bb-text-apply');
+    await page.waitForTimeout(300);
+    await page.selectOption('#examples', 'one_dot.rb');
+    await page.waitForFunction(() => document.getElementById('code').value.includes('matrix.set'));
+    await page.click('#run');
+    await page.waitForTimeout(1000);
+    console.log(`# view after loading one_dot: ${await page.textContent('.zoom-tabs .tab.on')}`);
+    show('one_dot after a switch was plugged in (expect the top-left dot)', await readPanel(page));
   },
   status_led: async (page) => {
     const seen = await watchStatusLed(page);

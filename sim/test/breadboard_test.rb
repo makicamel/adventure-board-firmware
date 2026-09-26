@@ -75,7 +75,7 @@ check("lit while the pin is high, dark while low") do
   led.write(0)
   dark = bb.led_current(led_id(bb))
   puts "       #{(lit * 1000).round(2)} mA lit"
-  dark_at_start && lit > 0.0013 && lit < 0.0015 && dark < 1.0e-6
+  dark_at_start && lit > 0.00055 && lit < 0.00070 && dark < 1.0e-6
 end
 check("brightness follows the current") do
   bb = fresh(BLINK)
@@ -85,7 +85,7 @@ check("brightness follows the current") do
   GPIO.new(2, GPIO::OUT).write(1)
   two = bb.led_brightness(led_id(bb))
   puts "       one resistor #{one.round(3)}, two #{two.round(3)}"
-  two / one > 0.45 && two / one < 0.58
+  two / one > 0.48 && two / one < 0.65
 end
 check("the wrong way round stays dark") do
   bb = fresh(BLINK.sub("led c7 c9", "led c9 c7"))
@@ -142,10 +142,14 @@ check("no pull-up: floats while open") do
 end
 
 puts "Mistakes"
-check("an LED straight from a pin to GND") do
+check("an LED straight from a pin to GND: the missing resistor") do
   bb = fresh("wire J1-5 a3\nled b3 b5\nwire J1-3 c5\n")
   GPIO.new(2, GPIO::OUT).write(1)
-  bb.warnings.any? { |w| w.include?("GPIO2") } && bb.warnings.any? { |w| w.include?("LED") }
+  bb.warnings.any? { |w| w.include?("LED") && w.include?("抵抗") }
+end
+check("an LED straight from 5V: over its limit") do
+  bb = fresh("wire J1-1 a3\nled b3 b5\nwire J1-3 c5\n")
+  bb.warnings.any? { |w| w.include?("LED") && w.include?("壊れます") }
 end
 check("3V3 wired to GND") do
   bb = fresh("wire J1-4 J1-3\n")
@@ -173,6 +177,23 @@ check("text comes back the same") do
   bb = fresh(BLINK + SWITCH)
   bb.to_text == BLINK + SWITCH
 end
+check("a leg moves, the other stays") do
+  bb = fresh(BLINK)
+  GPIO.new(2, GPIO::OUT).write(1)
+  id, k = bb.leg_at("c9")
+  moved = bb.move_leg(id, k, "c10").nil?
+  # The cathode now sits on column 10, which nothing grounds: dark.
+  dark = bb.led_current(led_id(bb)) < 1.0e-6
+  back = bb.move_leg(id, k, "d9").is_a?(String)   # the ground wire is there
+  moved && dark && back && bb.part(id)[2] == ["c7", "c10"]
+end
+check("a leg can go to a free hole, not onto another leg") do
+  bb = fresh(BLINK)
+  id, k = bb.leg_at("c7")
+  bb.move_leg(id, k, "c9").is_a?(String) &&     # the other leg is there
+    bb.move_leg(id, k, "e9").nil?               # free, even on the other leg's strip
+end
+
 check("a bad line is reported, the rest placed") do
   bb = Breadboard.new
   errors = bb.load_text("wire J1-5 a3\nled z1 a2\n")

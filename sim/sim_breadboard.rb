@@ -31,9 +31,12 @@ class Breadboard
   GPIO_HIGH_V = 1.65   # reads high at or above this
   GPIO_MAX_V = 3.6     # more than this on a pin damages it
 
-  # The current at which a red LED counts as fully lit. The kit's 1 kOhm gives
-  # about 1.4 mA, so a quarter or so; brightness is linear in current.
-  LED_FULL_A = 0.005
+  # The current at which a blue LED counts as fully lit. The kit's 1 kOhm
+  # gives about 0.6 mA, so about a third; brightness is linear in current.
+  LED_FULL_A = 0.002
+  # More than this through an LED is more than any resistor from the kit
+  # lets through: it is most likely wired without one.
+  LED_NO_RESISTOR_A = 0.004
 
   KINDS = %w[wire resistor led switch]
 
@@ -123,6 +126,34 @@ class Breadboard
     @parts << [id, kind, legs]
     changed
     id
+  end
+
+  # Pulls one leg out and puts it in another hole; the other leg stays where
+  # it is. Returns nil, or a message saying why it does not fit. Switches
+  # have four legs that move together, so they are taken out and put back.
+  def move_leg(id, index, hole)
+    p = part(id)
+    return "その部品はありません" if p.nil?
+    return "スイッチは外して挿し直してください" if p[1] == "switch"
+    return "#{hole} という穴はありません" unless Breadboard.parse_hole(hole)
+    legs = p[2]
+    return nil if legs[index] == hole
+    return "同じ穴に両方の足は挿せません" if legs[1 - index] == hole
+    return "#{hole} にはもう挿さっています" if occupied?(hole)
+    legs[index] = hole
+    changed
+    nil
+  end
+
+  # [id, leg index] of what is plugged into a hole, or nil.
+  def leg_at(hole)
+    i = 0
+    while i < @parts.size
+      k = @parts[i][2].index(hole)
+      return [@parts[i][0], k] if k
+      i += 1
+    end
+    nil
   end
 
   def remove(id)
@@ -217,7 +248,7 @@ class Breadboard
   # when it has none. A comment line is taken when it starts with a part's
   # name followed by its holes, and whatever comes after them is a note:
   #
-  #   #   led c7 c9           赤 LED。長い足を c7
+  #   #   led c7 c9           青 LED。長い足を c7
   #
   # On the board these are only comments, so the same file is the program
   # and the instructions for wiring it.
@@ -492,6 +523,19 @@ class Breadboard
         out << "#{w[1]} に #{ma} mA 流れています（12 mA まで）。抵抗を入れてください"
       end
       i += 1
+    end
+    # A blue LED straight from a pin takes about 8 mA: under both limits, so
+    # the solver has nothing to say, but it is still the missing resistor.
+    parts = @parts
+    i = 0
+    while i < parts.size
+      p = parts[i]
+      i += 1
+      next unless p[1] == "led"
+      a = c.current(p[0])
+      if LED_NO_RESISTOR_A < a && a <= Circuit::LED_MAX_A
+        out << "LED に #{(a * 1000.0).round(1)} mA 流れています。抵抗を入れ忘れていませんか"
+      end
     end
     nodes = @gpio_nodes
     i = 0
