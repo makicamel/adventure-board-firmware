@@ -483,7 +483,7 @@ module BoardView
   # One line per part: kind, the legs in canvas pixels, then what the kind
   # needs (a wire's colour, an LED's brightness, whether a switch is down).
   def parts_spec(bb)
-    out = ""
+    out = strips_spec
     parts = bb.parts
     i = 0
     while i < parts.size
@@ -511,6 +511,35 @@ module BoardView
       xy = BoardView.hole_xy(@pending)
       out << "pending " << ((xy[0] - PARTS_AREA[0]) * PARTS_PX_PER_MM).round.to_s
       out << " " << ((xy[1] - PARTS_AREA[1]) * PARTS_PX_PER_MM).round.to_s << "\n"
+    end
+    out
+  end
+
+  # The five holes of each strip, joined by a line: what a beginner cannot
+  # see inside the breadboard. Separate above and below the groove, which is
+  # the other half of the lesson. The strip of the hole a leg is waiting on
+  # is drawn stronger ("hot"): anywhere along it is the same.
+  def strips_spec
+    hot = nil
+    if @pending
+      h = Breadboard.parse_hole(@pending)
+      hot = [h[0] < 5 ? 0 : 5, h[1]] if h && h[0] != :j1
+    end
+    out = ""
+    c = 1
+    while c <= Breadboard::COLUMNS
+      first = 0
+      while first < 10
+        a = BoardView.hole_xy(Breadboard.hole_name(first, c))
+        b = BoardView.hole_xy(Breadboard.hole_name(first + 4, c))
+        out << (hot == [first, c] ? "hot" : "strip")
+        out << " " << ((a[0] - PARTS_AREA[0]) * PARTS_PX_PER_MM).round.to_s
+        out << " " << ((a[1] - PARTS_AREA[1]) * PARTS_PX_PER_MM).round.to_s
+        out << " " << ((b[0] - PARTS_AREA[0]) * PARTS_PX_PER_MM).round.to_s
+        out << " " << ((b[1] - PARTS_AREA[1]) * PARTS_PX_PER_MM).round.to_s << "\n"
+        first += 5
+      end
+      c += 1
     end
     out
   end

@@ -387,6 +387,14 @@
     // The LEDs' brightness, where the headless check can read it.
     cv.dataset.leds = lines.filter((w) => w[0] === 'led').map((w) => w[5]).join(',');
     const num = (w, i) => parseFloat(w[i]);
+    // The strips first, under everything plugged in.
+    for (const w of lines) if (w[0] === 'strip' || w[0] === 'hot') {
+      const hot = w[0] === 'hot';
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = hot ? 'rgba(255, 226, 110, .95)' : 'rgba(255, 255, 255, .42)';
+      ctx.lineWidth = (hot ? 0.9 : 0.5) * MM;
+      ctx.beginPath(); ctx.moveTo(num(w, 1), num(w, 2)); ctx.lineTo(num(w, 3), num(w, 4)); ctx.stroke();
+    }
     // Switches, then resistors, then wires over them, then LEDs, then light.
     for (const w of lines) if (w[0] === 'switch')
       tact(ctx, [[num(w, 1), num(w, 2)], [num(w, 3), num(w, 4)], [num(w, 5), num(w, 6)], [num(w, 7), num(w, 8)]], w[9] === '1');
