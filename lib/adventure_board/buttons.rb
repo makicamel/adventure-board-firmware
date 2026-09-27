@@ -13,6 +13,9 @@
 # asked, bounce or not. Auto-repeat is not here on purpose: a loop that wants it
 # can count its own ticks against `pressed?`, and one that does not is not
 # paying for it.
+# Board and AdventureBoard. A program requires only this file, not both.
+require 'adventure_board'
+
 class Buttons
   # In the order of Board::BUTTON_PINS.
   NAMES = [:up, :left, :right, :down, :b, :a]

@@ -2,14 +2,15 @@
 # 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは普通のストレートでよい。
 # 実機専用（シミュレータでは動かない）。配線の事情は examples/README.md。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/buttons'      # ボタン
 GC.start
 require 'adventure_board/grove_link'   # GROVE-B の基板間リンク
 GC.start
+
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+buttons = AdventureBoard.buttons
 
 matrix.clear
 matrix.pen = 0x40
@@ -30,7 +31,7 @@ matrix.draw_text(role == :a ? "A" : "B", 4, 0)   # 選んだ役割を見せる�
 matrix.show
 sleep_ms 600
 
-link = board.grove_link(role: role)    # 役割によって、送る線と受ける線が入れ替わる
+link = AdventureBoard.grove_link(role: role)    # 役割によって、送る線と受ける線が入れ替わる
 
 CODES = { up: "u", down: "d", left: "l", right: "r", a: "a", b: "b" }           # 送るのはボタン名の頭 1 文字
 MOVES = { "u" => [0, -1], "d" => [0, 1], "l" => [-1, 0], "r" => [1, 0] }        # 受けた文字 → 動かす量

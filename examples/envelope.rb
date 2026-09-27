@@ -2,12 +2,11 @@
 # MML の s<形> と m<周期> で指定する。v を書くと固定の音量に戻る。
 # 実機専用（シミュレータの音源にはこの機能が無い）。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/speaker'      # スピーカー
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
 
 def play(title, mml)
+  speaker = AdventureBoard.speaker   # ライブラリから使う部品を取り出す。def の中からは外の変数が見えないので、ここで
   puts title
   speaker.reset          # 前の曲の設定を消す（エンベロープも固定の音量に戻る）
   speaker.play_mml(mml)

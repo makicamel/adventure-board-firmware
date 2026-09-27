@@ -1,9 +1,9 @@
 # 市松模様。明るいマスと暗いマスを交互に並べる。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
+
+matrix = AdventureBoard.matrix
 
 matrix.clear
 y = 1

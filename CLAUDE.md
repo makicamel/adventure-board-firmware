@@ -266,8 +266,12 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
   （`sleep_ms` はタスクを suspend してブラウザにイベントループを返すので固まらない）
 - ペリフェラルの生成だけは両者で本当に違うので、**サンプルの外**で行う
   （実機は `Board.boot` の既定値、シミュレータは `sim_app.rb` が `$board` を用意）
-- サンプルは `require 'adventure_board'` から始める。実機では `/lib` から読み、
-  ブラウザでは連結済みなので require シムが握り潰す。両方で正しい
+- サンプルは使う部品のファイルを `require 'adventure_board/led_matrix'` のように読み（各ファイルが
+  `adventure_board` を読むので 1 本で足りる）、`matrix = AdventureBoard.matrix` と**変数に取り出して**使う。
+  実機では `/lib` から読み、ブラウザでは連結済みなので require シムが握り潰す。両方で正しい
+- **トップレベルの `matrix` / `buttons` / `speaker` / `board` はやめた**（2026-09-27）。変数に見えて代入元が無く、
+  サンプルの `board = []`（life.rb）が黙って隠していた。`def` の中からはローカル変数が見えないので、
+  `def` で使うなら引数で渡すか、中で `AdventureBoard.matrix` を取り出す
 
 **サンプルのコメントの書き方**（`sim/examples/` と `examples/` で共通。2026-09-22 に全部そろえた）:
 
@@ -277,7 +281,8 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 - 冒頭は**題名 1 行 + 多くても 2 行**（操作方法、必要なもの）。仕組みや経緯の説明は書かない（README か dev-docs に置く）
 - 説明は**その行の横**に短く書く。初めて出てくる API に 1 回だけ。同じ説明を繰り返さない
 - `require` の並びは全サンプル同じ形。`GC.start` の説明は最初の 1 個の横にだけ（`# 読み込みで使ったメモリを片付ける`）、
-  各 `require` の横にはそのファイルが何を使えるようにするか（`# LED マトリクス` `# ボタン` `# スピーカー`）
+  各 `require` の横にはそのファイルが何を使えるようにするか（`# LED マトリクス` `# ボタン` `# スピーカー`）。
+  そのあと空行を 1 つ置いて `matrix = AdventureBoard.matrix` などを並べ、最初の 1 行の横にだけ `# ライブラリから使う部品を取り出す`
 - コメントを直すときはコードを触らない。コメントを除いた行が元と一致することを確かめる
 - ブレッドボードを使うサンプルは、冒頭のあとに `# 配線:` の段落を置き、1 行 1 部品で `#   led c7 c9   説明` と書く
   （`Breadboard.wiring_in` が読み、ページが読み込み時にその配線にする。実物の手順書も兼ねる）
@@ -321,7 +326,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   Sandbox を回収しないので、1 本 28KB が積み上がる。まとめて最後に呼んでも
   `max_free` は戻らない（12,328 のまま）。1 本ごとなら 20,736 まで増える
 - **ボードライブラリは `lib/adventure_board.rb` + `lib/adventure_board/`**（2026-09-23 に `picorubykaigi01` から改名。
-  基板の正式名称が Adventure Board になったため）。サンプルは `require 'adventure_board'`。古い名前のファームが入っていた基板では、
+  基板の正式名称が Adventure Board になったため）。サンプルは `require 'adventure_board/led_matrix'` などと `AdventureBoard.matrix`。古い名前のファームが入っていた基板では、
   新しいファームが最初の起動で `/lib/picorubykaigi01*` と古い印を消してから書き直す（`system_files.c` の `remove_old_library`）。
   **`/home/examples` は触らないので、古いサンプルは `require 'picorubykaigi01'` のまま壊れる**。r1 は `wipefs` して焼き直した
 - **`devtest/` の仕組みは廃止した**（2026-09-23。ホストの `devtest/*.rb` をファームに焼き込んで `/home/devtest/` に書いていた）。

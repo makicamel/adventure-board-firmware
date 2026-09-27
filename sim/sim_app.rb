@@ -376,7 +376,7 @@ class SimApp < Funicular::Component
   def on_gcc(event)
     value = event.target[:value].to_s.to_i
     patch(gcc: value)
-    matrix.brightness = value
+    AdventureBoard.matrix.brightness = value
     draw
     nil
   end
@@ -400,7 +400,7 @@ class SimApp < Funicular::Component
   def on_reset(_event)
     begin
       SimApp.stop_task
-      speaker.stop if speaker
+      AdventureBoard.speaker.stop
       $notelog.clear
       GPIO.reset
       $panel = Panel.new
@@ -617,7 +617,7 @@ class SimApp < Funicular::Component
   def run(source)
     begin
       SimApp.stop_task
-      speaker.stop if speaker
+      AdventureBoard.speaker.stop
       $notelog.clear
       SimApp.start_task(source)
       patch(status: "実行中", kind: "ok")

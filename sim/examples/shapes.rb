@@ -1,9 +1,9 @@
 # 線と四角を描く。色の代わりに明るさ（0〜255）を渡す。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
+
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
 
 matrix.clear
 matrix.clear_drawing                    # 描画用のメモリ（VRAM）を消す。こちらの座標は 0〜15

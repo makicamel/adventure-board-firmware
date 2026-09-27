@@ -405,6 +405,15 @@ check("middle C is named C4") { lines[0].include?("C4") && lines[0].include?("on
 check("zero velocity is off") { lines[1].include?("off") && lines[1].include?("C5") }
 check("elapsed time is shown"){ lines[2].include?("1000ms") }
 
+puts "10. a program takes its peripherals from AdventureBoard"
+_p, _t, _b, m, board = new_board
+check("AdventureBoard.matrix is the board's")   { AdventureBoard.matrix.equal?(m) }
+check("AdventureBoard.buttons is the board's")  { AdventureBoard.buttons.equal?(board.buttons) }
+check("AdventureBoard.board is $board")         { AdventureBoard.board.equal?($board) }
+# The old top-level helpers looked like variables and hid behind a
+# program's own names (life.rb's `board = []`); they are gone.
+check("no top-level matrix / board any more")   { !Object.new.respond_to?(:matrix) && !Object.new.respond_to?(:board) }
+
 puts
 puts "#{$checks - $failures}/#{$checks} checks passed"
 if 0 < $failures

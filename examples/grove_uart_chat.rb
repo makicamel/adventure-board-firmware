@@ -2,14 +2,15 @@
 # 2 枚とも同じこのコードを走らせる。クロスケーブルが要る（ストレートでは送信同士がぶつかる）。
 # 実機専用。ケーブルを選ばないのは grove_link_chat.rb。詳しくは examples/README.md。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/buttons'      # ボタン
 GC.start
 
-uart = board.grove_uart(baudrate: 115200)   # GROVE-B を UART として開く
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+buttons = AdventureBoard.buttons
+
+uart = AdventureBoard.grove_uart(baudrate: 115200)   # GROVE-B を UART として開く
 
 CODES = { up: "u", down: "d", left: "l", right: "r", a: "a", b: "b" }   # 送るのはボタン名の頭 1 文字 + 改行
 MOVES = {                                                                # 受けた文字 → 動かす量

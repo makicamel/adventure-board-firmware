@@ -47,15 +47,15 @@ rake sim:server      # → http://localhost:8080/sim/
 
 ## プログラムの書き方
 
-サンプルは [`sim/examples/`](sim/examples/)（シミュレータでも実機でも動く 10 本）と
+サンプルは [`sim/examples/`](sim/examples/)（シミュレータでも実機でも動く 12 本）と
 [`examples/`](examples/)（実機だけ: GROVE で基板 2 枚をつなぐ、音のエンベロープ）にあります。
 まず `one_dot.rb` を読んでください。
 
 ```ruby
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
+
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
 
 matrix.clear       # 全部消す
 matrix.set(1, 1)   # x=1, y=1（左上）を点ける。座標は 1〜16
@@ -63,15 +63,15 @@ matrix.show        # ここで初めて LED に反映される
 ```
 
 **ボードライブラリ `adventure_board`** がハードを Ruby から見えるようにしています（`lib/adventure_board/`）。
-使うものだけ `require` します（1 本読むごとに約 28KB のメモリを使うので、`GC.start` を挟みます）。
+使うものだけ `require` し、`AdventureBoard` から取り出して変数に入れます（1 本読むごとに約 28KB のメモリを使うので、`GC.start` を挟みます）。
 
-| `require 'adventure_board/…'` | 使えるもの |
+| `require 'adventure_board/…'` | 取り出し方と使えるもの |
 |---|---|
-| `led_matrix` | `matrix.set(x, y, 明るさ)` `clear` `fill` `show` `brightness=`、描画 `draw_text` `draw_line` `draw_rect` `clear_drawing` `blit`、`pen=` |
-| `buttons` | `buttons.each_press { \|name\| }`（押した分を順に取り出す）、`pressed?(:a)`（いま押されているか）。名前は `:up :down :left :right :a :b` |
-| `speaker` | `speaker.play_mml("t120 o4 l8 cdefgab>c")`（MML。3 声まで、`loop: true`）、`note_on` / `note_off`、`stop`、`reset` |
-| `status_led` | `board.status_led.on` / `off` / `toggle` |
-| `grove_link` | GROVE で基板 2 枚をつなぐ（`examples/grove_link_chat.rb`） |
+| `led_matrix` | `matrix = AdventureBoard.matrix`。`matrix.set(x, y, 明るさ)` `clear` `fill` `show` `brightness=`、描画 `draw_text` `draw_line` `draw_rect` `clear_drawing` `blit`、`pen=` |
+| `buttons` | `buttons = AdventureBoard.buttons`。`buttons.each_press { \|name\| }`（押した分を順に取り出す）、`pressed?(:a)`（いま押されているか）。名前は `:up :down :left :right :a :b` |
+| `speaker` | `speaker = AdventureBoard.speaker`。`speaker.play_mml("t120 o4 l8 cdefgab>c")`（MML。3 声まで、`loop: true`）、`note_on` / `note_off`、`stop`、`reset` |
+| `status_led` | `led = AdventureBoard.status_led`。`led.on` / `off` / `toggle` |
+| `grove_link` | `AdventureBoard.grove_link(role: :a)`。GROVE で基板 2 枚をつなぐ（`examples/grove_link_chat.rb`） |
 
 - 繰り返しは `while true` と `sleep_ms` で書きます。シミュレータでも実機でも同じです。
 - ボタンは押した瞬間がキューに積まれるので、ループが遅くても取りこぼしません。

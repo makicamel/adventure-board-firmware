@@ -1,9 +1,9 @@
 # 外周の枠と対角線。向きが合っているかが一目で分かる。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
+
+matrix = AdventureBoard.matrix
 
 matrix.clear
 

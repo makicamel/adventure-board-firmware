@@ -1,9 +1,9 @@
 # 何も押さなくても動き続ける。繰り返しは while true と sleep_ms で書く。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
+
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
 
 t = 0                   # 何周目か
 

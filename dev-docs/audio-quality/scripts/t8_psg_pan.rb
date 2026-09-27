@@ -3,12 +3,13 @@
 # 同じ大きさに聞こえるなら、パンが効いていない。
 # あわせて、Board が起動時に送っている「左に振る」設定が効いているかも分かる:
 # 1 回目（p を書かない）が p0 と同じ大きさなら効いている、p8 と同じなら効いていない。
-require 'adventure_board'
-GC.start
 require 'adventure_board/speaker'
 GC.start
 
+speaker = AdventureBoard.speaker
+
 def play_and_wait(label, mml)
+  speaker = AdventureBoard.speaker
   puts label
   speaker.play_mml(mml)
   sleep_ms 200

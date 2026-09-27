@@ -1,8 +1,8 @@
 # T25: T23 と同じ曲と記録。ボタンを待たず 8 秒で自分で止まる（直近 2.6 秒が残る）
-require 'adventure_board'
-GC.start
 require 'adventure_board/speaker'
 GC.start
+
+speaker = AdventureBoard.speaker
 speaker.reset
 puts "T25: addr=#{ADCCapture.addr}"
 ADCCapture.start(26, 12500)

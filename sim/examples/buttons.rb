@@ -1,12 +1,13 @@
 # ボタンでドットを動かす。A で輪が広がり、B で全体が光る。押しっぱなしで連続して動く。
 # シミュレータでは画面のボタンか、キーボード（矢印キー / Z=A / X=B）。
 
-require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/led_matrix'   # LED マトリクス
-GC.start
+GC.start                               # 読み込みで使ったメモリを片付ける
 require 'adventure_board/buttons'      # ボタン
 GC.start
+
+matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+buttons = AdventureBoard.buttons
 
 DELAY = 6      # 押しっぱなしにしてから連続で動き出すまで（ループ何周ぶんか）
 INTERVAL = 2   # 連続で動く間隔（同じくループ何周ぶんか）

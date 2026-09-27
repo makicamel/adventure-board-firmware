@@ -5,6 +5,9 @@
 # into MIDI events by picoruby-midibase-mml and routed to whatever sink was
 # handed in — PSG::Synth on the board, JS::WebAudio::Synth in the simulator.
 # Both take the same events, so nothing below this line changes between them.
+# Board and AdventureBoard. A program requires only this file, not both.
+require 'adventure_board'
+
 class Speaker
   # The amplifier's shutdown pin. Held low when nothing is playing: leaving the
   # PAM8302A enabled in silence puts its noise floor on the speaker.

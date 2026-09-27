@@ -29,6 +29,7 @@ Run が基板を作り直さないのは実機と同じにするため。実機�
 次のサンプルが半分しか光らない — 実機で `tools/r2p2dev.py reset` を挟むのと同じ。
 
 ```ruby
+matrix = AdventureBoard.matrix
 matrix.clear
 matrix.set(3, 5)        # x, y は 1..16
 matrix.set(4, 5, 0x40)  # 3 番目の引数は明るさ (0..255)。見た目に比例するよう補正される
@@ -36,7 +37,7 @@ matrix.show             # これを呼ぶまでチップには届かない
 ```
 
 **書き方は実機とまったく同じ。** シミュレータ専用の構文は無い。
-サンプルの先頭にある `require 'adventure_board'` は実機で必要なもので、
+サンプルの先頭にある `require 'adventure_board/led_matrix'` などは実機で必要なもので、
 ブラウザでは（ソースが連結済みなので）何もしない。
 繰り返しは `while true` + `sleep_ms` で書く。ブラウザではこのコードが
 専用のタスクで走り、`sleep_ms` のあいだ画面に制御が戻るので固まらない。
@@ -54,10 +55,10 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 「画面を更新しろ」と書く必要はない（実機のパネルが常時スキャンされているのと同じ）。
 
 `matrix.top` / `matrix.bottom` で `IS31FL3729` を直接触れる。
-`board.i2c` は LED ドライバのバス（ここでは仮想、実機では I2C0）。
+`AdventureBoard.board.i2c` は LED ドライバのバス（ここでは仮想、実機では I2C0）。
 
-**シミュレータ専用の構文はありません。** `board` / `matrix` / `buttons` /
-`speaker` はすべて `lib/adventure_board.rb` — 実機にも載るボードレイヤ — が
+**シミュレータ専用の構文はありません。** `AdventureBoard.matrix` / `.buttons` /
+`.speaker` / `.status_led` はすべて `lib/adventure_board.rb` — 実機にも載るボードレイヤ — が
 定義しています。ここで書いたサンプルはそのまま基板で動きます。
 違うのは起動時にペリフェラルを組む部分だけで、それはサンプルの外にあります。
 
