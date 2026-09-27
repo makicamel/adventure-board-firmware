@@ -58,6 +58,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   unless ENV['PICORB_DEBUG']
     # Shinonome is too big for debug build
     conf.gem core: 'picoruby-shinonome'
+    conf.gem core: 'picoruby-ssd1306'   # I2C OLED (SSD1306 / SSD1315) on the breadboard or GROVE
   end
   conf.gem core: 'picoruby-midibase-mml'
   conf.gem core: 'picoruby-midibase-looper'

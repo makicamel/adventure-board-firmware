@@ -60,4 +60,5 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
   conf.gem core: 'picoruby-uart-midi'
   conf.gem core: 'picoruby-usb-cdc-midi'
   conf.gem core: 'picoruby-shinonome'
+  conf.gem core: 'picoruby-ssd1306'     # I2C OLED (SSD1306 / SSD1315) on the breadboard or GROVE
 end
