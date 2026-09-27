@@ -93,6 +93,17 @@ class SimApp < Funicular::Component
     ["音と光", "sound_and_light.rb"]
   ]
 
+  # examples/: the ones for hardware the simulator does not have. Listed so
+  # that they can be read, edited and sent to a board with 実機で実行; Run
+  # here says so instead of failing on a missing class.
+  DEVICE_EXAMPLES = [
+    ["OLED に文字とボール", "oled.rb"],
+    ["音のエンベロープ", "envelope.rb"],
+    ["基板 2 枚をつなぐ（GROVE）", "grove_link_chat.rb"],
+    ["基板 2 枚をつなぐ（UART）", "grove_uart_chat.rb"]
+  ]
+  DEVICE_ONLY = "実機専用のサンプルです（シミュレータには無いハードを使います）。基板をつないで「実機で実行」で送ってください。"
+
   # The board library, as it is in the board's /lib and as this page runs it.
   LIB_FILES = [
     "adventure_board.rb",
@@ -335,6 +346,15 @@ class SimApp < Funicular::Component
       option(value: list[i][1]) { list[i][0] }
       i += 1
     end
+    # `optgroup` is not one of the DSL's tags either.
+    tag("optgroup", label: "実機専用（シミュレータでは動かない）") do
+      list = DEVICE_EXAMPLES
+      i = 0
+      while i < list.size
+        option(value: "device:#{list[i][1]}") { list[i][0] }
+        i += 1
+      end
+    end
     nil
   end
 
@@ -393,7 +413,15 @@ class SimApp < Funicular::Component
   def on_run(_event)
     enable_audio
     box = refs[:codebox]
-    run(box ? box[:value].to_s : "")
+    source = box ? box[:value].to_s : ""
+    # A device-only sample as it was loaded would only fail here. Edited, it
+    # is someone's own code, and runs.
+    device = @device_example
+    if device && device[:source] && device[:source] == source
+      patch(status: DEVICE_ONLY, kind: "busy")
+      return nil
+    end
+    run(source)
     nil
   end
 
@@ -759,16 +787,26 @@ class SimApp < Funicular::Component
   end
 
   def load_example(path)
+    device_only = path.start_with?("device:")
+    url = device_only ? "../examples/#{path[7, path.size - 7]}" : "examples/#{path}"
+    # What a device-only sample looked like when loaded, for on_run. Only this
+    # hash is touched inside the fetch's block (see draw_lib_code).
+    device = (@device_example ||= {})
+    device[:source] = nil
     # no-store: a hard reload only bypasses the cache for the document and what
     # it loads directly. A fetch the page makes afterwards still goes through
     # the HTTP cache, so an edited example would keep coming back stale however
     # many times the page was reloaded.
-    JS.global.fetch("examples/#{path}", { cache: "no-store" }) do |response|
+    JS.global.fetch(url, { cache: "no-store" }) do |response|
       begin
         if response[:ok]
           box = refs[:codebox]
           text = response.text.await.to_s
           box[:value] = text if box
+          if device_only
+            device[:source] = text
+            patch(status: DEVICE_ONLY, kind: "busy")
+          end
           use_example_wiring(text)
         else
           report("サンプルの取得", RuntimeError.new("#{path}: #{response[:status].to_i}"))

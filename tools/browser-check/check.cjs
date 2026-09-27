@@ -320,10 +320,15 @@ async function main() {
     console.log(`# could not read the panel: ${e.message}`);
   }
 
+  let deviceOnly = [];
   if (ready) {
-    const options = await page.$$eval('#examples option', (els) =>
+    const all = await page.$$eval('#examples option', (els) =>
       els.map((el) => ({ value: el.value, label: el.textContent })));
-    console.log(`# ${options.length} examples`);
+    // examples/ are listed too, for reading and sending to a board; they
+    // cannot run here and are checked on their own below.
+    const options = all.filter((o) => !o.value.startsWith('device:'));
+    deviceOnly = all.filter((o) => o.value.startsWith('device:'));
+    console.log(`# ${options.length} examples, ${deviceOnly.length} device-only`);
 
     for (const [i, opt] of options.entries()) {
       const name = opt.value.replace(/\.rb$/, '');
@@ -362,6 +367,25 @@ async function main() {
 
       // Examples that read the buttons need someone to press them.
       if (INTERACTIVE[name]) await INTERACTIVE[name](page);
+    }
+  }
+
+  // Device-only examples: they load, and Run says to send them to a board
+  // rather than running them.
+  if (ready && !ONLY) {
+    for (const opt of deviceOnly) {
+      const before = await page.inputValue('#code');
+      await page.selectOption('#examples', opt.value);
+      // Until the box holds the new file, not the one before it.
+      await page.waitForFunction((prev) => {
+        const v = document.getElementById('code').value;
+        return v.length > 0 && v !== prev;
+      }, before, { timeout: 10000 }).catch(() => {});
+      const loaded = (await page.inputValue('#code')).length;
+      await page.click('#run');
+      await page.waitForTimeout(400);
+      const st = await page.textContent('#status');
+      console.log(`# device-only: ${opt.label} (${opt.value})  [${loaded} chars]  Run says: ${st.includes('実機専用') ? 'device-only' : st}`);
     }
   }
 
