@@ -165,7 +165,7 @@ class SimApp < Funicular::Component
     wire_keyboard
     start_monitor
     draw
-    patch(status: "準備できました。Run を押してください。", kind: "ok")
+    patch(status: "準備できました。", kind: "ok")
     load_example(EXAMPLES[0][1])
     nil
   end
@@ -192,7 +192,7 @@ class SimApp < Funicular::Component
         div(class: "legend") do
           span { "ボタンは絵の上で押すか、キーボードで（矢印キー / Z=A / X=B）" }
           br
-          span { "LED マトリクスやブレッドボードを押すと大きくなります" }
+          span { "LED マトリクスやブレッドボードをクリックすると拡大されます" }
         end
       end
 
@@ -209,7 +209,7 @@ class SimApp < Funicular::Component
           end
         end
         div(class: "group") do
-          span(class: "group-title") { "実機（USB）" }
+          span(class: "group-title") { "実機（USBシリアル接続）" }
           div(class: "controls") { device_controls }
         end
         # A setting of the page, not of the simulator or the board: above
@@ -229,7 +229,7 @@ class SimApp < Funicular::Component
         # attribute as hidden="" (only its own list of boolean attributes is
         # treated as such), and the box would start out hidden.
         if state[:device_supported]
-          div(class: "legend", style: "margin-top:12px") { "実機の端末（つないだあとは、ここに打てる）" }
+          div(class: "legend", style: "margin-top:12px") { "実機端末(xterm)" }
           div(id: "devicelog")
         end
         # Read-only: the library a program calls into. Shown on request, and
@@ -538,7 +538,7 @@ class SimApp < Funicular::Component
       report("実機で実行", error)
     else
       patch(device: state_now, kind: "ok",
-            status: "実機で実行しています。止めるには、端末で Ctrl-C を押すか、もう一度実行してください。")
+            status: "実機で実行しています。止めるには、端末で Ctrl-C を押すか、実機を再起動してください。")
     end
     nil
   end
