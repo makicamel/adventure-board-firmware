@@ -1,6 +1,6 @@
 # T4: 高い音階（o6〜o7）を矩形波と三角波で。
 # 矩形波だけ、音程と関係ない音（ピー、キーンという別の高さ）が混じるなら折り返し（S2）。
-require 'adventure_board/speaker'
+require 'adventure_board'
 GC.start
 
 speaker = AdventureBoard.speaker

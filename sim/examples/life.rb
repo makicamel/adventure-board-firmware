@@ -1,10 +1,10 @@
 # ライフゲーム。でたらめな配置から始めて、止まったり全滅したりしたら配り直す。
 # 明るいのは生まれたばかりのセル、少し暗いのは生き残っているセル。
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 
 N = 16
 STEP_MS = 150      # 1 世代の長さ

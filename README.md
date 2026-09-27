@@ -52,10 +52,10 @@ rake sim:server      # → http://localhost:8080/sim/
 まず `one_dot.rb` を読んでください。
 
 ```ruby
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 
 matrix.clear       # 全部消す
 matrix.set(1, 1)   # x=1, y=1（左上）を点ける。座標は 1〜16
@@ -63,9 +63,10 @@ matrix.show        # ここで初めて LED に反映される
 ```
 
 **ボードライブラリ `adventure_board`** がハードを Ruby から見えるようにしています（`lib/adventure_board/`）。
-使うものだけ `require` し、`AdventureBoard` から取り出して変数に入れます（1 本読むごとに約 28KB のメモリを使うので、`GC.start` を挟みます）。
+`require 'adventure_board'` の 1 行のあと、使う部品を `AdventureBoard` から取り出して変数に入れます。
+部品のファイルは、取り出したときに初めて読み込まれます（1 本読むごとに約 28KB のメモリを使うので、使わないものは読みません）。
 
-| `require 'adventure_board/…'` | 取り出し方と使えるもの |
+| 部品 | 取り出し方と使えるもの |
 |---|---|
 | `led_matrix` | `matrix = AdventureBoard.matrix`。`matrix.set(x, y, 明るさ)` `clear` `fill` `show` `brightness=`、描画 `draw_text` `draw_line` `draw_rect` `clear_drawing` `blit`、`pen=` |
 | `buttons` | `buttons = AdventureBoard.buttons`。`buttons.each_press { \|name\| }`（押した分を順に取り出す）、`pressed?(:a)`（いま押されているか）。名前は `:up :down :left :right :a :b` |

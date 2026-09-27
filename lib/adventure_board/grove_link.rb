@@ -24,9 +24,6 @@
 # the processor, so a loop that goes away for half a second comes back to find
 # everything still waiting. Only falling a whole buffer behind loses anything,
 # and #lost? says so rather than letting it pass in silence.
-# Board and AdventureBoard. A program requires only this file, not both.
-require 'adventure_board'
-
 class GroveLink
   DEFAULT_BAUDRATE = 115_200
 

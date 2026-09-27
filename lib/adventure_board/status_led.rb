@@ -6,9 +6,6 @@
 #
 # GPIO16 is also PWM0A, so this could be dimmed; it is plain on and off here
 # because that is what a status light is for.
-# Board and AdventureBoard. A program requires only this file, not both.
-require 'adventure_board'
-
 class StatusLed
   def initialize(pin: Board::STATUS_LED_PIN)
     @gpio = GPIO.new(pin, GPIO::OUT)

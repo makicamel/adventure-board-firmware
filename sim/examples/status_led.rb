@@ -1,16 +1,12 @@
 # 緑のステータス LED を点滅させる。A を押しているあいだは点きっぱなし、B でドットが増える。
 # （隣の赤い LED は電源の表示で、プログラムからは操作できない）
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'adventure_board/buttons'      # ボタン
-GC.start
-require 'adventure_board/status_led'   # ステータス LED
-GC.start
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
-buttons = AdventureBoard.buttons
-led = AdventureBoard.status_led
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+buttons = AdventureBoard.buttons       # ボタン
+led = AdventureBoard.status_led        # ステータス LED
 
 t = 0
 while true

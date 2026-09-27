@@ -2,15 +2,11 @@
 # 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは普通のストレートでよい。
 # 実機専用（シミュレータでは動かない）。配線の事情は examples/README.md。
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'adventure_board/buttons'      # ボタン
-GC.start
-require 'adventure_board/grove_link'   # GROVE-B の基板間リンク
-GC.start
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
-buttons = AdventureBoard.buttons
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+buttons = AdventureBoard.buttons       # ボタン
 
 matrix.clear
 matrix.pen = 0x40

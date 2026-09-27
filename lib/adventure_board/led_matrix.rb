@@ -3,9 +3,6 @@
 # Rows 1..8 are the chip at 0x34 and rows 9..16 the one at 0x35, whose columns
 # are wired in reverse. Both facts come from the r1 netlist; see
 # dev-docs/led-matrix-gem/hardware.md section 4.
-# Board and AdventureBoard. A program requires only this file, not both.
-require 'adventure_board'
-
 class LedMatrix
   WIDTH  = 16
   HEIGHT = 16

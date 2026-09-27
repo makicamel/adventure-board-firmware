@@ -3,7 +3,7 @@
 # 同じ大きさに聞こえるなら、パンが効いていない。
 # あわせて、Board が起動時に送っている「左に振る」設定が効いているかも分かる:
 # 1 回目（p を書かない）が p0 と同じ大きさなら効いている、p8 と同じなら効いていない。
-require 'adventure_board/speaker'
+require 'adventure_board'
 GC.start
 
 speaker = AdventureBoard.speaker

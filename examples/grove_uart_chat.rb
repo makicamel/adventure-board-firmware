@@ -2,13 +2,11 @@
 # 2 枚とも同じこのコードを走らせる。クロスケーブルが要る（ストレートでは送信同士がぶつかる）。
 # 実機専用。ケーブルを選ばないのは grove_link_chat.rb。詳しくは examples/README.md。
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'adventure_board/buttons'      # ボタン
-GC.start
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
-buttons = AdventureBoard.buttons
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+buttons = AdventureBoard.buttons       # ボタン
 
 uart = AdventureBoard.grove_uart(baudrate: 115200)   # GROVE-B を UART として開く
 

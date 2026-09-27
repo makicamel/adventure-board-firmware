@@ -1,9 +1,9 @@
 # 左から右へ、暗い → 明るいのグラデーション。
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 
 matrix.clear
 y = 1

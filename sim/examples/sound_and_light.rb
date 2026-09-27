@@ -1,13 +1,11 @@
 # メロディを 1 音ずつ鳴らし、音の高さを棒グラフにして流す。
 # 音と光を同じループで進めるので、ずれない。鳴り始めが一番明るく、音が伸びるあいだに暗くなる。
 
-require 'adventure_board/led_matrix'   # LED マトリクス
+require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを片付ける
-require 'adventure_board/speaker'      # スピーカー
-GC.start
 
-matrix = AdventureBoard.matrix         # ライブラリから使う部品を取り出す
-speaker = AdventureBoard.speaker
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+speaker = AdventureBoard.speaker       # スピーカー
 
 UNIT_MS = 40   # STEPS の 1 単位の長さ。小さくすると速くなる
 

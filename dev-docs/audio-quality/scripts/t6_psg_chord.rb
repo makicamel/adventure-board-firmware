@@ -1,6 +1,6 @@
 # T6: 和音。2 声（ドミ）→ 3 声（ドミソ）を v15、休みをはさんで v10 で同じことをする。
 # v15 の和音だけ汚く、v10 ならきれいなら、PSG のソフトクリップ（S3）。
-require 'adventure_board/speaker'
+require 'adventure_board'
 GC.start
 
 speaker = AdventureBoard.speaker

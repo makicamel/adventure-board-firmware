@@ -13,16 +13,24 @@
 #
 # This file brings in Board, which is the pins and how to bring them up, and
 # AdventureBoard, which is what a program asks for its peripherals. The
-# peripherals live one class per file beside it, and each of those requires
-# this one, so a program names only the ones it uses:
+# peripherals live one class per file beside it, and each is read the first
+# time a program asks for it, so a program is:
 #
-#   require 'adventure_board/led_matrix'
-#   matrix = AdventureBoard.matrix
+#   require 'adventure_board'
+#   GC.start
+#   matrix = AdventureBoard.matrix      # reads adventure_board/led_matrix
 #
-# That is not ceremony. Compiling Ruby on the device costs about six times the
-# source size in contiguous heap and leaves about five times it resident, so
-# loading the LED matrix in order to blink the status LED is a real price a
-# program pays. Measurements in dev-docs/device-bringup/require-memory.md.
+# Reading only what is asked for is not ceremony. Compiling Ruby on the device
+# costs about six times the source size in contiguous heap and leaves about
+# five times it resident, so loading the LED matrix in order to blink the
+# status LED is a real price a program pays. Measurements in
+# dev-docs/device-bringup/require-memory.md.
+#
+# And it is read here, not by a require inside the peripheral's file: a
+# require nested in another file compiles while the outer file is still held,
+# and on the r1 board that left the largest free block at 7-20KB instead of
+# about 25KB -- kanji.rb right after a reset, or melody.rb after it, ran out of
+# memory one time in two or three.
 
 require 'adventure_board/board'
 
@@ -43,19 +51,23 @@ module AdventureBoard
     $board ||= Board.boot
   end
 
-  def self.matrix           # adventure_board/led_matrix
+  def self.matrix
+    use(:LedMatrix, 'adventure_board/led_matrix')
     board.matrix
   end
 
-  def self.buttons          # adventure_board/buttons
+  def self.buttons
+    use(:Buttons, 'adventure_board/buttons')
     board.buttons
   end
 
-  def self.speaker          # adventure_board/speaker
+  def self.speaker
+    use(:Speaker, 'adventure_board/speaker')
     board.speaker
   end
 
-  def self.status_led       # adventure_board/status_led
+  def self.status_led
+    use(:StatusLed, 'adventure_board/status_led')
     board.status_led
   end
 
@@ -64,12 +76,22 @@ module AdventureBoard
     board.grove_uart(baudrate: baudrate)
   end
 
-  def self.grove_link(role: :a, baudrate: nil)   # adventure_board/grove_link
+  def self.grove_link(role: :a, baudrate: nil)
+    use(:GroveLink, 'adventure_board/grove_link')
     baudrate ? board.grove_link(role: role, baudrate: baudrate) : board.grove_link(role: role)
   end
 
   # GROVE-A (J4), the I2C one.
   def self.grove_i2c(frequency: 100_000)
     board.grove_i2c(frequency: frequency)
+  end
+
+  # Reads a peripheral's file the first time it is needed, and gives back
+  # what compiling it took. Already there (the simulator has every class from
+  # the start), nothing is read.
+  def self.use(name, path)
+    return if Object.const_defined?(name)
+    require path
+    GC.start
   end
 end

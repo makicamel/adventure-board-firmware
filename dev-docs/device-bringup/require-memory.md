@@ -213,3 +213,21 @@ GC.start
 | サンプルが読むもの | 各 `examples/*.rb` の先頭 |
 | ビルド構成 | `build_config/r2p2-picoruby-pico2_w.rb` |
 | 配布 | `tools/gen_system_files.rb` → `picoruby-r2p2/ports/rp2040/system_files.c` |
+
+## 入れ子の `require` と、使うときに読む形（2026-09-27、r1、prod）
+
+サンプルの `require` を 1 行にしようとして、部品のファイル（`led_matrix.rb` など）の先頭で `require 'adventure_board'`
+するようにしたら、実機で `NoMemoryError` が出るようになった。入れ子の `require` は、外のファイル（`led_matrix.rb`）の
+コンパイル結果を持ったまま中のファイル（`board.rb`）をコンパイルするので、連続した空きが細切れになる。
+
+どれもリセット直後から。値はバイト。
+
+| 形 | リセット直後の `kanji.rb` | `kanji.rb` → `melody.rb` | 残った最大連続（max_free） |
+|---|---|---|---|
+| 入れ子（`require 'adventure_board/led_matrix'` の 1 行） | 3 回中 1 回 `NoMemoryError` | 2 回中 1 回 `NoMemoryError` | 7,048〜20,280 |
+| 入れ子の直後に `GC.start` | `require` だけで `NoMemoryError` | — | 15,120 |
+| 前の形（`require 'adventure_board'` → `GC.start` → `require 'adventure_board/led_matrix'` → `GC.start`） | 3 回とも成功 | 成功 | 約 27,000 |
+| **使うときに読む**（`require 'adventure_board'` の 1 行。`AdventureBoard.matrix` が `led_matrix.rb` を読んで `GC.start`） | 成功 | 4 回とも成功 | 17,000〜24,000 |
+
+採ったのは最後の形（`lib/adventure_board.rb` の `AdventureBoard.use`）。全 12 サンプルをリセット直後に 1 本ずつ走らせて、
+`NoMemoryError` は出なかった。`melody.rb` のあとの空きは、前の形で約 57KB、この形で 58〜94KB。
