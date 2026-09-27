@@ -72,6 +72,9 @@
      colours to show (class "colored", set from setCodeColors). Without them
      -- a PicoRuby.wasm that has no SyntaxHighlight -- it stays an ordinary
      textarea. Lines do not wrap, so that both lay the text out alike. */
+  .editor-bar { display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+                margin: 0 0 6px; font-size: 13px; }
+  .editor-bar select { padding: 2px 8px; font-size: 13px; }
   .editor { position: relative; }
   .editor textarea { display: block; position: relative; white-space: pre; overflow: auto; }
   #code-colors {

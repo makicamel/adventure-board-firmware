@@ -205,13 +205,17 @@ class SimApp < Funicular::Component
             select(id: "examples", onchange: :on_example) { example_options }
             button(id: "run", class: "primary", onclick: :on_run) { "Run" }
             button(id: "reset", onclick: :on_reset) { "シミュレータをリセット" }
-            label(for: "font-size") { "文字" }
-            select(id: "font-size", onchange: :on_font_size) { font_options }
           end
         end
         div(class: "group") do
           span(class: "group-title") { "実機（USB）" }
           div(class: "controls") { device_controls }
+        end
+        # A setting of the page, not of the simulator or the board: above
+        # the code box it changes, outside both groups.
+        div(class: "editor-bar") do
+          label(for: "font-size") { "文字の大きさ" }
+          select(id: "font-size", onchange: :on_font_size) { font_options }
         end
         div(class: "editor") do
           tag("pre", id: "code-colors") { "" }
