@@ -92,6 +92,16 @@ class SimApp < Funicular::Component
     ["音と光", "sound_and_light.rb"]
   ]
 
+  # The board library, as it is in the board's /lib and as this page runs it.
+  LIB_FILES = [
+    "adventure_board.rb",
+    "adventure_board/board.rb",
+    "adventure_board/led_matrix.rb",
+    "adventure_board/buttons.rb",
+    "adventure_board/speaker.rb",
+    "adventure_board/status_led.rb"
+  ]
+
   KEY_PINS = {
     "ArrowUp" => 17, "ArrowLeft" => 18, "ArrowRight" => 19, "ArrowDown" => 20,
     "z" => 22, "Z" => 22, "x" => 21, "X" => 21
@@ -227,6 +237,17 @@ class SimApp < Funicular::Component
         # helper.
         tag("pre", ref: :notes, id: "notelog",
             hidden: state[:notes_visible] ? nil : "hidden")
+        # Read-only: the library a program calls into. Shown on request, and
+        # kept in instance variables like the board picture's (BoardView).
+        button(id: "lib-toggle", class: "disclosure", onclick: :on_lib_toggle) do
+          @lib_visible ? "▾ ライブラリのコード（lib/）" : "▸ ライブラリのコードを見る"
+        end
+        if @lib_visible
+          div(class: "controls") do
+            select(id: "lib-files", onchange: :on_lib_file) { lib_options }
+          end
+          tag("pre", ref: :lib_code, id: "lib-code") { "" }
+        end
       end
     end
   end
@@ -261,6 +282,16 @@ class SimApp < Funicular::Component
     button(id: "device-clear", onclick: :on_device_clear,
            disabled: (connected && !busy) ? nil : "disabled") do
       "実機の app.rb を空にする"
+    end
+    nil
+  end
+
+  def lib_options
+    list = LIB_FILES
+    i = 0
+    while i < list.size
+      option(value: list[i], selected: list[i] == @lib_file ? "selected" : nil) { "lib/#{list[i]}" }
+      i += 1
     end
     nil
   end
@@ -480,6 +511,55 @@ class SimApp < Funicular::Component
     nil
   end
 
+  def on_lib_toggle(_event)
+    @lib_visible = !@lib_visible
+    @lib_file ||= LIB_FILES[0]
+    @lib_shown = nil
+    refresh
+    nil
+  end
+
+  def on_lib_file(event)
+    @lib_file = event.target[:value].to_s
+    @lib_shown = nil
+    nil
+  end
+
+  # Fetched once per file, coloured like the code box, and put into the
+  # <pre> on the heartbeat once it is there (it appears a render later).
+  def draw_lib_code
+    return nil unless @lib_visible
+    el = refs[:lib_code]
+    return nil unless el
+    file = @lib_file
+    return nil if file == @lib_shown
+    # Only this hash is touched inside the fetch's block: a block handed to
+    # JS may not run with this component as self.
+    texts = (@lib_texts ||= {})
+    text = texts[file]
+    if text.nil?
+      return nil if texts.key?("fetching #{file}")
+      texts["fetching #{file}"] = true
+      JS.global.fetch("../lib/#{file}", { cache: "no-store" }) do |response|
+        begin
+          texts[file] = response[:ok] ? response.text.await.to_s : "# #{file}: #{response[:status].to_i}"
+        rescue Exception => e
+          texts[file] = "# #{file}: #{e.class}: #{e.message}"
+        end
+      end
+      return nil
+    end
+    html = begin
+      CodeColors.html(text)
+    rescue Exception
+      CodeColors.escape(text)   # a wasm without SyntaxHighlight
+    end
+    el[:innerHTML] = html
+    el[:scrollTop] = 0
+    @lib_shown = file
+    nil
+  end
+
   def on_notes_toggle(_event)
     patch(notes_visible: !state[:notes_visible])
     nil
@@ -527,6 +607,7 @@ class SimApp < Funicular::Component
   def draw
     JS.global.renderPanel($panel.levels_hex)
     draw_breadboard
+    draw_lib_code
     draw_status_led
     draw_notes
     draw_device

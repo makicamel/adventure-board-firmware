@@ -103,6 +103,12 @@
     background: var(--card); border: 1px solid var(--line-strong); border-radius: 6px;
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
   }
+  /* The board library, read-only and coloured like the code box. */
+  #lib-code {
+    margin: 4px 0 0; padding: 10px; height: 420px; overflow: auto; resize: vertical;
+    background: var(--card); border: 1px solid var(--line-strong); border-radius: 6px;
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); white-space: pre;
+  }
   /* The board's shell: an xterm.js terminal. Dragging the bottom edge
      resizes it, and the terminal refits itself (see deviceTerminal). */
   #devicelog {
