@@ -24,6 +24,9 @@
     --red: #e8404b; --redd: #c0223a; --yellow: #ffc12e; --pink: #ff4a2e; --blue: #5f7cb8;
     --green: #2fb36a; --green-ink: #1f7f4c;
     --well: #0b0e15; --well-ink: #ece9df;   /* the screens */
+    /* Code, the library view, the note log (and the terminal, from JS): the
+       size the viewer picked, set by setCodeFont. */
+    --code-font: 15px;
   }
   body {
     margin: 0; padding: 24px 16px 16px;
@@ -60,7 +63,7 @@
   button:disabled { opacity: .5; cursor: not-allowed; }
   textarea {
     width: 100%; box-sizing: border-box; height: 300px; resize: vertical;
-    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--code-font)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
     background: var(--card); color: var(--ink); border: 1px solid var(--line-strong);
     border-radius: 6px; padding: 10px;
   }
@@ -73,7 +76,7 @@
   .editor textarea { display: block; position: relative; white-space: pre; overflow: auto; }
   #code-colors {
     position: absolute; inset: 0; margin: 0; box-sizing: border-box; overflow: hidden;
-    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre;
+    font: var(--code-font)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre;
     padding: 10px; border: 1px solid transparent; border-radius: 6px;
     background: var(--card); color: var(--ink); pointer-events: none; display: none;
   }
@@ -101,13 +104,13 @@
   #notelog {
     margin: 4px 0 0; padding: 8px 10px; height: 150px; overflow-y: auto;
     background: var(--card); border: 1px solid var(--line-strong); border-radius: 6px;
-    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
+    font: var(--code-font)/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
   }
   /* The board library, read-only and coloured like the code box. */
   #lib-code {
     margin: 4px 0 0; padding: 10px; height: 420px; overflow: auto; resize: vertical;
     background: var(--card); border: 1px solid var(--line-strong); border-radius: 6px;
-    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); white-space: pre;
+    font: var(--code-font)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); white-space: pre;
   }
   /* The board's shell: an xterm.js terminal. Dragging the bottom edge
      resizes it, and the terminal refits itself (see deviceTerminal). */
@@ -148,6 +151,32 @@
   #bb-warnings .warning { margin-top: 8px; padding: 6px 10px; border-radius: 4px; font-size: 13px;
                           background: #fbe3e5; color: var(--redd); border: 1px solid #f0a3ab; }
 </style>
+<script>
+// The size of the text in the code box, the library view, the note log and
+// the terminal: small / medium / large, kept per viewer in this browser.
+(function () {
+  const KEY = 'adventure-board-font';
+  const SIZES = { small: 13, medium: 15, large: 18 };
+  let current = 'medium';
+  try { const saved = localStorage.getItem(KEY); if (SIZES[saved]) current = saved; } catch (e) {}
+  const apply = function () {
+    document.documentElement.style.setProperty('--code-font', SIZES[current] + 'px');
+    if (window.__term) {
+      window.__term.options.fontSize = SIZES[current];
+      if (window.__termRefit) window.__termRefit();
+    }
+  };
+  apply();
+  window.codeFontName = function () { return current; };
+  window.codeFontPx = function () { return SIZES[current]; };
+  window.setCodeFont = function (name) {
+    if (!SIZES[name]) return;
+    current = name;
+    try { localStorage.setItem(KEY, name); } catch (e) {}
+    apply();
+  };
+})();
+</script>
 </head>
 <body>
 
@@ -175,7 +204,7 @@
     // so it lines up as a terminal font; the system's monospace stands in
     // when it has not loaded.
     term = new Terminal({
-      cursorBlink: true, fontSize: 14, lineHeight: 1.15, scrollback: 2000,
+      cursorBlink: true, fontSize: window.codeFontPx(), lineHeight: 1.15, scrollback: 2000,
       convertEol: true,   // the board ends lines with a bare LF; without this each line starts under the end of the last
       fontFamily: '"DotGothic16", ui-monospace, SFMono-Regular, Menlo, monospace',
       theme: {
@@ -189,6 +218,9 @@
     term.loadAddon(fit);
     term.open(box);
     const refit = function () { try { fit.fit(); } catch (e) {} };
+    // For setCodeFont: a new size means new rows and columns.
+    window.__term = term;
+    window.__termRefit = refit;
     refit();
     new ResizeObserver(refit).observe(box);
     return term;

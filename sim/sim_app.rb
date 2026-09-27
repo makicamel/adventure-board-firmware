@@ -205,6 +205,8 @@ class SimApp < Funicular::Component
             select(id: "examples", onchange: :on_example) { example_options }
             button(id: "run", class: "primary", onclick: :on_run) { "Run" }
             button(id: "reset", onclick: :on_reset) { "シミュレータをリセット" }
+            label(for: "font-size") { "文字" }
+            select(id: "font-size", onchange: :on_font_size) { font_options }
           end
         end
         div(class: "group") do
@@ -298,6 +300,26 @@ class SimApp < Funicular::Component
       option(value: list[i], selected: list[i] == @lib_file ? "selected" : nil) { "lib/#{list[i]}" }
       i += 1
     end
+    nil
+  end
+
+  FONT_SIZES = [["small", "小"], ["medium", "中"], ["large", "大"]]
+
+  # The size lives in the page's JS (and its storage); read back here so the
+  # list shows it.
+  def font_options
+    current = JS.global.codeFontName.to_s
+    list = FONT_SIZES
+    i = 0
+    while i < list.size
+      option(value: list[i][0], selected: list[i][0] == current ? "selected" : nil) { list[i][1] }
+      i += 1
+    end
+    nil
+  end
+
+  def on_font_size(event)
+    JS.global.setCodeFont(event.target[:value].to_s)
     nil
   end
 
