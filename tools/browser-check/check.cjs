@@ -222,8 +222,12 @@ const INTERACTIVE = {
     await page.keyboard.up('ArrowLeft');
     await page.waitForTimeout(300);
     show('buttons: after holding the left arrow key', await readPanel(page));
-    await press(page, '[data-pin="21"]', 500, async () => {
-      show('buttons: B held (cross)', await readPanel(page));
+    // A: a ring spreads from the dot. Read soon after, while it is small.
+    await press(page, '[data-pin="22"]', 60);
+    show('buttons: after A (a ring spreading from the dot)', await readPanel(page));
+    // B: the whole panel lights and fades; held, it keeps flashing.
+    await press(page, '[data-pin="21"]', 700, async () => {
+      show('buttons: B held (the whole panel flashing)', await readPanel(page));
     });
   },
 };
