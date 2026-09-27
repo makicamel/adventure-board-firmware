@@ -225,11 +225,27 @@ class SimApp < Funicular::Component
           div(class: "legend", style: "margin-top:12px") { "実機の端末（つないだあとは、ここに打てる）" }
           div(id: "devicelog")
         end
+        # Read-only: the library a program calls into. Shown on request, and
+        # kept in instance variables like the board picture's (BoardView).
+        # In a box of its own, so that opening it does not shift the note
+        # log below: Funicular matches elements by position and would build
+        # the log anew, empty.
+        div(id: "lib-view") do
+          button(id: "lib-toggle", class: "disclosure", onclick: :on_lib_toggle) do
+            @lib_visible ? "▾ ライブラリのコード（lib/）" : "▸ ライブラリのコードを見る"
+          end
+          if @lib_visible
+            div(class: "controls") do
+              select(id: "lib-files", onchange: :on_lib_file) { lib_options }
+            end
+            tag("pre", ref: :lib_code, id: "lib-code") { "" }
+          end
+        end
         # Kept in the document even when hidden: it is how a melody can be
         # checked without hearing it, and the browser harness reads it.
-        # Down here by the log it opens, as a line of text rather than a
-        # button: up in the row with Run it was in the way of the buttons
-        # that get pressed all the time.
+        # At the very bottom, as a line of text rather than a button: up in
+        # the row with Run it was in the way of the buttons that get pressed
+        # all the time.
         button(id: "notes-toggle", class: "disclosure", onclick: :on_notes_toggle) do
           state[:notes_visible] ? "▾ 鳴った音" : "▸ 鳴った音を見る"
         end
@@ -237,17 +253,6 @@ class SimApp < Funicular::Component
         # helper.
         tag("pre", ref: :notes, id: "notelog",
             hidden: state[:notes_visible] ? nil : "hidden")
-        # Read-only: the library a program calls into. Shown on request, and
-        # kept in instance variables like the board picture's (BoardView).
-        button(id: "lib-toggle", class: "disclosure", onclick: :on_lib_toggle) do
-          @lib_visible ? "▾ ライブラリのコード（lib/）" : "▸ ライブラリのコードを見る"
-        end
-        if @lib_visible
-          div(class: "controls") do
-            select(id: "lib-files", onchange: :on_lib_file) { lib_options }
-          end
-          tag("pre", ref: :lib_code, id: "lib-code") { "" }
-        end
       end
     end
   end
