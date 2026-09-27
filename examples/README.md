@@ -11,6 +11,7 @@
 | [grove_link_chat.rb](grove_link_chat.rb) | GROVE-B（PIO で作った UART） | 基板 2 枚。**ケーブルはストレートでよい** |
 | [envelope.rb](envelope.rb) | PSG のエンベロープ（MML の `s` / `m`）。減衰・トレモロ・和音を順に鳴らす | 基板 1 枚。シミュレータの音源には無い機能 |
 | [grove_uart_chat.rb](grove_uart_chat.rb) | GROVE-B（ハードウェア UART0） | **基板 2 枚 + クロスケーブル** |
+| [oled.rb](oled.rb) | I2C の OLED（SSD1306 / SSD1315、128×64）に文字を出し、ボールを跳ねさせる。`picoruby-ssd1306` | OLED 1 枚。ブレッドボードで J1 の 02（SDA、GPIO2）/ 03（SCL、GPIO3）/ 3V3 / G につなぐ |
 
 2 枚を繋ぐなら `grove_link_chat.rb` の方を使う。ケーブルを選ばない。
 `grove_uart_chat.rb` は**ハードウェア UART の使い方**として残してある。
