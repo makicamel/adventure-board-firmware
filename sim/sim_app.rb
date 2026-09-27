@@ -85,6 +85,7 @@ class SimApp < Funicular::Component
     ["漢字を出す", "kanji.rb"],
     ["文字を流す", "scroll.rb"],
     ["動き続ける", "spinner.rb"],
+    ["ライフゲーム", "life.rb"],
     ["ボタンで動かす", "buttons.rb"],
     ["ステータス LED", "status_led.rb"],
     ["ブレッドボードの LED", "breadboard_led.rb"],

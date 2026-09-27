@@ -160,6 +160,16 @@ async function watchBreadboardLeds(page, samples = 8, gapMs = 150) {
 }
 
 const INTERACTIVE = {
+  life: async (page) => {
+    // Generations are 150 ms apart: two reads a second apart should differ,
+    // and both should have cells alive.
+    const a = await readPanel(page);
+    await page.waitForTimeout(1000);
+    const b = await readPanel(page);
+    show('life: a second later', b);
+    const lit = (rows) => rows.join('').replace(/\./g, '').length;
+    console.log(`# life: ${lit(a)} then ${lit(b)} cells lit, changed: ${a.join('') !== b.join('')}`);
+  },
   breadboard_led: async (page) => {
     // Loading the example wires the breadboard from its comments.
     console.log(`# wiring: ${JSON.stringify(await page.evaluate(() => {
