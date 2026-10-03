@@ -1,0 +1,112 @@
+# The board's guide (site/) with the console (sim/) inside it, for GitHub Pages.
+#
+# Two jobs on purpose. `build` runs on every push to main and only checks that
+# the site still builds; what it makes stays inside Actions. `deploy` runs only
+# when started by hand (Actions -> site -> Run workflow), so nothing is
+# published until someone means it. Publishing also needs the repository to be
+# public and Settings -> Pages -> Source set to GitHub Actions; see
+# site/README.md.
+name: site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'sim/**'
+      - 'lib/**'
+      - 'examples/**'
+      - 'mrbgems/picoruby-is31fl3729/**'
+      - 'mrbgems/picoruby-midibase/**'
+      - 'mrbgems/picoruby-midibase-mml/**'
+      - 'mrbgems/picoruby-vram/**'
+      - 'mrbgems/picoruby-shinonome/**'
+      - 'mrbgems/picoruby-syntax-highlight/**'
+      - 'build_config/picoruby-wasm.rb'
+      - 'tasks/site.rake'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site
+  cancel-in-progress: true
+
+env:
+  # The emscripten that `rake sim:wasm` uses on the development machine.
+  EMSDK_VERSION: 6.0.6
+  SITE_BASE: /adventure-board-firmware/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      # Every submodule but the two that only the firmware needs (pico-sdk
+      # and its own submodules are most of the download).
+      - name: Submodules
+        run: |
+          paths=$(git config -f .gitmodules --get-regexp '\.path$' | awk '{print $2}' \
+            | grep -v -e 'picoruby-r2p2/lib/pico-sdk' -e 'picoruby-r2p2/lib/rp2040js')
+          git submodule update --init --recursive --depth 1 -- $paths
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - name: brotli
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends brotli
+
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      # The same build as `rake sim:wasm`, without Docker: a PicoRuby.wasm
+      # with the drawing, font and LED gems, copied into sim/vendor.
+      - name: PicoRuby.wasm
+        run: |
+          PICOBOARD_WASM=1 CONFIG=picoruby-wasm rake
+          mkdir -p sim/vendor
+          for f in init.iife.js picoruby.js picoruby.wasm; do
+            cp mrbgems/picoruby-wasm/npm/picoruby/dist/$f sim/vendor/
+          done
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Guide
+        working-directory: site
+        run: |
+          npm ci --no-fund --no-audit
+          npx vitepress build
+
+      # What `rake site:build` does after VitePress: the console and the
+      # files it reads beside it.
+      - name: Console
+        run: rake site:console
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/.vitepress/dist
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -144,7 +144,9 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 - **スピーカーは PSG の左出力（GPIO10）だけ。** パンは `Speaker` が左いっぱい（`Board::PSG_SPEAKER_PAN`）にしている。
   音源（`PSG::Synth`）は設定を「送り主 × チャンネル」ごとに覚えるので、`synth.handle` で直接送った設定は
   `Speaker`（送り主 `:mml`）の音には効かない。3 声を v15 で重ねると出力は電源いっぱいまで振れる
-- **GROVE1（J4）はピン順が逆。** Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる
+- **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。PV1 で J4・J5 とも並びを入れ替えて直り、
+  量産版 V1 も同じ。**PV1 / V1 はふつうの Grove ケーブルで挿せる**（黄・白・赤・黒 = J4 は SCL(GPIO7)・SDA(GPIO6)・3V3・GND、
+  J5 は GPIO29・GPIO28・3V3・GND）
 
 ## 既知の落とし穴
 
@@ -409,7 +411,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 **全部の一覧と理由は [dev-docs/upstream-changes.md](dev-docs/upstream-changes.md)。**
 以下は要約:
 
-- `Rakefile` — `tasks/docker.rake` と `tasks/sim.rake` の load 2 行
+- `Rakefile` — `tasks/docker.rake`・`tasks/sim.rake`・`tasks/site.rake` の load 3 行
 - `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1〜2 行
   （`picoruby-is31fl3729` と `picoruby-pio-uart`）
 - `build_config/r2p2-picoruby-pico2_w.rb` — `networking` / `picoruby-ble` /
@@ -455,6 +457,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 | [dev-docs/grove-link/](dev-docs/grove-link/) | 基板 2 枚を GROVE-B で繋ぐ。PIO で UART を作る |
 | [docker/README.md](docker/README.md) | ビルド環境の詳細 |
 | [sim/README.md](sim/README.md) | シミュレータの使い方 |
+| [site/README.md](site/README.md) | 使い方とチュートリアルのサイト（VitePress）。`rake site:dev` / `site:build` / `site:preview` |
 | [examples/](examples/) | **実機専用**サンプル（シミュレータに無いハードを使うもの） |
 
 ## 進捗
@@ -482,9 +485,12 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
-- ⬜ シミュレータを GitHub Pages で公開する（Actions で `rake sim:wasm` 相当を組んで `sim/` を出す）。
-  **リポジトリを別の Organization に移してからやる**（2026-09-21 の決定）。それまで `sim/vendor/` は git 管理外のままで、
+- ⬜ シミュレータを GitHub Pages で公開する。下の使い方のサイトの `console/` として出す（Actions で `rake sim:wasm` 相当を組む）。
+  **リポジトリの公開と同じイベントの日（2026-10-31）**（2026-10-03 の決定）。それまで `sim/vendor/` は git 管理外のままで、
   色付け・漢字は `rake sim:wasm` をした環境でだけ出る（無ければ CDN の stock で、色なし・漢字なしで動く）
+- 🔶 使い方とチュートリアルのサイト（`site/`、VitePress。コンソールを `console/` に同梱）。下書きまで（2026-10-03）。
+  リポジトリ・シミュレータと同じく**イベントの日（2026-10-31）に公開**。`.github/workflows/site.yml` は push で組み立てだけ、
+  Pages に出すのは手で起動したときだけ
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く

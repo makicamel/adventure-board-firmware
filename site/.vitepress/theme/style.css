@@ -1,0 +1,198 @@
+/* The look of picorubykaigi.org (content.css) and the console (sim/index.html):
+   the same paper, ink and red, DotGothic16 / Jersey 10 for headings and Zen
+   Kaku Gothic New for reading. Only VitePress's own variables are set where
+   they exist; the rules below them are for what has none. */
+
+@font-face {
+  font-family: 'Monaspace Krypton';
+  src: url('/fonts/MonaspaceKrypton-1.101.woff2') format('woff2');
+  font-display: swap;
+}
+
+:root {
+  --ab-bg: #eceade;
+  --ab-card: #f6f4ea;
+  --ab-line: #d8d4c4;
+  --ab-line-strong: #b9b3a0;
+  --ab-ink: #26242f;
+  --ab-dim: #4a4754;
+  --ab-muted: #6c675a;
+  --ab-red: #e8404b;
+  --ab-redd: #c0223a;
+  --ab-yellow: #ffc12e;
+  --ab-blue: #5f7cb8;
+  --ab-green: #2fb36a;
+  --ab-green-ink: #1f7f4c;
+  --ab-code-bg: #2b2836;
+
+  --vp-c-bg: var(--ab-bg);
+  --vp-c-bg-alt: var(--ab-card);
+  --vp-c-bg-elv: var(--ab-card);
+  --vp-c-bg-soft: var(--ab-card);
+  --vp-c-divider: var(--ab-line);
+  --vp-c-border: var(--ab-line-strong);
+  --vp-c-gutter: var(--ab-line);
+  --vp-c-text-1: var(--ab-ink);
+  --vp-c-text-2: var(--ab-dim);
+  --vp-c-text-3: var(--ab-muted);
+
+  --vp-c-brand-1: var(--ab-redd);
+  --vp-c-brand-2: var(--ab-red);
+  --vp-c-brand-3: var(--ab-red);
+  --vp-c-brand-soft: rgba(232, 64, 75, .12);
+
+  --vp-c-tip-1: var(--ab-green-ink);
+  --vp-c-tip-soft: rgba(47, 179, 106, .12);
+  --vp-c-warning-1: #8a5a00;
+  --vp-c-warning-soft: rgba(255, 193, 46, .2);
+  --vp-c-danger-1: var(--ab-redd);
+  --vp-c-danger-soft: rgba(232, 64, 75, .12);
+
+  --vp-font-family-base: 'Zen Kaku Gothic New', ui-sans-serif, system-ui, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  --vp-font-family-mono: 'Monaspace Krypton', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ab-font-dot: 'DotGothic16', 'Zen Kaku Gothic New', sans-serif;
+  --ab-font-title: 'Jersey 10', 'DotGothic16', sans-serif;
+
+  --vp-code-block-bg: var(--ab-code-bg);
+  --vp-code-block-color: #f0ede2;
+  --vp-code-copy-code-bg: #3a3647;
+  --vp-code-lang-color: #a59fb3;
+  --vp-code-color: var(--ab-redd);
+  --vp-code-bg: rgba(38, 36, 47, .07);
+
+  --vp-home-hero-name-color: var(--ab-red);
+  --vp-button-brand-bg: var(--ab-red);
+  --vp-button-brand-border: var(--ab-redd);
+  --vp-button-brand-text: #fff;
+  --vp-button-brand-hover-bg: var(--ab-redd);
+  --vp-button-brand-hover-border: var(--ab-redd);
+  --vp-button-brand-hover-text: #fff;
+  --vp-button-brand-active-bg: var(--ab-redd);
+  --vp-button-alt-bg: var(--ab-card);
+  --vp-button-alt-border: var(--ab-line-strong);
+  --vp-button-alt-text: var(--ab-ink);
+  --vp-button-alt-hover-bg: #fff;
+  --vp-button-alt-hover-text: var(--ab-ink);
+
+  --vp-nav-bg-color: var(--ab-bg);
+  --vp-sidebar-bg-color: var(--ab-card);
+  --vp-local-search-bg: var(--ab-bg);
+  --vp-local-search-result-bg: var(--ab-card);
+}
+
+/* The dark palette of picorubykaigi.org's content pages. */
+.dark {
+  --ab-bg: #10131c;
+  --ab-card: #191d28;
+  --ab-line: #333a49;
+  --ab-line-strong: #4a5263;
+  --ab-ink: #ece9df;
+  --ab-dim: #b9bdc8;
+  --ab-muted: #8b93a5;
+  --ab-code-bg: #1d1a26;
+
+  --vp-c-brand-1: #ff6b74;
+  --vp-c-brand-2: var(--ab-red);
+  --vp-c-tip-1: #56f096;
+  --vp-c-warning-1: var(--ab-yellow);
+  --vp-c-danger-1: #ff6b74;
+  --vp-code-color: #ff8f96;
+  --vp-code-bg: rgba(236, 233, 223, .08);
+  --vp-button-alt-hover-bg: #232836;
+}
+
+/* The site's background: paper with a faint dot grid, as on picorubykaigi.org. */
+body {
+  background:
+    url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2724%27%20height=%2724%27%3E%3Crect%20x=%279.5%27%20y=%279.5%27%20width=%275%27%20height=%275%27%20fill=%27%2339352b%27%20fill-opacity=%27.06%27/%3E%3C/svg%3E") 0 0/24px 24px,
+    var(--ab-bg);
+}
+.dark body { background: var(--ab-bg); }
+
+/* --- headings ------------------------------------------------------------ */
+
+.VPNavBarTitle .title {
+  font-family: var(--ab-font-title);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: .06em;
+  color: var(--ab-red);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: var(--ab-font-dot);
+  font-weight: 400;
+  letter-spacing: .04em;
+}
+
+.vp-doc h1 { font-size: 30px; line-height: 1.35; }
+
+/* The red bar of picorubykaigi.org's h2. */
+.vp-doc h2 {
+  position: relative;
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 48px;
+  padding-left: 16px;
+}
+.vp-doc h2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 5px;
+  background: var(--ab-red);
+}
+
+.vp-doc p,
+.vp-doc li {
+  line-height: 1.95;
+  letter-spacing: .02em;
+}
+
+.vp-doc hr { border-top: 2px solid var(--ab-blue); width: 80%; margin: 40px auto; }
+
+.vp-doc table { font-size: 15px; }
+.vp-doc th { font-family: var(--ab-font-dot); font-weight: 400; }
+
+.VPSidebarItem.level-0 > .item > .text,
+.VPSidebar .group .title .text { font-family: var(--ab-font-dot); font-weight: 400; }
+
+.VPNavBarMenuLink,
+.VPNavBarMenuGroup .text { font-family: var(--ab-font-dot); font-weight: 400; }
+
+/* --- home ---------------------------------------------------------------- */
+
+.VPHero .name {
+  font-family: var(--ab-font-title);
+  font-weight: 400;
+  letter-spacing: .06em;
+}
+.VPHero .name .clip { -webkit-text-fill-color: var(--ab-red); }
+.VPHero .text { font-family: var(--ab-font-dot); font-weight: 400; }
+.VPHero .tagline { color: var(--ab-dim); }
+/* The board is taller than it is wide; VitePress's own sizes keep it inside
+   its square box until the hero goes side by side. */
+@media (min-width: 960px) {
+  .VPHero .image-src { max-width: 340px; max-height: 480px; }
+}
+.VPHero .image-bg { opacity: 0; }
+
+.VPFeature {
+  border: 2px solid var(--ab-line);
+  background: var(--ab-card);
+}
+.VPFeature .title { font-family: var(--ab-font-dot); font-weight: 400; }
+
+/* --- pictures in the text ------------------------------------------------ */
+
+.vp-doc .board-photo {
+  display: block;
+  max-width: 420px;
+  width: 100%;
+  margin: 16px auto;
+}

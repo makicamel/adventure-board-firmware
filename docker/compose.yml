@@ -110,5 +110,21 @@ services:
       - ..:/work
     command: ["node", "/work/tools/browser-check/check.cjs"]
 
+  # The board's guide (site/, VitePress). The stock Node image, nothing added:
+  # the packages go into site/node_modules (git-ignored) with `npm ci`.
+  # `rake site:*` (tasks/site.rake) wraps it.
+  site:
+    image: node:22-bookworm-slim
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /work/site
+    volumes:
+      - ..:/work
+    environment:
+      HOME: /tmp
+      SITE_BASE: ${SITE_BASE:-/adventure-board-firmware/}
+    ports:
+      - "${SITE_PORT:-5173}:5173"
+    command: ["npm", "run", "build"]
+
 volumes:
   bundle:
