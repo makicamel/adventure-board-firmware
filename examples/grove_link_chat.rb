@@ -10,7 +10,9 @@ buttons = AdventureBoard.buttons       # ボタン
 
 matrix.clear
 matrix.pen = 0x40
+matrix.clear_drawing                   # 描く場所（VRAM）を消す
 matrix.draw_text("?", 4, 0)            # 役割を選ぶまでは "?" を出して、何も送らない
+matrix.blit                            # 描いたものをマトリクスへ写す
 matrix.show
 
 role = nil
@@ -22,8 +24,9 @@ while role.nil?
   sleep_ms 20
 end
 
-matrix.clear
+matrix.clear_drawing
 matrix.draw_text(role == :a ? "A" : "B", 4, 0)   # 選んだ役割を見せる。相手と同じ文字なら、どちらかがやり直す
+matrix.blit
 matrix.show
 sleep_ms 600
 
