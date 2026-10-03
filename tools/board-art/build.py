@@ -100,6 +100,29 @@ def edge_bbox(root):
 
 
 # --- rendering --------------------------------------------------------------
+def add_model(text, footprint, model):
+    """Give every placed footprint of that name a 3D model, by appending one
+    before its closing parenthesis. Footprints sit one tab deep in the board
+    file and close with a line holding a lone tab and ')'."""
+    head = f'\n\t(footprint "{footprint}"'
+    out = []
+    pos = 0
+    count = 0
+    while True:
+        start = text.find(head, pos)
+        if start < 0:
+            break
+        end = text.find("\n\t)\n", start)
+        out.append(text[pos:end])
+        out.append(f'\n\t\t(model "{model}"\n\t\t\t(offset (xyz 0 0 0))\n\t\t\t(scale (xyz 1 1 1))\n\t\t\t(rotate (xyz 0 0 0))\n\t\t)')
+        pos = end
+        count += 1
+    out.append(text[pos:])
+    if count == 0:
+        raise SystemExit(f"no footprint {footprint} to give a model")
+    return "".join(out)
+
+
 def render(board_dir, work, bbox):
     """Render a coloured copy of the board in a scratch project directory, so
     the board's own checkout is only read."""
@@ -120,6 +143,11 @@ def render(board_dir, work, bbox):
     # U1 names its model the KiCad 5 way: through ${KISYS3DMOD}, which 9 no
     # longer sets, and as .wrl, which 9's library ships only as .step.
     text = re.sub(r'\$\{KISYS3DMOD\}/([^"]+)\.wrl"', r'${KICAD9_3DMODEL_DIR}/\1.step"', text)
+    # The matrix LEDs use the board's own footprint, which names no model, so
+    # only their pads would show. It is a standard 0402 with the pads drawn
+    # closer, pin 1 on the left as in KiCad's, so KiCad's model sits right.
+    text = add_model(text, "PicoBoard:LED_0402_Compact_P1.6mm",
+                     "${KICAD9_3DMODEL_DIR}/LED_SMD.3dshapes/LED_0402_1005Metric.step")
     open(f"{work}/board.kicad_pcb", "w").write(text)
 
     # KiCad fits the board into the frame with a margin of its own; render
@@ -157,6 +185,42 @@ def measure(img, bbox):
     col = [alpha.getpixel((w // 2, y)) for y in range(h)]
     top = first(col)
     return scale, left - bbox[0] * scale, top - bbox[1] * scale
+
+
+# --- the matrix LEDs ---------------------------------------------------------
+# KiCad's 0402 LED is a bright white body, and the page lights the dots by
+# drawing over the picture: a white part under every dot reads as lit when it
+# is not. So the bodies are tinted towards the board around them, keeping their
+# shading, that they show as parts and step back. A pixel becomes the board's
+# colour times 0.5 + 2 * LED_TINT * its brightness: dark edges sink below the
+# board, the white top comes out a little above it. Larger shows more of them.
+LED_TINT = 0.35
+LED_RADIUS_MM = 0.65  # covers the 1.0 x 0.5 mm body and its pads, not the vias
+
+
+def tint_matrix_leds(img, fps, origin):
+    leds = [v for k, v in fps.items() if re.fullmatch(r"LED\d+", k)]
+    ox, oy = origin
+    px = img.load()
+    r = LED_RADIUS_MM * PX_PER_MM
+    # The board's colour, from the bare mask between the first two LEDs.
+    a, b = sorted(leds, key=lambda v: (v["y"], v["x"]))[:2]
+    sx = round(((a["x"] + b["x"]) / 2 - ox) * PX_PER_MM)
+    sy = round((a["y"] - oy - 0.6) * PX_PER_MM)
+    base = px[sx, sy][:3]
+    for led in leds:
+        cx, cy = (led["x"] - ox) * PX_PER_MM, (led["y"] - oy) * PX_PER_MM
+        for y in range(int(cy - r), int(cy + r) + 2):
+            for x in range(int(cx - r), int(cx + r) + 2):
+                if (x - cx) ** 2 + (y - cy) ** 2 > r * r:
+                    continue
+                cr, cg, cb, ca = px[x, y]
+                light = (cr + cg + cb) / 765
+                if cg > cr + 25 and cg > cb + 25:
+                    continue  # already green: the mask showing through
+                k = 0.5 + LED_TINT * 2 * light
+                t = [min(255, round(c * k)) for c in base]
+                px[x, y] = (t[0], t[1], t[2], ca)
 
 
 # --- where things are ------------------------------------------------------
@@ -239,11 +303,13 @@ def main():
            round(x0 + (left_mm + size[0]) * scale), round(y0 + (top_mm + size[1]) * scale))
     px = (round(size[0] * PX_PER_MM), round(size[1] * PX_PER_MM))
     img = img.crop(box).resize(px, Image.LANCZOS)
+    fps = footprints(root)
+    tint_matrix_leds(img, fps, (left_mm, top_mm))
 
     os.makedirs(f"{sim_dir}/board", exist_ok=True)
     img.save(f"{sim_dir}/board/board.webp", quality=85, method=6)
     with open(f"{sim_dir}/board_layout.rb", "w") as f:
-        f.write(layout_rb(footprints(root), (left_mm, top_mm), size, px))
+        f.write(layout_rb(fps, (left_mm, top_mm), size, px))
     kb = os.path.getsize(f"{sim_dir}/board/board.webp") // 1024
     print(f"rendered at {scale:.2f} px/mm; wrote sim/board/board.webp ({px[0]}x{px[1]}, {kb} KB) and sim/board_layout.rb")
 
