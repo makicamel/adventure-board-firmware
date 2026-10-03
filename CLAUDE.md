@@ -6,7 +6,11 @@ RP2350A / 16×16 LED マトリクス / 音声 / ボタン / GROVE、PicoRubyKaig
 リポジトリは `github.com/picorubykaigi/adventure-board-firmware`（2026-09-23 に `kishima/picorubykaigi01-board-firmware` から移した。
 ブランチは `main`。upstream の picoruby は `upstream` リモートから merge する）。ローカルのディレクトリ名は移行前のまま。
 
-試作基板 r1 が手元にある（**Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド）。
+手元の基板は **PV1**（2026-10-03 着）と試作基板 r1。どちらも **Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド。
+**PV1 は USB がそのまま使える**ので、BOOTSEL + UF2 のドラッグ&ドロップで焼く（[pv1-board.md](dev-docs/device-bringup/pv1-board.md)）。
+r1 で問題だった USB 接続と音は、PV1 でも問題ないことを確認済み。
+基板の設計は 2026-10-03 に**量産版 V1** になった。PV1 との違いは下側の取付穴の位置と、シルクの "PV1" を消しただけ
+（回路・部品配置は同じなので、PV1 で確かめたことは V1 にもそのまま当てはまる）。KiCad のファイルは `adventure-board.kicad_pcb` に改名された。
 r1 の USB は元は死んでいたが、手で配線して USB シリアルが使えるようになっている（Windows 側では 16c0:400f、CDC が複数）。
 書き込みと UART コンソールは J2 の Debug Probe から、ブラウザの WebSerial は USB から。**USB 側は WSL に attach しない**。
 **手順書: [dev-docs/device-bringup/probe-workflow.md](dev-docs/device-bringup/probe-workflow.md)**
@@ -114,7 +118,7 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 
 | 順位 | 資料 |
 |---|---|
-| 1 | `tmp/picorubykaigi01-board/`（基板リポジトリの clone。`.kicad_pcb` / production / docs） |
+| 1 | `tmp/picorubykaigi01-board/`（基板リポジトリの clone。`.kicad_pcb` / production / docs）。量産版の製造データは `production/v1/` |
 | 1 | `ref/picorubykaigi01-board/production/r1/`（netlist / positions / 回路図 / BOM） |
 | 1 | `ref/.../docs/PicoBoard_BOM_pin_assignment_20260824.xlsx`（`.kicad_pcb` から機械抽出） |
 | 2 | `ref/external_info/data_sheet/IS31FL3729.pdf` |
@@ -461,7 +465,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ `mrbgems/picoruby-pio-uart`（PIO + DMA のエンジン。`UART` の `:PIO_UART0`
   ユニットとして見える。`gets` / `irq` まで実機ループバックで検証済み）
 - ✅ ブラウザシミュレータ（LED / ボタン / 音声）と検証環境。UI は Funicular。コードの欄は Prism で色付け
-- ✅ シミュレータの左を PV1 の基板の絵（KiCad の 3D 描画）にし、ブレッドボードで回路を組めるようにした
+- ✅ シミュレータの左を量産版 V1 の基板の絵（KiCad の 3D 描画）にし、ブレッドボードで回路を組めるようにした
   （ジャンパ線・抵抗 1kΩ・青 LED・タクトスイッチ。回路は節点解析で本当に解く。J1 の GPIO はコードから実機と同じに見える）。
   使い方は [sim/README.md](sim/README.md) の「基板の絵とブレッドボード」
 - ✅ `lib/adventure_board.rb`（ボードレイヤ: Board / LedMatrix / Buttons / Speaker）
@@ -497,5 +501,6 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   （[dev-docs/upstream-issues.md](dev-docs/upstream-issues.md) の 4）
 - ✅ J1（ブレッドボード用 2×10 ヘッダ）の疎通確認（2026-09-26 に完了とした）。手順とスクリプトは
   [dev-docs/device-bringup/scripts/header_check.rb](dev-docs/device-bringup/scripts/header_check.rb)
+- ✅ PV1 基板に prod を USB（UF2）で焼き、USB 接続（WebSerial）と音が r1 と同じく問題ないことを確認（2026-10-03）
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）
