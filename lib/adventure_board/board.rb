@@ -28,8 +28,8 @@ class Board
   GROVE_A_SCL_PIN = 7
   # GROVE-B (J5). The same two pins are ADC2 and ADC3, so a program picks one
   # use or the other.
-  GROVE_B_TX_PIN  = 28   # J5.2
-  GROVE_B_RX_PIN  = 29   # J5.1
+  GROVE_B_TX_PIN  = 28   # the white wire of a Grove cable
+  GROVE_B_RX_PIN  = 29   # the yellow wire
 
   # The six buttons, in GPIO order so they can be read in one sweep. The names
   # follow the silkscreen, not the pin assignment spreadsheet, which labels
