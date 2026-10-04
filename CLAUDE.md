@@ -511,6 +511,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ J1（ブレッドボード用 2×10 ヘッダ）の疎通確認（2026-09-26 に完了とした）。手順とスクリプトは
   [dev-docs/device-bringup/scripts/header_check.rb](dev-docs/device-bringup/scripts/header_check.rb)
 - ✅ PV1 基板に prod を USB（UF2）で焼き、USB 接続（WebSerial）と音が r1 と同じく問題ないことを確認（2026-10-03）
+- ✅ PV1 の GROVE1（J4）を I2C のデバイスで確認済み（2026-10-04 に記録。M5Stack のキーボードなど）
 - ✅ PV1 の GROVE2（J5）をふつうの Grove ケーブル（ジャンパ変換）で確認（2026-10-04）。短絡なし、黄 = GPIO29・白 = GPIO28、
   電源 3.3V、黒 = GND、PIO UART で 0〜255 の折り返し。スクリプトは [dev-docs/device-bringup/scripts/grove2_check.rb](dev-docs/device-bringup/scripts/grove2_check.rb)
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
