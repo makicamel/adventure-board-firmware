@@ -145,8 +145,10 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
   音源（`PSG::Synth`）は設定を「送り主 × チャンネル」ごとに覚えるので、`synth.handle` で直接送った設定は
   `Speaker`（送り主 `:mml`）の音には効かない。3 声を v15 で重ねると出力は電源いっぱいまで振れる
 - **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。PV1 で J4・J5 とも並びを入れ替えて直り、
-  量産版 V1 も同じ。**PV1 / V1 はふつうの Grove ケーブルで挿せる**（黄・白・赤・黒 = J4 は SCL(GPIO7)・SDA(GPIO6)・3V3・GND、
+  量産版 V1 も同じ。**PV1 / V1 はふつうの Grove ケーブルで挿せる**（黄・白・赤・黒 = J4 は SCL(GPIO7)・SDA(GPIO6)・5V・GND、
   J5 は GPIO29・GPIO28・3V3・GND）
+- **GROVE の電源（赤）は 0Ω で選ぶ。量産版の部品表では J4（GROVE1）が 5V（R27）、J5（GROVE2）が 3V3（R25）**。
+  R26（J4 を 3V3）と R16（J5 を 5V）は未実装。赤を GPIO に直接つながない
 
 ## 既知の落とし穴
 
@@ -509,5 +511,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ J1（ブレッドボード用 2×10 ヘッダ）の疎通確認（2026-09-26 に完了とした）。手順とスクリプトは
   [dev-docs/device-bringup/scripts/header_check.rb](dev-docs/device-bringup/scripts/header_check.rb)
 - ✅ PV1 基板に prod を USB（UF2）で焼き、USB 接続（WebSerial）と音が r1 と同じく問題ないことを確認（2026-10-03）
+- ✅ PV1 の GROVE2（J5）をふつうの Grove ケーブル（ジャンパ変換）で確認（2026-10-04）。短絡なし、黄 = GPIO29・白 = GPIO28、
+  電源 3.3V、黒 = GND、PIO UART で 0〜255 の折り返し。スクリプトは [dev-docs/device-bringup/scripts/grove2_check.rb](dev-docs/device-bringup/scripts/grove2_check.rb)
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）

@@ -55,11 +55,12 @@
 | GROVE1（J4） | GPIO6（SDA）、GPIO7（SCL） | I2C のセンサ、キーボードなど |
 | GROVE2（J5） | GPIO28、GPIO29 | UART（シリアル通信）、アナログ入力、もう 1 枚の基板 |
 
-どちらも **ふつうの Grove ケーブル** でつなげます。電源は 3.3V です。
+どちらも **ふつうの Grove ケーブル** でつなげます。
+電源（赤）は、**GROVE1 が 5V、GROVE2 が 3.3V** です（基板の 0Ω 抵抗の付け替えで変えられます）。
 
 | ケーブルの色 | GROVE1 | GROVE2 |
 |---|---|---|
 | 黄 | SCL（GPIO7） | GPIO29（UART の RX） |
 | 白 | SDA（GPIO6） | GPIO28（UART の TX） |
-| 赤 | 3.3V | 3.3V |
+| 赤 | 5V | 3.3V |
 | 黒 | GND | GND |
