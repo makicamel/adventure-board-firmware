@@ -53,45 +53,87 @@ wasm は Docker ではなく、Actions の上で emsdk（`EMSDK_VERSION`、手�
 ## チームの確認用（Cloudflare Pages + Access）
 
 リポジトリが非公開のあいだ、チームには Cloudflare Pages に置いたものを見てもらう。**確認用だけ**で、公開は GitHub Pages。
-前に Cloudflare Access（ログインの門番）を置き、許可したメールアドレスの人だけが見られるようにする。
+前に Cloudflare Access（ログインの門番）を置き、許可したメールアドレスの人だけが見られるようにしてある。
 
-`build` の最後の 3 段がそれ。Secrets の `CLOUDFLARE_API_TOKEN` が無ければ飛ばす。
+- URL: **https://adventure-board.pages.dev**（送るたびに `<番号>.adventure-board.pages.dev` の版ごとの URL も付く）
+- 見る人: URL を開く → メールアドレスを入れる → メールに届いたコードを入れる
+- 中身: main に push するたび（`site.yml` の `paths` に当たる変更のとき）と、Actions → site → Run workflow のたびに新しくなる
+
+### いまの設定（2026-10-04 に作った）
+
+| もの | 場所 | 値 |
+|---|---|---|
+| Pages のプロジェクト | Workers & Pages | `adventure-board`（プロダクション ブランチ `main`）。**中身を送る前は一覧に出なかった** |
+| API トークン | アカウント API トークン | 権限は Pages の Edit だけ。GitHub の Secrets `CLOUDFLARE_API_TOKEN` に入れてある |
+| アカウント ID | Workers & Pages の右側「アカウントの詳細」 | GitHub の Secrets `CLOUDFLARE_ACCOUNT_ID` に入れてある |
+| Zero Trust のチーム | Zero Trust | ログイン画面は `kishima.cloudflareaccess.com` |
+| ログイン方法 | Zero Trust → インテグレーション → ID プロバイダーの統合 | 「ワンタイム PIN」（メールに届くコード）を足した。「Cloudflare」は元からあったもの |
+| Access のアプリ | Zero Trust → Access コントロール → アプリケーション | `adventure-board - Cloudflare Pages`。宛先は `*.adventure-board.pages.dev` と `adventure-board.pages.dev` の **2 行** |
+| 通す人 | 同じアプリのポリシー | `Allow Members - Cloudflare Pages`。アクション Allow、包含 Emails |
+
+`build` の最後の 3 段が送る段。Secrets の `CLOUDFLARE_API_TOKEN` が無ければ飛ばす。
 pages.dev はサイトを根元に置くので、`SITE_BASE=/` でもう一度組み立てて送る。
 プロジェクト名は `adventure-board`（Actions の変数 `CLOUDFLARE_PROJECT` で変えられる）。
 
-### 最初の設定（Cloudflare の画面）
+### 人を足す・外す
 
-**順番を守ること。** Access より先に何かを送ると、そのあいだ誰でも見られる。Secrets は最後に入れる。
+Zero Trust → Access コントロール → ポリシー → `Allow Members - Cloudflare Pages` → 編集 → 包含の Emails にアドレスを足す（外す）。
+足した人はすぐ入れる。外した人も、ログインが切れるまで（アプリのセッションの長さ）は見えるままのことがある。
 
-1. Cloudflare のアカウントを作る
-2. **API トークン**を作る: My Profile → API Tokens → Create Token → Custom token。
-   権限は **Account / Cloudflare Pages / Edit** だけ。あわせて **Account ID**（アカウントのホームの右側）を控える
-3. **プロジェクトだけを作る**（中身は送らない）。手元で:
+### 守られているかを確かめる
+
+ログインせずに開くと、ページではなくログイン画面への転送（302）が返ればよい。
+
+```console
+for u in https://adventure-board.pages.dev/ https://adventure-board.pages.dev/console/ https://main.adventure-board.pages.dev/; do
+  curl -s -o /dev/null -w "$u %{http_code} %{redirect_url}\n" "$u" | cut -c1-120
+done
+# どれも 302 https://kishima.cloudflareaccess.com/cdn-cgi/access/login/... になる
+```
+
+### 作り直すときの手順
+
+**順番を守ること。** Access より先に中身を送ると、そのあいだ誰でも見られる。Secrets は最後に入れる。
+
+1. **API トークン**: 右上の人のアイコン → プロフィール → API トークン → トークンを作成 → カスタム トークン。
+   ポリシーの編集で「アカウント全体」のまま、`pages` で探して **Developer Platform の Pages の Edit** だけにチェック。
+   値は作った画面でしか見られないので、その場で控える
+2. **アカウント ID**: Workers & Pages の画面の右側「アカウントの詳細」の Account ID
+3. **プロジェクトだけを作る**（中身は送らない）。トークンが履歴に残らないよう `read -s` で入れる:
    ```console
-   export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…
-   docker compose -f docker/compose.yml run --rm -e CLOUDFLARE_API_TOKEN -e CLOUDFLARE_ACCOUNT_ID site \
+   read -s -p 'token: ' CLOUDFLARE_API_TOKEN; echo; export CLOUDFLARE_API_TOKEN
+   docker compose -f docker/compose.yml run --rm -e CLOUDFLARE_API_TOKEN site \
      npx --yes wrangler@4 pages project create adventure-board --production-branch main
+   docker compose -f docker/compose.yml run --rm -e CLOUDFLARE_API_TOKEN site \
+     npx --yes wrangler@4 pages project list      # 作れたかの確認。ダッシュボードの一覧には、送るまで出ない
    ```
-   最後に出る URL を控える。`adventure-board.pages.dev` がほかの人に取られていると、`adventure-board-xxx.pages.dev` の
-   ように後ろに文字が付く。以下の `adventure-board.pages.dev` は、その URL に読み替える
-4. **Access を付ける**: Zero Trust → Access → Applications → Add an application → **Self-hosted**
-   - 守る場所（Public hostname）を 2 つ: `adventure-board.pages.dev` と `*.adventure-board.pages.dev`
-     （本番の URL と、送るたびに付く版ごとの URL。Pages の設定の「Enable access policy」は版ごとの URL しか守らない）
-   - Policy: Action **Allow**、Include **Emails** にチームのメールアドレスを並べる
-   - ログイン方法は **One-time PIN**（メールに届くコード）
-   - Zero Trust を初めて開くと、チーム名とプランを聞かれる。**Free**（50 人まで）を選ぶ
-5. ブラウザで `https://adventure-board.pages.dev` を開き、**ログイン画面が出ることを確かめる**
-   （まだ中身が無いので、通っても空のページ）
-6. GitHub の Settings → Secrets and variables → Actions → **Secrets** に
-   `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を入れる
-7. Actions → site → Run workflow（チェックは入れない）か、main に push。終わったら 5 の URL で中身が見える
+   アカウントが 1 つなら `CLOUDFLARE_ACCOUNT_ID` は無くてよい（トークンから決まる）。最後に出る URL を控える。
+   `adventure-board.pages.dev` がほかの人に取られていると後ろに文字が付くので、以下はその URL に読み替える
+4. **Zero Trust**: 左のメニューの Zero Trust。初めてならチーム名とプラン（**Free**、50 人まで）を聞かれる
+5. **ログイン方法**: Zero Trust → インテグレーション → **ID プロバイダーの統合** →「ID プロバイダーを追加する」→ **ワンタイム PIN**。
+   （アカウントの管理 → メンバー → 設定 は、ダッシュボード自体のログインの設定で、関係ない）
+6. **版ごとの URL を守る**: Workers & Pages → `adventure-board` → 設定 → 右の目次の「一般」→ **プレビュー アクセス** の
+   「**プレビューを制限**」。Zero Trust にアプリ `adventure-board - Cloudflare Pages`（宛先 `*.adventure-board.pages.dev`）と
+   ポリシー `Allow Members - Cloudflare Pages` が自動で作られる。**これだけでは本番の URL は守られない**
+7. **本番の URL も守る**: Zero Trust → Access コントロール → アプリケーション → そのアプリ → 宛先の「＋ パブリック ホスト名を追加」→
+   サブドメインは**空**、ドメインは `adventure-board.pages.dev`。`*` の行と 2 行並べて保存
+8. **通す人**: 同じアプリのポリシー（`Allow Members - Cloudflare Pages`）を編集 → アクション Allow、包含を **Emails** にして
+   アドレスを並べる（自分も入れる）。自動で入っていた別の条件は外す
+9. **確かめる**: 上の「守られているかを確かめる」で、本番と版ごとの URL がどちらもログイン画面に飛ぶこと。
+   シークレットウィンドウで開いて、自分のアドレスとコードでログインできること
+10. **Secrets**: GitHub の Settings → Secrets and variables → Actions → Secrets に
+    `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を入れる。ターミナルのトークンは `unset CLOUDFLARE_API_TOKEN`
+11. **送る**: Actions → site → Run workflow（main、「GitHub Pages にも出す」は**チェックしない**）。
+    ログの「Send to Cloudflare Pages」に `Deployment complete!` が出ればよい。9 の確かめをもう一度
 
-人を足すときは 4 の Policy にメールアドレスを足す。見る人は URL を開いてメールアドレスを入れ、届いたコードを入れる。
+### 公開の日に片付ける
 
-### 公開の日
+GitHub Pages で公開したら、Cloudflare 側は要らなくなる。
 
-GitHub Pages で公開したら、Cloudflare のプロジェクトは消してよい（Pages → プロジェクト → Settings → Delete）。
-Secrets を消せば、workflow は Cloudflare に送らなくなる。
+1. GitHub の Secrets から `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を消す（workflow は Cloudflare に送らなくなる）
+2. Workers & Pages → `adventure-board` → 設定 → 一般 → 削除
+3. Zero Trust のアプリとポリシーを消す
+4. API トークンを消す（アカウント API トークン、またはプロフィール → API トークン）
 
 ## 公開の日にすること
 
@@ -101,3 +143,4 @@ Secrets を消せば、workflow は Cloudflare に送らなくなる。
 4. `https://picorubykaigi.org/adventure-board-firmware/` を開いて確かめる
 5. UF2 の Release を作る（`guide/firmware.md` がリンクしている）。タグは `v2026.10.31` のように日付、
    ファイルは `dist/picoruby-pico2-prod/R2P2-*.uf2`（prod、`R2P2_CONSOLE_UART=1`）を `adventure-board-2026.10.31.uf2` に名前を変えて付ける
+6. Cloudflare の確認用を片付ける（上の「公開の日に片付ける」）

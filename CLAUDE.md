@@ -490,7 +490,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   色付け・漢字は `rake sim:wasm` をした環境でだけ出る（無ければ CDN の stock で、色なし・漢字なしで動く）
 - 🔶 使い方とチュートリアルのサイト（`site/`、VitePress。コンソールを `console/` に同梱）。下書きまで（2026-10-03）。
   リポジトリ・シミュレータと同じく**イベントの日（2026-10-31）に公開**。`.github/workflows/site.yml` は push で組み立てだけ、
-  Pages に出すのは手で起動したときだけ
+  Pages に出すのは手で起動したときだけ。**チームの確認用に Cloudflare Pages + Access**（https://adventure-board.pages.dev、2026-10-04）。
+  設定と作り直す手順は [site/README.md](site/README.md) の「チームの確認用」
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
