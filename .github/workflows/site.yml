@@ -2,8 +2,8 @@
 #
 # Two jobs on purpose. `build` runs on every push to main and only checks that
 # the site still builds; what it makes stays inside Actions. `deploy` runs only
-# when started by hand (Actions -> site -> Run workflow), so nothing is
-# published until someone means it. Publishing also needs the repository to be
+# when started by hand with "GitHub Pages" ticked (Actions -> site -> Run
+# workflow), so nothing is published until someone means it. Publishing also needs the repository to be
 # public and Settings -> Pages -> Source set to GitHub Actions; see
 # site/README.md.
 #
@@ -30,6 +30,11 @@ on:
       - 'tasks/site.rake'
       - '.github/workflows/site.yml'
   workflow_dispatch:
+    inputs:
+      github_pages:
+        description: 'GitHub Pages にも出す（リポジトリを公開して Pages を有効にしたあと）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -132,7 +137,7 @@ jobs:
           --branch=main --commit-dirty=true
 
   deploy:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.github_pages
     needs: build
     runs-on: ubuntu-latest
     permissions:

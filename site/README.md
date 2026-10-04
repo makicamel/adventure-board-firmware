@@ -44,7 +44,7 @@ Node は Docker の `node:22-bookworm-slim` の中で動かす（`docker/compose
 ## GitHub Actions
 
 `.github/workflows/site.yml`。main への push（サイト・コンソール・ライブラリ・サンプルが変わったとき）では
-**組み立てるだけ**で、できたものは Actions の中に残るだけ。**Pages に出すのは手で起動したときだけ**（`workflow_dispatch`）。
+**組み立てるだけ**で、できたものは Actions の中に残るだけ。**Pages に出すのは、手で起動して「GitHub Pages にも出す」にチェックを入れたときだけ**（`workflow_dispatch`）。
 wasm は Docker ではなく、Actions の上で emsdk（`EMSDK_VERSION`、手元の `~/emsdk` と同じ版）を入れて作る。
 
 非公開のリポジトリ（organization は Free プラン）では Pages を有効にできないので、手で起動しても出す段で失敗するだけで、
@@ -72,8 +72,8 @@ pages.dev はサイトを根元に置くので、`SITE_BASE=/` でもう一度�
    docker compose -f docker/compose.yml run --rm -e CLOUDFLARE_API_TOKEN -e CLOUDFLARE_ACCOUNT_ID site \
      npx --yes wrangler@4 pages project create adventure-board --production-branch main
    ```
-   `adventure-board.pages.dev` が取られていると、後ろに文字が付いた名前になる。そのときは出てきた名前を
-   GitHub の Settings → Secrets and variables → Actions → **Variables** に `CLOUDFLARE_PROJECT` として入れる
+   最後に出る URL を控える。`adventure-board.pages.dev` がほかの人に取られていると、`adventure-board-xxx.pages.dev` の
+   ように後ろに文字が付く。以下の `adventure-board.pages.dev` は、その URL に読み替える
 4. **Access を付ける**: Zero Trust → Access → Applications → Add an application → **Self-hosted**
    - 守る場所（Public hostname）を 2 つ: `adventure-board.pages.dev` と `*.adventure-board.pages.dev`
      （本番の URL と、送るたびに付く版ごとの URL。Pages の設定の「Enable access policy」は版ごとの URL しか守らない）
@@ -84,7 +84,7 @@ pages.dev はサイトを根元に置くので、`SITE_BASE=/` でもう一度�
    （まだ中身が無いので、通っても空のページ）
 6. GitHub の Settings → Secrets and variables → Actions → **Secrets** に
    `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を入れる
-7. Actions → site → Run workflow（または main に push）。終わったら 5 の URL で中身が見える
+7. Actions → site → Run workflow（チェックは入れない）か、main に push。終わったら 5 の URL で中身が見える
 
 人を足すときは 4 の Policy にメールアドレスを足す。見る人は URL を開いてメールアドレスを入れ、届いたコードを入れる。
 
@@ -97,7 +97,7 @@ Secrets を消せば、workflow は Cloudflare に送らなくなる。
 
 1. リポジトリを公開にする
 2. Settings → Pages → Source を GitHub Actions にする
-3. Actions → site → **Run workflow**（main）。手で起動したときだけ Pages に出る
+3. Actions → site → **Run workflow**（main）で「GitHub Pages にも出す」にチェックを入れて起動する。チェックを入れたときだけ Pages に出る
 4. `https://picorubykaigi.org/adventure-board-firmware/` を開いて確かめる
 5. UF2 の Release を作る（`guide/firmware.md` がリンクしている）。タグは `v2026.10.31` のように日付、
    ファイルは `dist/picoruby-pico2-prod/R2P2-*.uf2`（prod、`R2P2_CONSOLE_UART=1`）を `adventure-board-2026.10.31.uf2` に名前を変えて付ける
