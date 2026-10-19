@@ -9,7 +9,7 @@ RP2350A / 16×16 LED マトリクス / 音声 / ボタン / GROVE、PicoRubyKaig
 手元の基板は **PV1**（2026-10-03 着）と試作基板 r1。どちらも **Pico 2 相当、WiFi なし**。焼くのは `pico2` ビルド。
 **PV1 は USB がそのまま使える**ので、BOOTSEL + UF2 のドラッグ&ドロップで焼く（[pv1-board.md](dev-docs/device-bringup/pv1-board.md)）。
 r1 で問題だった USB 接続と音は、PV1 でも問題ないことを確認済み。
-基板の設計は 2026-10-03 に**量産版 V1** になり、**2026-10-04 に発注済み**。本番（2026-10-31）まではドキュメント（`site/`）とコンソール（`sim/`）の仕上げ。PV1 との違いは下側の取付穴の位置と、シルクの "PV1" を消しただけ
+基板の設計は 2026-10-03 に**量産版 V1** になり、**2026-10-04 に発注、2026-10-19 に届いた**（1 枚で FW・LED マトリクス・スピーカーを確認済み）。本番（2026-10-31）まではドキュメント（`site/`）とコンソール（`sim/`）の仕上げ。PV1 との違いは下側の取付穴の位置と、シルクの "PV1" を消しただけ
 （回路・部品配置は同じなので、PV1 で確かめたことは V1 にもそのまま当てはまる）。KiCad のファイルは `adventure-board.kicad_pcb` に改名された。
 r1 の USB は元は死んでいたが、手で配線して USB シリアルが使えるようになっている（Windows 側では 16c0:400f、CDC が複数）。
 書き込みと UART コンソールは J2 の Debug Probe から、ブラウザの WebSerial は USB から。**USB 側は WSL に attach しない**。
@@ -514,5 +514,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ PV1 の GROVE1（J4）を I2C のデバイスで確認済み（2026-10-04 に記録。M5Stack のキーボードなど）
 - ✅ PV1 の GROVE2（J5）をふつうの Grove ケーブル（ジャンパ変換）で確認（2026-10-04）。短絡なし、黄 = GPIO29・白 = GPIO28、
   電源 3.3V、黒 = GND、PIO UART で 0〜255 の折り返し。スクリプトは [dev-docs/device-bringup/scripts/grove2_check.rb](dev-docs/device-bringup/scripts/grove2_check.rb)
+- ✅ 量産版 V1 が届いた（2026-10-19）。1 枚に prod（`66e32805`）を USB（UF2）で焼き、LED マトリクスとスピーカーが動くことを確認。
+  ボタン・GROVE などは未確認（回路は PV1 と同じ）
 - ⬜ 基板用 build_config（`tasks/picoruby/r2p2.rake` の
   ボード名ループに手を入れる必要がある）
