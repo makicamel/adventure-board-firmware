@@ -45,3 +45,8 @@
 - J1 の GPIO に 5V をつながないでください。マイコンが壊れます
 
 ピンの番号は [ピンとコネクタ](/reference/pins) にまとめてあります。
+
+## 設計データ
+
+基板の回路図と KiCad のデータは [adventure-board-pcb](https://github.com/picorubykaigi/adventure-board-pcb) で公開しています（CERN-OHL-P v2）。
+ケースを作るときの寸法も、ここから取れます。

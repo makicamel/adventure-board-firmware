@@ -64,3 +64,5 @@
 | 白 | SDA（GPIO6） | GPIO28（UART の TX） |
 | 赤 | 5V | 3.3V |
 | 黒 | GND | GND |
+
+回路図（PDF）は [adventure-board-pcb](https://github.com/picorubykaigi/adventure-board-pcb) の `docs/adventure-board-schematic.pdf` にあります。
