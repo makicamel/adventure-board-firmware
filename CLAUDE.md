@@ -119,6 +119,7 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 | 順位 | 資料 |
 |---|---|
 | 1 | `tmp/picorubykaigi01-board/`（基板リポジトリの clone。`.kicad_pcb` / production / docs）。量産版の製造データは `production/v1/` |
+| 1 | **公開版** `github.com/picorubykaigi/adventure-board-pcb`（2026-10-19 公開、CERN-OHL-P v2）。上の clone とは別の履歴で、設計データと `production/` だけを置いている。回路図を直したら両方に入れる |
 | 1 | `ref/picorubykaigi01-board/production/r1/`（netlist / positions / 回路図 / BOM） |
 | 1 | `ref/.../docs/PicoBoard_BOM_pin_assignment_20260824.xlsx`（`.kicad_pcb` から機械抽出） |
 | 2 | `ref/external_info/data_sheet/IS31FL3729.pdf` |
