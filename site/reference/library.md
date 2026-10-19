@@ -75,7 +75,7 @@ matrix = AdventureBoard.matrix     # 使う部品だけを取り出す
 | 命令 | すること |
 |---|---|
 | `reset` | 音量・音色などを最初の状態に戻す。音を鳴らすプログラムの最初に |
-| `play_mml(mml, loop: false)` | MML の曲を鳴らす。配列で渡すと同時に鳴らす（3 つまで）。`loop: true` でくり返す |
+| `play_mml(mml, loop: false)` | MML の曲を鳴らす。配列で渡すと同時に鳴らす（3 つまで）。`loop: true` にすると、MML の `$` の位置から最後までをくり返す（`$` が無いとくり返さない） |
 | `playing?` | 曲が鳴っているか |
 | `stop` | 止める |
 | `note_on(番号, velocity: 100)` | 1 音鳴らし始める。60 が真ん中のド |
@@ -101,7 +101,7 @@ USB の近くの緑の LED。
 | `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぐ。2 枚で `:a` と `:b` に分ける。ふつうのケーブルでつながる |
 | `AdventureBoard.grove_uart(baudrate: 115200)` | GROVE2 の `UART`（TX = GPIO28、RX = GPIO29） |
 
-使い方はサンプルの一覧の「実機専用」のもの（`grove_link_chat.rb` など）を見てください。
+使い方はサンプルの一覧の「実機専用」のもの（「基板 2 枚をつなぐ（GROVE）」など）を見てください。
 
 ## そのほか
 
