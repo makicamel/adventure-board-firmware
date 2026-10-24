@@ -1,7 +1,7 @@
 # L 字を描く。上半分と下半分（別々の LED ドライバ）をまたいで真っ直ぐに見えるか。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix
 

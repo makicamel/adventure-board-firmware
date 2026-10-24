@@ -292,7 +292,7 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
   「ローカルの wasm が要る」という断り書きは付けない（自前の wasm をいずれ一般公開する前提）
 - 冒頭は**題名 1 行 + 多くても 2 行**（操作方法、必要なもの）。仕組みや経緯の説明は書かない（README か dev-docs に置く）
 - 説明は**その行の横**に短く書く。初めて出てくる API に 1 回だけ。同じ説明を繰り返さない
-- 先頭は全サンプル同じ形: `require 'adventure_board'` / `GC.start  # 読み込みで使ったメモリを片付ける` / 空行 /
+- 先頭は全サンプル同じ形: `require 'adventure_board'` / `GC.start  # 読み込みで使ったメモリを回収する` / 空行 /
   `matrix = AdventureBoard.matrix  # LED マトリクス。使う部品は、こうして読み込んで取り出す` / `buttons = AdventureBoard.buttons  # ボタン` …
   （部品の名前は取り出す行の横に。説明は最初の 1 行にだけ）
 - コメントを直すときはコードを触らない。コメントを除いた行が元と一致することを確かめる
