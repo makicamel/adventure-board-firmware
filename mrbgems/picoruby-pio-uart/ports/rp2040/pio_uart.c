@@ -255,7 +255,15 @@ PIO_UART_close(void)
   if (!link.open) return;
   /* First, so that the timer that feeds UART's ring stops reading from us. */
   link.open = false;
-  dma_channel_abort(link.rx_chan);
+  /* Not dma_channel_abort(): the reload channel restarts the data channel as
+   * soon as it stops, so waiting for it to go idle waits forever (RP2350-E5;
+   * the board hung on the second open). Both enables come off first, so
+   * neither can trigger the other, and then both are aborted together. */
+  uint32_t chans = (1u << link.rx_chan) | (1u << link.rx_reload_chan);
+  hw_clear_bits(&dma_hw->ch[link.rx_chan].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+  hw_clear_bits(&dma_hw->ch[link.rx_reload_chan].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+  dma_hw->abort = chans;
+  while (dma_hw->abort & chans) tight_loop_contents();
   dma_channel_unclaim(link.rx_chan);
   dma_channel_unclaim(link.rx_reload_chan);
   pio_sm_set_enabled(link.pio, link.tx_sm, false);
