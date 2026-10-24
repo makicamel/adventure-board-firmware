@@ -49,7 +49,7 @@ export default defineConfig({
             { text: 'Adventure Board とは', link: '/guide/' },
             { text: '基板の各部', link: '/guide/board' },
             { text: 'コンソールを使う', link: '/guide/console' },
-            { text: '基板のシェル', link: '/guide/shell' },
+            { text: 'R2P2のシェル', link: '/guide/shell' },
             { text: 'ファームウェアの書き込み', link: '/guide/firmware' }
           ]
         }

@@ -13,8 +13,8 @@ require 'adventure_board'
 GC.start
 ```
 
-**どのプログラムも、この 2 行から始めます。** 1 行目で基板のライブラリ `AdventureBoard` を読み込み、
-2 行目で読み込みに使ったメモリを片付けます。基板のメモリは小さいので、こまめに片付けるのが大事です。
+1 行目で基板のライブラリ `AdventureBoard` を読み込み、
+2 行目で`require`で読み込みに使ったメモリを改修します。片付けます。基板のメモリは小さいので、こまめに片付けるのが大事です。
 
 ```ruby
 matrix = AdventureBoard.matrix
