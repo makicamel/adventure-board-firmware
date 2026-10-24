@@ -2,7 +2,7 @@
 
 1 つずつ `set` するかわりに、線・四角・文字をまとめて描けます。
 
-<<< @/snippets/draw.rb
+<<< @/../sim/examples/03_draw.rb
 
 ## 描いてから写す
 
@@ -26,14 +26,14 @@
 
 16×16 の文字（フォント）が入っているので、漢字がちょうど 1 文字収まります。
 
-<<< @/snippets/kanji.rb
+<<< @/../sim/examples/03_kanji.rb
 
 ## 文字を流す
 
 16 ドットには 1 文字しか入らないので、長い文字は流して見せます。
 `draw_text` の x を 1 ずつ減らしていくと、文字が左へ動きます。
 
-<<< @/snippets/scroll.rb
+<<< @/../sim/examples/03_scroll.rb
 
 `matrix.pen` は、文字の明るさです（`draw_text` には明るさを渡せないので、先に決めておきます）。
 

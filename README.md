@@ -23,7 +23,7 @@ PicoRuby / R2P2 そのものの説明（言語、シェルのコマンド、ビ�
 1. **ファームを焼く。** BOOTSEL を押しながら USB をつなぎ、現れたドライブに `.uf2` をコピーします。
    `.uf2` は [Releases](https://github.com/picorubykaigi/adventure-board-firmware/releases) か、自分でビルドした `dist/picoruby-pico2-prod/` にあります。
 2. **USB でつなぐ。** R2P2 のシェル（`$>`）が USB シリアルに出ます。ポートは 3 つ見えるので、`$>` が出るものを選びます。
-3. **サンプルを走らせる。** シェルで `/home/examples/one_dot.rb` のようにパスを打つと動きます。
+3. **サンプルを走らせる。** シェルで `/home/examples/01_light.rb` のようにパスを打つと動きます。
    最初の起動でファームが `/lib`（ボードライブラリ）と `/home/examples`（サンプル）を書き出します。
 
 ブラウザで使うほうが楽です。次の「シミュレータ」を見てください。
@@ -49,7 +49,7 @@ rake sim:server      # → http://localhost:8080/sim/
 
 サンプルは [`sim/examples/`](sim/examples/)（シミュレータでも実機でも動く 12 本）と
 [`examples/`](examples/)（実機だけ: GROVE で基板 2 枚をつなぐ、音のエンベロープ）にあります。
-まず `one_dot.rb` を読んでください。
+まず `01_light.rb` を読んでください。
 
 ```ruby
 require 'adventure_board'
@@ -78,7 +78,7 @@ matrix.show        # ここで初めて LED に反映される
 - ボタンは押した瞬間がキューに積まれるので、ループが遅くても取りこぼしません。
 - 明るさは見た目に比例するよう補正してあります（`set` の 3 番目の引数、0〜255）。
 - 音の記法（MML）は [picoruby-midibase-mml の README](mrbgems/picoruby-midibase-mml/README_MML.md)。
-  エンベロープや音色など PSG の機能は `examples/envelope.rb` と `sim/examples/melody.rb` に例があります。
+  エンベロープや音色など PSG の機能は `examples/envelope.rb` と `sim/examples/harmony.rb` に例があります。
 - 時間は `sleep_ms` の回数ではなく `Machine.uptime_us` で測ると、シミュレータと実機で同じ速さになります。
 
 **基板を PC なしで動かす**には `/home/app.rb` にプログラムを置きます。R2P2 が起動のたびに実行します

@@ -2,7 +2,7 @@
 
 十字ボタンで点を動かします。
 
-<<< @/snippets/buttons.rb
+<<< @/../sim/examples/04_buttons.rb
 
 シミュレータでは、絵のボタンを押すか、キーボードの矢印キーで動きます。
 
@@ -30,7 +30,7 @@ buttons = AdventureBoard.buttons
 
 「押しているあいだずっと」を知りたいときは `pressed?` を使います。
 
-<<< @/snippets/buttons_held.rb
+<<< @/../sim/examples/04_buttons_held.rb
 
 | 命令 | 返すもの |
 |---|---|

@@ -1,4 +1,4 @@
-# 左から右へ、暗い → 明るいのグラデーション。
+# チュートリアル 1: 場所と明るさを変えて、4 つ光らせる。
 
 require 'adventure_board'
 GC.start                               # 読み込みで使ったメモリを回収する
@@ -6,13 +6,8 @@ GC.start                               # 読み込みで使ったメモリを回
 matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 
 matrix.clear
-y = 1
-while y <= 16
-  x = 1
-  while x <= 16
-    matrix.set(x, y, x * 16 - 1)   # 明るさ 15, 31, ... 255。見た目に比例するよう補正される
-    x += 1
-  end
-  y += 1
-end
+matrix.set(1, 1)          # 左上
+matrix.set(16, 1)         # 右上
+matrix.set(8, 8, 0x20)    # まんなかを暗く
+matrix.set(16, 16, 0xFF)  # 右下をいちばん明るく
 matrix.show

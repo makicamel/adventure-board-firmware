@@ -76,21 +76,25 @@ end
 class SimApp < Funicular::Component
   include BoardView
 
-  # In the order someone new would want them: one dot, then brightness, then
-  # drawing and text, then things that move, then input, then sound.
+  # The tutorial's, in its order (the number is the chapter), then the rest.
   EXAMPLES = [
-    ["1 ドット光らせる", "one_dot.rb"],
-    ["明るさを変える", "gradient.rb"],
-    ["線と四角を描く", "shapes.rb"],
-    ["漢字を出す", "kanji.rb"],
-    ["文字を流す", "scroll.rb"],
-    ["動き続ける", "spinner.rb"],
-    ["ライフゲーム", "life.rb"],
-    ["ボタンで動かす", "buttons.rb"],
+    ["1. 1 ドット光らせる", "01_light.rb"],
+    ["1. 場所と明るさを変える", "01_light_more.rb"],
+    ["2. 点を動かす", "02_loop.rb"],
+    ["2. 跳ねるボール", "02_bounce.rb"],
+    ["3. 線と四角を描く", "03_draw.rb"],
+    ["3. 漢字を出す", "03_kanji.rb"],
+    ["3. 文字を流す", "03_scroll.rb"],
+    ["4. ボタンで動かす", "04_buttons.rb"],
+    ["4. 押しているあいだ", "04_buttons_held.rb"],
+    ["5. メロディを鳴らす", "05_melody.rb"],
+    ["5. ボタンのピアノ", "05_piano.rb"],
+    ["6. 石よけゲーム", "06_game.rb"],
+    ["7. ブレッドボードの LED", "07_breadboard_led.rb"],
+    ["3 声のメロディ", "harmony.rb"],
+    ["音と光", "sound_and_light.rb"],
     ["ステータス LED", "status_led.rb"],
-    ["ブレッドボードの LED", "breadboard_led.rb"],
-    ["メロディを鳴らす", "melody.rb"],
-    ["音と光", "sound_and_light.rb"]
+    ["ライフゲーム", "life.rb"]
   ]
 
   # examples/: the ones for hardware the simulator does not have. Listed so
@@ -340,13 +344,24 @@ class SimApp < Funicular::Component
   end
 
   def example_options
-    list = EXAMPLES
-    i = 0
-    while i < list.size
-      option(value: list[i][1]) { list[i][0] }
-      i += 1
+    # `optgroup` is not one of the DSL's tags either. The tutorial's names
+    # start with the chapter's number.
+    tag("optgroup", label: "チュートリアル") do
+      list = EXAMPLES
+      i = 0
+      while i < list.size
+        option(value: list[i][1]) { list[i][0] } if "0123456789".include?(list[i][1][0])
+        i += 1
+      end
     end
-    # `optgroup` is not one of the DSL's tags either.
+    tag("optgroup", label: "そのほか") do
+      list = EXAMPLES
+      i = 0
+      while i < list.size
+        option(value: list[i][1]) { list[i][0] } unless "0123456789".include?(list[i][1][0])
+        i += 1
+      end
+    end
     tag("optgroup", label: "実機専用（シミュレータでは動かない）") do
       list = DEVICE_EXAMPLES
       i = 0

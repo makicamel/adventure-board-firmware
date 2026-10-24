@@ -1,9 +1,11 @@
-require 'adventure_board'
-GC.start
+# チュートリアル 5: ボタンのピアノ。押しているあいだだけ音が出る。
 
-matrix = AdventureBoard.matrix
-buttons = AdventureBoard.buttons
-speaker = AdventureBoard.speaker
+require 'adventure_board'
+GC.start                               # 読み込みで使ったメモリを回収する
+
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+buttons = AdventureBoard.buttons       # ボタン
+speaker = AdventureBoard.speaker       # スピーカー
 
 # ボタンと音の高さ。60 がド（真ん中のド）で、1 増えると半音上がる
 KEYS = { left: 60, down: 62, right: 64, up: 65, b: 67, a: 69 }

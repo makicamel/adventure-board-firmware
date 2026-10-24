@@ -99,7 +99,7 @@ docker compose -f docker/compose.yml run --rm shell bundle exec steep check --lo
 rake sim:wasm               # フォント・描画 gem 入りの PicoRuby.wasm を作る（要 emsdk）
 rake sim:test               # 中核のヘッドレス検証（ブラウザ不要）
 rake sim:check              # ヘッドレス Chromium でページを操作して結果を報告
-rake sim:check[one_dot]     # サンプル 1 つだけ
+rake sim:check[01_light]    # サンプル 1 つだけ
 rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から作り直す（kicad/kicad:9.0-full、約 5GB）
 ```
@@ -289,6 +289,8 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 
 - **`sim/examples/` は一般ユーザのためのもの。基板の検証用のコードは置かない**（`dev-docs/device-bringup/scripts/` へ）。
   数を増やしすぎない。ページの選択肢は「初めての人が読む順」に並べる（`SimApp::EXAMPLES`）。
+- **チュートリアルのコードは `sim/examples/` の番号付きのもの（`01_light.rb` など。番号は章）が正本**（2026-10-25）。
+  サイトの本文は `<<< @/../sim/examples/…` で同じファイルを読むので、直せば両方が変わる。チュートリアルに無いサンプルは番号を付けない
   「ローカルの wasm が要る」という断り書きは付けない（自前の wasm をいずれ一般公開する前提）
 - 冒頭は**題名 1 行 + 多くても 2 行**（操作方法、必要なもの）。仕組みや経緯の説明は書かない（README か dev-docs に置く）
 - 説明は**その行の横**に短く書く。初めて出てくる API に 1 回だけ。同じ説明を繰り返さない

@@ -1,7 +1,9 @@
-require 'adventure_board'
-GC.start
+# チュートリアル 3: 文字を右から左へ流す。
 
-matrix = AdventureBoard.matrix
+require 'adventure_board'
+GC.start                               # 読み込みで使ったメモリを回収する
+
+matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 
 text = "ようこそ PicoRuby"
 x = 16                  # 右の外から始める
