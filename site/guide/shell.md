@@ -7,13 +7,13 @@
 
 | コマンド | すること |
 |---|---|
-| `ls` | ファイルの一覧。`ls /home/examples` のように場所も渡せる |
-| `cat ファイル` | ファイルの中身を出す |
-| `vim ファイル` | ファイルを書く・直す（エディタ） |
-| `irb` | Ruby を 1 行ずつ打って試す。`exit` で戻る |
-| `free` | 空いているメモリの量 |
-| `cp` `mv` `rm` `mkdir` | ファイルをコピー・移動・削除、フォルダを作る |
-| `reboot` | 基板を再起動する |
+| `ls` | ファイルの一覧を出します。`ls /home/examples` のように場所も渡せます |
+| `cat ファイル` | ファイルの中身を出します |
+| `vim ファイル` | ファイルを書いたり直したりします（エディタ） |
+| `irb` | Ruby を 1 行ずつ打って試します。`exit` で戻ります |
+| `free` | 空いているメモリの量を出します |
+| `cp` `mv` `rm` `mkdir` | ファイルをコピー・移動・削除したり、フォルダを作ったりします |
+| `reboot` | 基板を再起動します |
 
 ## プログラムを動かす
 
@@ -33,6 +33,6 @@ $> /home/examples/one_dot.rb
 | `/home/examples/` | サンプルプログラム。コンソールのサンプルの一覧と同じもの |
 | `/home/app.rb` | 電源を入れるたびに動くプログラム（[チュートリアル 8](/tutorial/08-app)） |
 | `/home/run.rb` | コンソールの「実機で実行」が送ったプログラム |
-| `/lib/adventure_board.rb` と `/lib/adventure_board/` | `AdventureBoard` のライブラリ。`cat` で中を読める |
+| `/lib/adventure_board.rb` と `/lib/adventure_board/` | `AdventureBoard` のライブラリ。`cat` で中を読めます |
 
 `/home/examples/` のサンプルは自由に書き換えて大丈夫です。ファームウェアを新しくしても上書きされません。
