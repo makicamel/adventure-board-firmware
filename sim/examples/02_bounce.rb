@@ -1,9 +1,9 @@
 # チュートリアル 2: 跳ねるボール。端に来たら向きを変える。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを回収する
+GC.start
 
-matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+matrix = AdventureBoard.matrix
 
 x = 1
 y = 5

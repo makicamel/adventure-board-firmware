@@ -1,9 +1,9 @@
 # チュートリアル 3: 線と四角を描く。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを回収する
+GC.start
 
-matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+matrix = AdventureBoard.matrix
 
 matrix.clear_drawing                    # 描く場所をまっさらにする
 

@@ -1,9 +1,9 @@
 # チュートリアル 1: 場所と明るさを変えて、4 つ光らせる。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを回収する
+GC.start
 
-matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
+matrix = AdventureBoard.matrix
 
 matrix.clear
 matrix.set(1, 1)          # 左上

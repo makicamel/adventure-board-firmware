@@ -103,8 +103,7 @@ class SimApp < Funicular::Component
   DEVICE_EXAMPLES = [
     ["OLED に文字とボール", "oled.rb"],
     ["音のエンベロープ", "envelope.rb"],
-    ["基板 2 枚をつなぐ（GROVE）", "grove_link_chat.rb"],
-    ["基板 2 枚をつなぐ（UART）", "grove_uart_chat.rb"]
+    ["基板 2 枚をつなぐ", "grove_link_chat.rb"]
   ]
   DEVICE_ONLY = "実機専用のサンプルです（シミュレータには無いハードを使います）。基板をつないで「実機で実行」で送ってください。"
 

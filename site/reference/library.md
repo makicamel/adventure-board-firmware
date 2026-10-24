@@ -101,7 +101,7 @@ USB の近くの緑の LED です。
 | `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぎます。2 枚で `:a` と `:b` に分けます。ふつうのケーブルでつながります |
 | `AdventureBoard.grove_uart(baudrate: 115200)` | GROVE2 の `UART`（TX = GPIO28、RX = GPIO29） |
 
-使い方はサンプルの一覧の「実機専用」のもの（「基板 2 枚をつなぐ（GROVE）」など）を見てください。
+使い方はサンプルの一覧の「実機専用」のもの（「基板 2 枚をつなぐ」など）を見てください。
 
 ## そのほか
 

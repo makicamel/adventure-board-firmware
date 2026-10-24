@@ -1,11 +1,11 @@
 # チュートリアル 6: 石よけゲーム。← → で動いて、上から落ちてくる石をよける。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを回収する
+GC.start
 
-matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
-buttons = AdventureBoard.buttons       # ボタン
-speaker = AdventureBoard.speaker       # スピーカー
+matrix = AdventureBoard.matrix
+buttons = AdventureBoard.buttons
+speaker = AdventureBoard.speaker
 
 speaker.reset
 
