@@ -488,7 +488,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
   **2026-10-25 に量産版 V1 の 2 枚をふつうの Grove ケーブルでつなぎ、両方向に届くことを確認**（`dev-docs/device-bringup/scripts/grove_link_check.rb`）。
-  ⚠ 同じ起動のあいだに 2 回目に開くと、`PIO_UART_open` が `BUSY` で黙って無視され、最初のピンのまま動く（役割を選び直しても変わらない）
+  同じ起動のあいだに役割を選び直すと最初のピンのまま動いていた件は直した（2026-10-25、`Board#grove_link` の使い回し・`PIO_UART_open` の `BUSY`・
+  閉じるときの DMA の固まり（RP2350-E5）の 3 つ。V1 2 枚で役割を 3 回入れ替えて確認）。**ケーブルは赤（電源）の線を切った Grove ケーブル**（3.3V どうしがつながるため）
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
@@ -498,8 +499,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   `.github/workflows/site.yml` は push で組み立てだけ、Pages に出すのは手で起動して「GitHub Pages にも出す」にチェックしたときだけ
   （**ドキュメントを直したら、手で起動しないと公開中のサイトは変わらない**）。
   チームの確認用だった Cloudflare Pages + Access は片付ける（[site/README.md](site/README.md) の「公開の日に片付ける」）
-- ✅ ファームウェアの最初のリリース `v2026.10.25`（`a32d9d72` の prod、`R2P2_CONSOLE_UART=1`。UF2 は `adventure-board-2026.10.25.uf2`）。
-  `66e32805`（V1 で確認済み）からの違いはサンプルだけ。2026-10-26 に量産基板へ書き込む
+- ✅ ファームウェアの最初のリリース `v2026.10.25`（`56b9115d` の prod、`R2P2_CONSOLE_UART=1`。UF2 は `adventure-board-2026.10.25.uf2`）。
+  最初は `a32d9d72` で出し、同じ日に GROVE リンクの修正を入れた `56b9115d` に差し替えた（タグも付け直した）。2026-10-26 に量産基板へ書き込む
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
