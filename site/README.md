@@ -27,7 +27,7 @@ Node は Docker の `node:22-bookworm-slim` の中で動かす（`docker/compose
 
 ## コンソールの同梱
 
-`rake site:build` は VitePress のあとに `site:console` を走らせ、次を `dist/` に写す。
+`rake site:build` は VitePress のあとに `site:console` を走らせ、次を `dist/` にコピーする。
 コンソールはリポジトリのファイルを相対パスで読むので、リポジトリと同じ並びにしてある。
 
 - `sim/`（`README.md` と `test/` を除く）→ `console/`

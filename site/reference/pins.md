@@ -1,15 +1,18 @@
 # ピンとコネクタ
 
-## マイコンのピン（GPIO）
+## RP2350のピン（GPIO）
+
+マイコンの RP2350 のピンにつながっているものの一覧です。各ピンで使える機能（I2C・UART・PWM・ADC など）は、
+[RP2350 のデータシート](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf)（英語、PDF）の「GPIO」の章にあります。
 
 | GPIO | つながっているもの |
 |---|---|
-| 2, 3 | J1（ブレッドボードの横）。I2C1 にもなります |
-| 4, 5 | LED マトリクスのドライバ（I2C0） |
+| 2, 3 | J1（ブレッドボードの横のピンソケット）。I2C1 にもなります |
+| 4, 5 | LED マトリクスのドライバ制御（I2C0） |
 | 6, 7 | GROVE1（J4）。I2C1 の SDA / SCL |
 | 8, 9 | J1 |
-| 10 | スピーカー（音の出力） |
-| 11 | J1。音の右チャンネルも出ています |
+| 10 | PWM音声出力時の左チャンネル（スピーカーに接続） |
+| 11 | J1。PWM音声出力時の右チャンネルとして利用されています |
 | 12, 13, 14, 15 | J1 |
 | 16 | STATUS の緑 LED。J1 にも出ています |
 | 17 | UP ボタン |
@@ -52,17 +55,9 @@
 
 | | 信号 | 使い道 |
 |---|---|---|
-| GROVE1（J4） | GPIO6（SDA）、GPIO7（SCL） | I2C のセンサ、キーボードなど |
-| GROVE2（J5） | GPIO28、GPIO29 | UART（シリアル通信）、アナログ入力、もう 1 枚の基板 |
+| GROVE1（J4） | GPIO6（SDA）、GPIO7（SCL） | I2C のセンサなど |
+| GROVE2（J5） | GPIO28、GPIO29 | UART（シリアル通信）、アナログ入力など |
 
-どちらも **ふつうの Grove ケーブル** でつなげます。
-電源（赤）は、**GROVE1 が 5V、GROVE2 が 3.3V** です（基板の 0Ω 抵抗の付け替えで変えられます）。
-
-| ケーブルの色 | GROVE1 | GROVE2 |
-|---|---|---|
-| 黄 | SCL（GPIO7） | GPIO29（UART の RX） |
-| 白 | SDA（GPIO6） | GPIO28（UART の TX） |
-| 赤 | 5V | 3.3V |
-| 黒 | GND | GND |
+電源（赤）の電圧は、**GROVE1 が 5V、GROVE2 が 3.3V** です（基板の 0Ω チップ抵抗を付け替えることで変えられます）。
 
 回路図（PDF）は [adventure-board-pcb](https://github.com/picorubykaigi/adventure-board-pcb) の `docs/adventure-board-schematic.pdf` にあります。

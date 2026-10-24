@@ -1,7 +1,7 @@
 # ライブラリ
 
 `AdventureBoard` は、基板の部品をプログラムから使うためのライブラリです。
-基板の `/lib/adventure_board.rb` と `/lib/adventure_board/` に入っていて、`cat` で中を読めます。
+基板の `/lib/adventure_board.rb` と `/lib/adventure_board/` に入っています。
 コンソールの「▸ ライブラリのコードを見る」でも同じものが読めます。
 
 ```ruby
@@ -11,7 +11,7 @@ GC.start
 matrix = AdventureBoard.matrix     # 使う部品だけを取り出す
 ```
 
-部品は、最初に取り出したときに読み込まれます。使わない部品は読み込まれないので、メモリを節約できます。
+部品は、最初に取り出したときに読み込まれます。
 
 | 取り出し方 | 部品 |
 |---|---|
@@ -31,19 +31,19 @@ matrix = AdventureBoard.matrix     # 使う部品だけを取り出す
 
 座標は `(1, 1)` 〜 `(16, 16)`、明るさは 0〜255 です（見た目に比例するよう補正されます）。
 
-| 命令 | すること |
+| 命令 | 動作 |
 |---|---|
 | `set(x, y, 明るさ = 255)` | 1 つの明るさを決めます |
 | `clear` | 全部消します |
 | `fill(明るさ = 255)` | 全部を同じ明るさにします |
 | `show` | ここまでの変更を LED に送ります。**これを呼ぶまで光りません** |
-| `brightness = 値` | 全体の明るさの上限を決めます（0〜0x40、最初は 0x20）。上げると電気をたくさん使います |
+| `brightness = 値` | 全体の明るさの上限を決めます（0〜0x40、最初は 0x20）。上げると使用する電力が増えます |
 
 ### 描く
 
 座標は `(0, 0)` 〜 `(15, 15)` です。描いたあと `blit` で LED マトリクスに写し、`show` で送ります。
 
-| 命令 | すること |
+| 命令 | 動作 |
 |---|---|
 | `clear_drawing` | 描く場所を消します |
 | `set_pixel(x, y, 明るさ)` | 点を描きます |
@@ -51,65 +51,75 @@ matrix = AdventureBoard.matrix     # 使う部品だけを取り出す
 | `draw_rect(x, y, 幅, 高さ, 明るさ)` | 四角の枠を描きます |
 | `draw_text(文字, x = 0, y = 0, font: "go16")` | 文字を描きます。フォントは `"go16"`（ゴシック）`"min16"`（明朝）`"go12"` `"min12"` `"maru12"`（12 ドット）から選べます |
 | `pen = 明るさ` | 明るさを省いたときと、文字の明るさを決めます |
-| `blit` | 描いたものを LED マトリクスに写します |
+| `blit` | 描いたものを LED ドライバにコピーします |
 
 ## Buttons
 
 6 つのボタンです。名前は `:up` `:down` `:left` `:right` `:a` `:b` です。
-押されたことは基板が覚えておくので、短く押しても取りこぼしません。
+チャタリングへの対応も含まれています。
 
-| 命令 | 返すもの |
+| 命令 | 応答 |
 |---|---|
 | `each_press { \|name\| ... }` | 押されたボタンを古い順に 1 つずつ |
 | `take_press` | 押されたボタンを 1 つ。無ければ `nil` |
 | `presses_waiting` | まだ取り出していない数 |
-| `clear_presses` | 覚えている押下を捨てます |
+| `clear_presses` | 覚えている押下状態を捨てます |
 | `pressed?(name)` | いま押されているか |
 | `pressed` | いま押されているボタンの一覧 |
 | `any?` | どれか 1 つでも押されているか |
 
 ## Speaker
 
-スピーカーです。音は 3 つまで重ねられます。
+音をスピーカーで鳴らす機能です。この機能では音は 3 つまで重ねられます。
 
-| 命令 | すること |
+| 命令 | 動作 |
 |---|---|
 | `reset` | 音量・音色などを最初の状態に戻します。音を鳴らすプログラムの最初に呼びます |
 | `play_mml(mml, loop: false)` | MML の曲を鳴らします。配列で渡すと同時に鳴らします（3 つまで）。`loop: true` にすると、MML の `$` の位置から最後までをくり返します（`$` が無いとくり返しません） |
 | `playing?` | 曲が鳴っているか |
 | `stop` | 止めます |
-| `note_on(番号, velocity: 100)` | 1 音鳴らし始めます。60 が真ん中のドです |
+| `note_on(番号, velocity: 100)` | 1 音鳴らし始めます。60 が MML の `o4 c`（約 262Hz のド）です |
 | `note_off(番号)` | その音を止めます |
 
 MML の書き方は [チュートリアル 5](/tutorial/05-sound#mml) を見てください。
 
 ## StatusLed
 
-USB の近くの緑の LED です。
+USB の近くの緑の LED を操作します。
 
-| 命令 | すること |
+| 命令 | 動作 |
 |---|---|
-| `on` / `off` | 点けます・消します |
+| `on` / `off` | 点灯・消灯 |
 | `toggle` | 点いていれば消し、消えていれば点けます |
 | `on?` | 点いているか |
 
 ## GROVE
 
-| 命令 | 返すもの |
+| 命令 | 応答 |
 |---|---|
 | `AdventureBoard.grove_i2c(frequency: 100_000)` | GROVE1 の `I2C`（GPIO6 / GPIO7）。I2C のセンサなどに |
-| `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぎます。2 枚で `:a` と `:b` に分けます。ふつうのケーブルでつながります |
 | `AdventureBoard.grove_uart(baudrate: 115200)` | GROVE2 の `UART`（TX = GPIO28、RX = GPIO29） |
+| `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぎます。2 枚で `:a` と `:b` に分けます。ふつうのケーブルでつながります |
 
-使い方はサンプルの一覧の「実機専用」のもの（「基板 2 枚をつなぐ」など）を見てください。
+`grove_i2c` と `grove_uart` が返すのは、PicoRuby の [`I2C`](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-i2c) と [`UART`](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-uart) のオブジェクトそのものです。
+ピンの番号を指定しなくてよいだけで、使えるメソッドは PicoRuby と同じなので、くわしくはリンク先の説明（英語）を見てください。
+
+```ruby
+i2c = AdventureBoard.grove_i2c
+i2c.scan                         # つながっているデバイスのアドレスを表示
+i2c.write(0x5F, 0x00)            # アドレス 0x5F に送る
+data = i2c.read(0x5F, 1)         # アドレス 0x5F から 1 バイト読む
+```
+
+`grove_link` の使い方は、サンプルの一覧の「実機専用」にある「基板 2 枚をつなぐ」を見てください。
 
 ## そのほか
 
-PicoRuby の部品も、そのまま使えます。
+PicoRuby の部品も、そのまま使えます。使い方は PicoRuby の各ライブラリの説明（[mrbgems](https://github.com/picoruby/picoruby/tree/master/mrbgems)）を見てください。
 
 | | |
 |---|---|
-| `GPIO.new(番号, GPIO::OUT)` / `GPIO::IN \| GPIO::PULL_UP` | GPIO（[チュートリアル 7](/tutorial/07-breadboard)） |
-| `sleep_ms(ミリ秒)` | 待ちます |
-| `Machine.uptime_us` | 起動してからの時間（マイクロ秒）。時計で速さを決めるときに使います |
-| `rand(n)` | 0〜n-1 のでたらめな数 |
+| `GPIO.new(番号, GPIO::OUT)` / `GPIO::IN \| GPIO::PULL_UP` | GPIO（[チュートリアル 7](/tutorial/07-breadboard)、[picoruby-gpio](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-gpio)） |
+| `sleep_ms(ミリ秒)` | 指定した時間スリープ |
+| `Machine.uptime_us` | 起動してからの時間（マイクロ秒） |
+| `rand(n)` | 0〜n-1 の乱数 |

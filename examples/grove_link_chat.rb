@@ -12,7 +12,7 @@ matrix.clear
 matrix.pen = 0x40
 matrix.clear_drawing                   # 描く場所（VRAM）を消す
 matrix.draw_text("?", 4, 0)            # 役割を選ぶまでは "?" を出して、何も送らない
-matrix.blit                            # 描いたものをマトリクスへ写す
+matrix.blit                            # 描いたものをマトリクスへコピー
 matrix.show
 
 role = nil
