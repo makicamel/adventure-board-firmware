@@ -8,7 +8,7 @@
 ## 1. ファイルを手に入れる
 
 [リリースのページ](https://github.com/picorubykaigi/adventure-board-firmware/releases) から、
-いちばん新しい版の `.uf2` ファイルをダウンロードします。`adventure-board-2026.10.31.uf2` のような名前で、数字は版を出した日付です。
+いちばん新しい版の `.uf2` ファイルをダウンロードします。`adventure-board-2026.10.25.uf2` のような名前で、数字は版を出した日付です。
 
 ## 2. 書き込む
 
@@ -24,3 +24,16 @@ USB を挿したままでも、**BOOT を押したまま RST を押して離す*
 
 最初の起動で、ライブラリ（`/lib`）とサンプル（`/home/examples`）が書き出されます。
 初回のみ書き込みのため最初の起動に時間が掛かるので、書き込んだあとはしばらくお待ち下さい。
+
+## 入っているバージョンを確かめる
+
+[R2P2のシェル](./shell)（コンソールの「実機端末(xterm)」）で、次のように打ちます。
+
+```text
+$> cat /etc/ruby-description
+picoruby 4.0.3 (2026-10-24 revision 56b9115d) [RP2350]
+```
+
+`revision` のあとの 8 文字が、ファームウェアを作ったコミットです。
+[リリースのページ](https://github.com/picorubykaigi/adventure-board-firmware/releases) の説明にある「コミット」と同じなら、その版が入っています。
+日付はファームウェアを作った日（世界標準時）なので、リリースの名前の日付と 1 日ずれることがあります。
