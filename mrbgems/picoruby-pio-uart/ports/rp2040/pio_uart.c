@@ -188,7 +188,15 @@ setup_rx_dma(void)
 int
 PIO_UART_open(uint8_t tx_pin, uint8_t rx_pin, uint32_t baudrate)
 {
-  if (link.open) return PIO_UART_E_BUSY;
+  /* There is one link, and nothing closes it when a program ends. The next
+   * program asking for the same pins gets it as it is; asking for others --
+   * the board taking the other role -- moves it. Refusing instead left the
+   * second program talking on the first one's pins, which on two boards is
+   * both of them transmitting on the same wire. */
+  if (link.open) {
+    if (link.tx_pin == tx_pin && link.rx_pin == rx_pin) return PIO_UART_OK;
+    PIO_UART_close();
+  }
 
   memset(&link, 0, sizeof(link));
   link.tx_pin = tx_pin;
@@ -245,16 +253,24 @@ void
 PIO_UART_close(void)
 {
   if (!link.open) return;
+  /* First, so that the timer that feeds UART's ring stops reading from us. */
+  link.open = false;
   dma_channel_abort(link.rx_chan);
   dma_channel_unclaim(link.rx_chan);
   dma_channel_unclaim(link.rx_reload_chan);
   pio_sm_set_enabled(link.pio, link.tx_sm, false);
   pio_sm_set_enabled(link.pio, link.rx_sm, false);
+  /* Give both pins back as plain inputs. The transmit pin's direction stays
+   * an output in PIO otherwise, and the next open may want it for receiving
+   * -- setup_rx leaves directions alone on purpose. */
+  pio_sm_set_pindirs_with_mask(link.pio, link.tx_sm, 0, 1u << link.tx_pin);
+  gpio_init(link.tx_pin);
+  gpio_disable_pulls(link.rx_pin);
+  gpio_init(link.rx_pin);
   pio_remove_program(link.pio, &tx_program, link.tx_offset);
   pio_remove_program(link.pio, &rx_program, link.rx_offset);
   pio_sm_unclaim(link.pio, link.tx_sm);
   pio_sm_unclaim(link.pio, link.rx_sm);
-  link.open = false;
 }
 
 bool

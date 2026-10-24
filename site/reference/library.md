@@ -99,7 +99,7 @@ USB の近くの緑の LED を操作します。
 |---|---|
 | `AdventureBoard.grove_i2c(frequency: 100_000)` | GROVE1 の `I2C`（GPIO6 / GPIO7）。I2C のセンサなどに |
 | `AdventureBoard.grove_uart(baudrate: 115200)` | GROVE2 の `UART`（TX = GPIO28、RX = GPIO29） |
-| `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぎます。2 枚で `:a` と `:b` に分けます。ふつうのケーブルでつながります |
+| `AdventureBoard.grove_link(role: :a)` | GROVE2 で同じ基板どうしをつなぎます。2 枚で `:a` と `:b` に分けます。ケーブルは、赤（電源）の線だけを切った Grove ケーブルを使ってください |
 
 `grove_i2c` と `grove_uart` が返すのは、PicoRuby の [`I2C`](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-i2c) と [`UART`](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-uart) のオブジェクトそのものです。
 ピンの番号を指定しなくてよいだけで、使えるメソッドは PicoRuby と同じなので、くわしくはリンク先の説明（英語）を見てください。
