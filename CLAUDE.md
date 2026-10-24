@@ -145,7 +145,7 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 - **スピーカーは PSG の左出力（GPIO10）だけ。** パンは `Speaker` が左いっぱい（`Board::PSG_SPEAKER_PAN`）にしている。
   音源（`PSG::Synth`）は設定を「送り主 × チャンネル」ごとに覚えるので、`synth.handle` で直接送った設定は
   `Speaker`（送り主 `:mml`）の音には効かない。3 声を v15 で重ねると出力は電源いっぱいまで振れる
-- **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。PV1 で J4・J5 とも並びを入れ替えて直り、
+- **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。**r1 と PV1 / V1 を GROVE でつながない**（2026-10-25 に一度やった。V1 の GPIO29 が r1 の GND に、GPIO28 が r1 の 3.3V に当たる）。PV1 で J4・J5 とも並びを入れ替えて直り、
   量産版 V1 も同じ。**PV1 / V1 はふつうの Grove ケーブルで挿せる**（黄・白・赤・黒 = J4 は SCL(GPIO7)・SDA(GPIO6)・5V・GND、
   J5 は GPIO29・GPIO28・3V3・GND）
 - **GROVE の電源（赤）は 0Ω で選ぶ。量産版の部品表では J4（GROVE1）が 5V（R27）、J5（GROVE2）が 3V3（R25）**。
@@ -487,7 +487,8 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
 - ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
-  ループバック検証済み、2 枚での確認は基板待ち
+  **2026-10-25 に量産版 V1 の 2 枚をふつうの Grove ケーブルでつなぎ、両方向に届くことを確認**（`dev-docs/device-bringup/scripts/grove_link_check.rb`）。
+  ⚠ 同じ起動のあいだに 2 回目に開くと、`PIO_UART_open` が `BUSY` で黙って無視され、最初のピンのまま動く（役割を選び直しても変わらない）
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える

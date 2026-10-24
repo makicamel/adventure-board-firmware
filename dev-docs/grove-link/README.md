@@ -25,4 +25,6 @@ UART.new(unit: :PIO_UART0, txd_pin: 28, rxd_pin: 29, baudrate: 115_200)
 
 **実機ループバックで検証済み**（500ms 放置しても 200 バイト無傷、
 全バイト値が誤り 0 で往復、送信は 11,712 バイト/秒）。
-**基板 2 枚での確認は未了**（試作基板待ち）。
+**基板 2 枚でも確認済み**（2026-10-25、量産版 V1 の 2 枚、ふつうの Grove ケーブル。A→B・B→A とも 1 秒ごとの 1 行が欠けずに届いた。
+確認スクリプトは [`dev-docs/device-bringup/scripts/grove_link_check.rb`](../device-bringup/scripts/grove_link_check.rb)）。
+同じ起動のあいだに役割を変えて開き直すと、最初のピンのまま動くので、試すたびに再起動すること。
