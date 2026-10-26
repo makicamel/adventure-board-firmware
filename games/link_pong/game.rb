@@ -21,7 +21,10 @@ module LinkPong
       while true
         if next_at <= Machine.uptime_us / 1000
           tick
-          return show_miss if @ball.out?
+          if @ball.out?
+            show_miss
+            return player_won?
+          end
           @court.flush
           next_at += @ball.interval
         end
@@ -93,6 +96,10 @@ module LinkPong
         sleep_ms 200
         i += 1
       end
+    end
+
+    def player_won?
+      @court.right < @ball.x
     end
   end
 end
