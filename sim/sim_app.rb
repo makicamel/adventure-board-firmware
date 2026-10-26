@@ -105,6 +105,12 @@ class SimApp < Funicular::Component
     ["音のエンベロープ", "envelope.rb"],
     ["基板 2 枚をつなぐ", "grove_link_chat.rb"]
   ]
+  # games/: whole games rather than lessons. They run here like the samples;
+  # a board gets them as .mrb with `rake games:run`, since they are too big
+  # to compile on the board.
+  GAMES = [
+    ["Link Pong", "link_pong.rb"]
+  ]
   DEVICE_ONLY = "実機専用のサンプルです（シミュレータには無いハードを使います）。基板をつないで「実機で実行」で送ってください。"
 
   # The board library, as it is in the board's /lib: what "ライブラリを最新にする"
@@ -432,6 +438,14 @@ class SimApp < Funicular::Component
         i += 1
       end
     end
+    tag("optgroup", label: "ゲーム") do
+      list = GAMES
+      i = 0
+      while i < list.size
+        example_option("game:#{list[i][1]}", list[i][0])
+        i += 1
+      end
+    end
     nil
   end
 
@@ -464,6 +478,11 @@ class SimApp < Funicular::Component
     i = 0
     while i < DEVICE_EXAMPLES.size
       values << "device:#{DEVICE_EXAMPLES[i][1]}"
+      i += 1
+    end
+    i = 0
+    while i < GAMES.size
+      values << "game:#{GAMES[i][1]}"
       i += 1
     end
     values
@@ -1054,7 +1073,13 @@ class SimApp < Funicular::Component
 
   def load_example(path)
     device_only = path.start_with?("device:")
-    url = device_only ? "#{JS.global[:REPO_ROOT].to_s}examples/#{path[7, path.size - 7]}" : "examples/#{path}"
+    url = if device_only
+            "#{JS.global[:REPO_ROOT].to_s}examples/#{path[7, path.size - 7]}"
+          elsif path.start_with?("game:")
+            "#{JS.global[:REPO_ROOT].to_s}games/#{path[5, path.size - 5]}"
+          else
+            "examples/#{path}"
+          end
     # What a device-only sample looked like when loaded, for on_run. Only this
     # hash is touched inside the fetch's block (see draw_lib_code).
     device = (@device_example ||= {})
