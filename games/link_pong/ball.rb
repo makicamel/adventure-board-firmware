@@ -1,6 +1,6 @@
 module LinkPong
   class Ball
-    BRIGHT        = 0xFF
+    ON            = 0xFF
     X_STEPS_PER_Y = 2                    # 大きいほど角度が浅い
     FAST_MS       = 55                   # 打ち返した直後は 55ms で 1 ドット進む
     SLOW_MS       = 80                   # 減速しきると 80ms で 1 ドット進む
@@ -14,7 +14,7 @@ module LinkPong
       @y = y
       @dx = dx
       @dy = dy
-      @tick = 0
+      @frames = 0
       @interval = FAST_MS
       @bounced = false
     end
@@ -23,7 +23,6 @@ module LinkPong
       @x + @dx < @court.left || @court.right < @x + @dx
     end
 
-    # パドルが受けたときに呼ぶ。呼ばれなければ、ボールはそのままコートの外へ出る
     def bounce
       @dx = -@dx
       @interval = FAST_MS
@@ -35,32 +34,31 @@ module LinkPong
     end
 
     def move
-      @court.restore(@x, @y)
+      @court.redraw_background(@x, @y)
       if @bounced
         @bounced = false
       elsif @interval < SLOW_MS
         @interval += SLOWDOWN_MS
       end
       @x += @dx
-      @tick += 1
-      if @tick % X_STEPS_PER_Y == 0
+      @frames += 1
+      if @frames % X_STEPS_PER_Y == 0
         @dy = -@dy if @y + @dy < @court.top || @court.bottom < @y + @dy
         @y += @dy
       end
-      @court.set(@x, @y, BRIGHT)
+      @court.set(@x, @y, ON)
     end
 
-    # ボールが受ける側のパドルの前に来るときの y を先回りして求める。タイトル用
-    def landing_y
+    def y_at_receiving_paddle
       goal = @dx < 0 ? @court.left : @court.right
       x = @x
       y = @y
       dy = @dy
-      tick = @tick
+      frames = @frames
       while x != goal
         x += @dx
-        tick += 1
-        if tick % X_STEPS_PER_Y == 0
+        frames += 1
+        if frames % X_STEPS_PER_Y == 0
           dy = -dy if y + dy < @court.top || @court.bottom < y + dy
           y += dy
         end

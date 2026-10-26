@@ -1,5 +1,7 @@
 module LinkPong
   class Court
+    OFF = 0
+
     attr_reader :top, :bottom, :left, :right
 
     def initialize(matrix, top:, bottom:, left:, right:)
@@ -10,18 +12,17 @@ module LinkPong
       @right = right
     end
 
-    def set(x, y, v)
-      @matrix.set(x, y, v)
+    def set(x, y, brightness)
+      @matrix.set(x, y, brightness)
     end
 
-    # ボールやパドルが通ったあとを背景に戻す
-    def restore(x, y)
+    def redraw_background(x, y)
       @matrix.set(x, y, background_at(x, y))
     end
 
     def flush = @matrix.show
 
-    def background_at(x, y) = 0
+    def background_at(x, y) = OFF
   end
 
   class TitleCourt < Court
@@ -52,16 +53,7 @@ module LinkPong
 
     def draw
       @matrix.clear
-      y = 1
-      while y <= LedMatrix::HEIGHT
-        x = 1
-        while x <= LedMatrix::WIDTH
-          v = background_at(x, y)
-          @matrix.set(x, y, v) if 0 < v
-          x += 1
-        end
-        y += 1
-      end
+      draw_logo
     end
 
     def background_at(x, y)
@@ -71,7 +63,22 @@ module LinkPong
       elsif c == "+"
         NET_BRIGHT
       else
-        0
+        OFF
+      end
+    end
+
+    private
+
+    def draw_logo
+      y = 1
+      while y <= LedMatrix::HEIGHT
+        x = 1
+        while x <= LedMatrix::WIDTH
+          brightness = background_at(x, y)
+          @matrix.set(x, y, brightness) unless brightness == OFF
+          x += 1
+        end
+        y += 1
       end
     end
   end

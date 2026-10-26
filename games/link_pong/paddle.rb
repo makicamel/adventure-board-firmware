@@ -1,65 +1,68 @@
 module LinkPong
   class Paddle
-    BRIGHT = 0xFF
-    PACE   = 2                           # 何フレームに 1 ドット動くか
+    ON             = 0xFF
+    OFF            = 0
+    HALF_LENGTH    = 1
+    FRAMES_PER_DOT = 2
 
-    def initialize(court, x, center)
+    def initialize(court, x, middle)
       @court = court
       @x = x
-      @center = center
-      @path = []                         # タイトルで自動で動かすときの、パドルの真ん中の y 座標。先頭から順に移動し、最後がボールを受ける y
-      @tick = 0
-      draw(BRIGHT)
+      @middle = middle
+      @waypoints = []
+      @frames = 0
+      draw(ON)
     end
 
-    def aim(y)
+    def head_for(y)
       target = clamp(y)
-      beyond = @center < target ? target + 1 : target - 1   # 来た向きのまま 1 ドット行き過ぎる
-      @path = if beyond < highest || lowest < beyond
-                [target]                                    # 端では行き過ぎられないので、まっすぐ着く
-              else
-                [beyond, target]
-              end
-      @tick = 0
+      overshoot = @middle < target ? target + 1 : target - 1
+      @waypoints = reachable?(overshoot) ? [overshoot, target] : [target]
+      @frames = 0
     end
 
     def covers?(y)
-      @center - 1 <= y && y <= @center + 1
+      @middle - HALF_LENGTH <= y && y <= @middle + HALF_LENGTH
     end
 
-    def step
-      @tick += 1
-      return if @path.empty? || @tick % PACE != 0
-      goal = @path[0]
-      if goal != @center
-        draw(0)
-        @center += goal < @center ? -1 : 1
-        draw(BRIGHT)
+    def tick
+      @frames += 1
+      return if @waypoints.empty? || @frames % FRAMES_PER_DOT != 0
+      goal = @waypoints[0]
+      unless goal == @middle
+        draw(OFF)
+        @middle += goal < @middle ? -1 : 1
+        draw(ON)
       end
-      @path.shift if @center == goal
+      @waypoints.shift if @middle == goal
     end
 
     private
 
-    # パドルの真ん中がとれる y の範囲（3 ドットがコートに収まる）
-    def highest
-      @court.top + 1
+    def draw(brightness)
+      y = @middle - HALF_LENGTH
+      while y <= @middle + HALF_LENGTH
+        @court.set(@x, y, brightness)
+        y += 1
+      end
     end
 
-    def lowest
-      @court.bottom - 1
+    def clamp(middle)
+      if middle < highest_middle
+        highest_middle
+      elsif lowest_middle < middle
+        lowest_middle
+      else
+        middle
+      end
     end
 
-    def clamp(y)
-      return highest if y < highest
-      return lowest if lowest < y
-      y
-    end
+    def highest_middle = @court.top + HALF_LENGTH
 
-    def draw(v)
-      @court.set(@x, @center - 1, v)
-      @court.set(@x, @center, v)
-      @court.set(@x, @center + 1, v)
+    def lowest_middle = @court.bottom - HALF_LENGTH
+
+    def reachable?(middle)
+      highest_middle <= middle && middle <= lowest_middle
     end
   end
 end
