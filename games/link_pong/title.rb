@@ -1,10 +1,12 @@
 module LinkPong
   class Title
-    def initialize(matrix)
+    def initialize(matrix, buttons)
+      @buttons = buttons
+      @buttons.clear_presses
       @court = TitleCourt.new(matrix)
       @court.draw
-      @left = Paddle.new(@court, @court.left - 1, @court.top + 1)
-      @right = Paddle.new(@court, @court.right + 1, @court.top + 1)
+      @left = AutoPaddle.new(@court, @court.left - 1, @court.top + 1)
+      @right = AutoPaddle.new(@court, @court.right + 1, @court.top + 1)
       @ball = new_ball
       receiver.head_for(@ball.y_at_receiving_paddle)
       @court.flush
@@ -13,6 +15,7 @@ module LinkPong
     def run
       next_at = Machine.uptime_us / 1000
       while true
+        return if any_button_pressed?
         if next_at <= Machine.uptime_us / 1000
           tick
           @court.flush
@@ -30,6 +33,12 @@ module LinkPong
 
     def receiver
       @ball.dx < 0 ? @left : @right
+    end
+
+    def any_button_pressed?
+      pressed = false
+      @buttons.each_press { pressed = true }
+      pressed
     end
 
     def tick

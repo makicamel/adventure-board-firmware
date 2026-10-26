@@ -12,6 +12,8 @@ module LinkPong
       @right = right
     end
 
+    def middle = (@top + @bottom) / 2
+
     def set(x, y, brightness)
       @matrix.set(x, y, brightness)
     end
@@ -81,5 +83,13 @@ module LinkPong
         y += 1
       end
     end
+  end
+
+  class GameCourt < Court
+    def initialize(matrix)
+      super(matrix, top: 1, bottom: LedMatrix::HEIGHT, left: 2, right: LedMatrix::WIDTH - 1)
+    end
+
+    def draw = @matrix.clear
   end
 end

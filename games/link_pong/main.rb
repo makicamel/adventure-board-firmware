@@ -5,6 +5,11 @@ require_relative 'court'
 require_relative 'ball'
 require_relative 'paddle'
 require_relative 'title'
+require_relative 'game'
 
 matrix = AdventureBoard.matrix
-LinkPong::Title.new(matrix).run
+buttons = AdventureBoard.buttons
+while true
+  LinkPong::Title.new(matrix, buttons).run
+  LinkPong::Game.new(matrix, buttons).run
+end
