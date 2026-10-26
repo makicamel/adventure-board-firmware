@@ -504,6 +504,7 @@ def cmd_reboot(args):
     sent it into a reboot loop.
     """
     con = open_console()
+    old_path = con.path
     try:
         if not con.sync():
             die("Cannot talk to the board: no prompt. If its app.rb is running, "
@@ -511,14 +512,21 @@ def cmd_reboot(args):
         con._write(b"reboot\r")
     finally:
         con.close()
+    # Do not open it again until the board has dropped off the bus. On macOS
+    # a port opened before that can stay open without an error and read
+    # nothing, and the boot's question goes by unseen.
+    gone_by = time.time() + 10.0
+    while time.time() < gone_by and os.path.exists(old_path):
+        time.sleep(0.02)
     end = time.time() + 30.0
     con = None
     seen = ""
     while time.time() < end:
         if con is None:
-            path = console_path()
+            # The same port as before: the board's ports come back one by
+            # one, and the first to appear need not be the shell.
             try:
-                con = Console(path) if path else None
+                con = Console(old_path) if os.path.exists(old_path) else None
             except OSError:
                 con = None
             if con is None:
