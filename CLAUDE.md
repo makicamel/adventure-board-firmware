@@ -493,12 +493,15 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
-- ✅ **2026-10-25 に一般公開した**（予定の 10-31 より前倒し）。リポジトリを public にし、使い方とチュートリアルのサイト
-  （`site/`、VitePress。コンソールを `console/` に同梱）を GitHub Pages に出した → https://picorubykaigi.org/adventure-board-firmware/ 。
-  wasm は Actions の中で `rake sim:wasm` 相当を組むので、`sim/vendor/` は git 管理外のまま。
-  `.github/workflows/site.yml` は push で組み立てだけ、Pages に出すのは手で起動して「GitHub Pages にも出す」にチェックしたときだけ
-  （**ドキュメントを直したら、手で起動しないと公開中のサイトは変わらない**）。
-  チームの確認用だった Cloudflare Pages + Access は片付ける（[site/README.md](site/README.md) の「公開の日に片付ける」）
+- ✅ **2026-10-25 に一般公開した**（予定の 10-31 より前倒し）。**2026-10-26 から URL が変わった**:
+  使い方とチュートリアル **https://picorubykaigi.org/adventure-board/**（リポジトリ `picorubykaigi/adventure-board` の Pages）、
+  コンソール **https://picorubykaigi.org/adventure-board-console/**（`picorubykaigi/adventure-board-console` の Pages）。
+  組み立て方はこのリポジトリの `.github/workflows/build-guide.yml` / `build-console.yml` にあり、2 つのリポジトリの `deploy.yml` がそれを呼ぶ。
+  **ドキュメントやコンソールを直したら、2 つのリポジトリの deploy を手で起動しないと公開中のサイトは変わらない**
+  （`gh workflow run deploy.yml -R picorubykaigi/adventure-board` と `-R picorubykaigi/adventure-board-console`）。
+  古い https://picorubykaigi.org/adventure-board-firmware/ は、このリポジトリの Pages に `site/old-url-redirect/` を出して新しい URL へ送っている。
+  コンソールは `window.REPO_ROOT`（`sim/index.html`）の下から `lib/` などを読む（単独版は `./repo/`）。詳しくは [site/README.md](site/README.md)。
+  シミュレータのブレッドボードに番号（1〜17、a〜j）を付けた（実物には無い）
 - ✅ ファームウェアの最初のリリース `v2026.10.25`（`56b9115d` の prod、`R2P2_CONSOLE_UART=1`。UF2 は `adventure-board-2026.10.25.uf2`）。
   最初は `a32d9d72` で出し、同じ日に GROVE リンクの修正を入れた `56b9115d` に差し替えた（タグも付け直した）。2026-10-26 に量産基板へ書き込む
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
