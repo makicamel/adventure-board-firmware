@@ -177,7 +177,7 @@ class SimApp < Funicular::Component
     start_monitor
     draw
     patch(status: "準備できました。", kind: "ok")
-    load_example(EXAMPLES[0][1])
+    load_example(initial_example)
     nil
   end
 
@@ -343,7 +343,7 @@ class SimApp < Funicular::Component
     list = EXAMPLES
     i = 0
     while i < list.size
-      option(value: list[i][1]) { list[i][0] }
+      example_option(list[i][1], list[i][0])
       i += 1
     end
     # `optgroup` is not one of the DSL's tags either.
@@ -351,11 +351,45 @@ class SimApp < Funicular::Component
       list = DEVICE_EXAMPLES
       i = 0
       while i < list.size
-        option(value: "device:#{list[i][1]}") { list[i][0] }
+        example_option("device:#{list[i][1]}", list[i][0])
         i += 1
       end
     end
     nil
+  end
+
+  # selected: nil would still be written as selected="" on the first render,
+  # so the attribute is left out instead.
+  def example_option(value, label)
+    if value == initial_example
+      option(value: value, selected: "selected") { label }
+    else
+      option(value: value) { label }
+    end
+  end
+
+  # What the page opens with: ?example=<a value of the list>, such as
+  # ?example=device:oled.rb, or the first sample.
+  def initial_example
+    @initial_example ||= begin
+      wanted = JS.global.queryParam("example").to_s
+      example_values.include?(wanted) ? wanted : EXAMPLES[0][1]
+    end
+  end
+
+  def example_values
+    values = []
+    i = 0
+    while i < EXAMPLES.size
+      values << EXAMPLES[i][1]
+      i += 1
+    end
+    i = 0
+    while i < DEVICE_EXAMPLES.size
+      values << "device:#{DEVICE_EXAMPLES[i][1]}"
+      i += 1
+    end
+    values
   end
 
   # --- handlers ------------------------------------------------------------
