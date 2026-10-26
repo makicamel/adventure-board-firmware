@@ -1,3 +1,5 @@
+# チュートリアル 1: 場所と明るさを変えて、4 つ光らせる。
+
 require 'adventure_board'
 GC.start
 

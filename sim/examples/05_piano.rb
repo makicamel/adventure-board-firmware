@@ -1,3 +1,5 @@
+# チュートリアル 5: ボタンのピアノ。押しているあいだだけ音が出る。
+
 require 'adventure_board'
 GC.start
 
@@ -5,7 +7,7 @@ matrix = AdventureBoard.matrix
 buttons = AdventureBoard.buttons
 speaker = AdventureBoard.speaker
 
-# ボタンと音の高さ。60 がド（真ん中のド）で、1 増えると半音上がる
+# ボタンと音の高さ。MIDI の番号で、60 が MML の o4 c（約 262Hz のド）。1 増えると半音上がる
 KEYS = { left: 60, down: 62, right: 64, up: 65, b: 67, a: 69 }
 
 speaker.reset

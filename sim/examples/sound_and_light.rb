@@ -2,7 +2,7 @@
 # 音と光を同じループで進めるので、ずれない。鳴り始めが一番明るく、音が伸びるあいだに暗くなる。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 speaker = AdventureBoard.speaker       # スピーカー
@@ -47,7 +47,7 @@ while true
   while (elapsed = Machine.uptime_us / 1000 - started) < total   # 時計で測るので、基板でもシミュレータでも同じ速さ
     matrix.draw_rect(15, 0, 1, 16, 0)            # 右端の列を消して
     draw_bar(matrix, 16, heights[15], 0xFF - 0xC0 * elapsed / total)   # 今の音の棒。だんだん暗く
-    matrix.blit                                  # VRAM の内容をマトリクスへ写す（1 ドットずつ set するより速い）
+    matrix.blit                                  # VRAM の内容をLEDドライバへコピー（1 ドットずつ set するより速い）
     matrix.show
     if sounding && total - UNIT_MS <= elapsed    # 最後の 1 単位は音を止めて、次の音と区切る
       speaker.note_off(note)

@@ -1,3 +1,5 @@
+# チュートリアル 3: 文字を右から左へ流す。
+
 require 'adventure_board'
 GC.start
 

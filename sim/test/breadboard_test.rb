@@ -202,7 +202,7 @@ end
 
 puts "Wiring written in a program's comments"
 check("the breadboard sample's wiring is read, and lights its LED") do
-  text = Breadboard.wiring_in(File.read("sim/examples/breadboard_led.rb")) rescue nil
+  text = Breadboard.wiring_in(File.read("sim/examples/07_breadboard_led.rb")) rescue nil
   bb = fresh(text.to_s)
   GPIO.new(2, GPIO::OUT).write(1)
   text == "wire J1-5 a13\nresistor b13 b9\nled c9 g10\nwire h10 J1-3\n" &&

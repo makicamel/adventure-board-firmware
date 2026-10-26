@@ -1,9 +1,9 @@
 # 基板 2 枚を GROVE-B でつなぎ、自分のボタンで相手のドットを動かす。2 枚とも同じこのコードを走らせる。
-# 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは普通のストレートでよい。
+# 起動したら ↑ か ↓ で役割（A / B）を選ぶ。2 枚で違う役割にすること。ケーブルは、赤（電源）の線だけを切った Grove ケーブルを使う。
 # 実機専用（シミュレータでは動かない）。配線の事情は examples/README.md。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix         # LED マトリクス。使う部品は、こうして読み込んで取り出す
 buttons = AdventureBoard.buttons       # ボタン
@@ -12,7 +12,7 @@ matrix.clear
 matrix.pen = 0x40
 matrix.clear_drawing                   # 描く場所（VRAM）を消す
 matrix.draw_text("?", 4, 0)            # 役割を選ぶまでは "?" を出して、何も送らない
-matrix.blit                            # 描いたものをマトリクスへ写す
+matrix.blit                            # 描いたものをマトリクスへコピー
 matrix.show
 
 role = nil

@@ -3,7 +3,7 @@
 # 実機専用（シミュレータの音源にはこの機能が無い）。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 def play(title, mml)
   speaker = AdventureBoard.speaker   # 使う部品を読み込んで取り出す。def の中からは外の変数が見えないので、ここで

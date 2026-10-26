@@ -177,15 +177,18 @@ class Board
   #
   # Built on request, like grove_uart, because these pins are also ADC2 and
   # ADC3 and asking for either gives up the other.
+  #
+  # The board outlives the programs run from the shell, so the next program
+  # may ask for the other role; that builds the link again on the other pins.
   def grove_link(role: :a, baudrate: GroveLink::DEFAULT_BAUDRATE)
-    @grove_link ||= begin
-      tx, rx = if role == :b
-        [GROVE_B_RX_PIN, GROVE_B_TX_PIN]
-      else
-        [GROVE_B_TX_PIN, GROVE_B_RX_PIN]
-      end
-      GroveLink.new(tx_pin: tx, rx_pin: rx, baudrate: baudrate)
+    return @grove_link if @grove_link && @grove_link_role == role
+    tx, rx = if role == :b
+      [GROVE_B_RX_PIN, GROVE_B_TX_PIN]
+    else
+      [GROVE_B_TX_PIN, GROVE_B_RX_PIN]
     end
+    @grove_link_role = role
+    @grove_link = GroveLink.new(tx_pin: tx, rx_pin: rx, baudrate: baudrate)
   end
 
   # GROVE-A as I2C1, for sensors and displays.

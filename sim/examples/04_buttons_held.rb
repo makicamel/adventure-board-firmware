@@ -1,3 +1,5 @@
+# チュートリアル 4: A を押しているあいだだけ光らせる。
+
 require 'adventure_board'
 GC.start
 
