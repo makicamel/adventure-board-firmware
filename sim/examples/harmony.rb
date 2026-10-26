@@ -2,7 +2,7 @@
 # PSG は 3 声なので、トラックは 3 本まで。シミュレータでは、鳴った音をページ下の「鳴った音を見る」で確かめられる。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 speaker = AdventureBoard.speaker       # スピーカー。使う部品は、こうして読み込んで取り出す
 

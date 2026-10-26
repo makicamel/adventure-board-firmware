@@ -1,3 +1,5 @@
+# チュートリアル 2: 点を左から右へ動かす。
+
 require 'adventure_board'
 GC.start
 

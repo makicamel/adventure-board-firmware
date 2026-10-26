@@ -9,13 +9,12 @@
 
 | ファイル | 使うもの | 必要なもの |
 |---|---|---|
-| [grove_link_chat.rb](grove_link_chat.rb) | GROVE-B（PIO で作った UART） | 基板 2 枚。**ケーブルはストレートでよい** |
+| [grove_link_chat.rb](grove_link_chat.rb) | GROVE-B（PIO で作った UART） | 基板 2 枚と、**赤（電源）の線だけを切った Grove ケーブル** |
 | [envelope.rb](envelope.rb) | PSG のエンベロープ（MML の `s` / `m`）。減衰・トレモロ・和音を順に鳴らす | 基板 1 枚。シミュレータの音源には無い機能 |
-| [grove_uart_chat.rb](grove_uart_chat.rb) | GROVE-B（ハードウェア UART0） | **基板 2 枚 + クロスケーブル** |
 | [oled.rb](oled.rb) | I2C の OLED（SSD1306 / SSD1315、128×64）に文字を出し、ボールを跳ねさせる。`picoruby-ssd1306` | OLED 1 枚。ブレッドボードで J1 の 02（SDA、GPIO2）/ 03（SCL、GPIO3）/ 3V3 / G につなぐ |
 
-2 枚を繋ぐなら `grove_link_chat.rb` の方を使う。ケーブルを選ばない。
-`grove_uart_chat.rb` は**ハードウェア UART の使い方**として残してある。
+ハードウェア UART で 2 枚を繋ぐ `grove_uart_chat.rb`（クロスケーブルが要る）もあったが、2026-10-25 に消した。
+配布物にクロスケーブルが無く、一覧に「2 枚をつなぐ」が 2 つ並ぶと迷うため。
 
 ## 動かし方
 
@@ -41,12 +40,10 @@ GPIO28 は UART0 TX、GPIO29 は UART0 RX にしかなれない
 
 これを避けるために `grove_link_chat.rb` は PIO で UART を作り、片方の基板だけ
 TX と RX を入れ替える。ピンの役割を選べるのが PIO の取り柄で、そのぶん
-ケーブルを選ばない。設計は [dev-docs/grove-link/](../dev-docs/grove-link/)。
-信号 2 本を入れ替えたケーブルが要る。
+信号線を交差させたケーブルが要らない。ただし赤（電源）の線は切っておく（2 台の 3.3V どうしがつながるため）。設計は [dev-docs/grove-link/](../dev-docs/grove-link/)。
 
-- Seeed **Grove - UART Crossover Cable 4Pin**（SS100052406）
-- あるいは Grove-to-ジャンパ変換を 2 本使い、信号 2 本を交差させる
-
+ハードウェア UART（`AdventureBoard.grove_uart`）で 2 枚を繋ぐなら、信号 2 本を入れ替えたケーブルが要る
+（Seeed **Grove - UART Crossover Cable 4Pin**、SS100052406 など）。
 J5 は、Grove ケーブルの **黄=GPIO29(RX) / 白=GPIO28(TX) / 赤=3V3 / 黒=GND** につながる
 （PV1 と量産版。r1 は並びが逆だった）。クロスケーブルは黄と白だけが入れ替わっているものを選ぶこと。
 電源と GND が入れ替わる製品を掴むと危険。

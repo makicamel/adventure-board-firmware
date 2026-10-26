@@ -3,7 +3,7 @@
 // canvas as text so a result can be asserted on rather than eyeballed.
 //
 //   rake sim:check              all examples
-//   rake sim:check[one_dot]     one example
+//   rake sim:check[01_light]    one example
 //
 // Screenshots land in tmp/browser-check/ (git-ignored).
 
@@ -170,7 +170,7 @@ const INTERACTIVE = {
     const lit = (rows) => rows.join('').replace(/\./g, '').length;
     console.log(`# life: ${lit(a)} then ${lit(b)} cells lit, changed: ${a.join('') !== b.join('')}`);
   },
-  breadboard_led: async (page) => {
+  '07_breadboard_led': async (page) => {
     // Loading the example wires the breadboard from its comments.
     console.log(`# wiring: ${JSON.stringify(await page.evaluate(() => {
       const t = document.getElementById('bb-text'); return t ? t.value : '(text box closed)';
@@ -190,12 +190,12 @@ const INTERACTIVE = {
     await page.fill('#bb-text', 'switch e12\n');
     await page.click('#bb-text-apply');
     await page.waitForTimeout(300);
-    await page.selectOption('#examples', 'one_dot.rb');
+    await page.selectOption('#examples', '01_light.rb');
     await page.waitForFunction(() => document.getElementById('code').value.includes('matrix.set'));
     await page.click('#run');
     await page.waitForTimeout(1000);
-    console.log(`# view after loading one_dot: ${await page.textContent('.zoom-tabs .tab.on')}`);
-    show('one_dot after a switch was plugged in (expect the top-left dot)', await readPanel(page));
+    console.log(`# view after loading 01_light: ${await page.textContent('.zoom-tabs .tab.on')}`);
+    show('01_light after a switch was plugged in (expect the top-left dot)', await readPanel(page));
   },
   status_led: async (page) => {
     const seen = await watchStatusLed(page);
@@ -206,39 +206,39 @@ const INTERACTIVE = {
       console.log(`# while A is held: ${held && !held.includes('off') ? 'on' : 'off'}`);
     });
   },
-  melody: async (page) => {
+  harmony: async (page) => {
     // The player runs as its own task, so the notes arrive over time.
     await page.waitForTimeout(2500);
-    await showNotes(page, 'melody');
+    await showNotes(page, 'harmony');
   },
   sound_and_light: async (page) => {
     await page.waitForTimeout(2000);
     await showNotes(page, 'sound_and_light');
     show('sound_and_light: panel', await readPanel(page));
   },
-  buttons: async (page) => {
+  '04_buttons': async (page) => {
     // A very short click must still move exactly one cell: the press is an
     // event on a queue, so it cannot fall between two loop ticks.
     await press(page, '[data-pin="19"]', 20); // right, a flick
-    show('buttons: after a 20ms click on right (expect one step)', await readPanel(page));
+    show('04_buttons: after a 20ms click on right (expect one step)', await readPanel(page));
     await press(page, '[data-pin="19"]', 120); // right, briefly
-    show('buttons: after a short tap on right (expect one step)', await readPanel(page));
-    await press(page, '[data-pin="19"]', 900); // right, held
-    show('buttons: after holding right (expect a few more)', await readPanel(page));
+    show('04_buttons: after a short tap on right (expect one step)', await readPanel(page));
+    await press(page, '[data-pin="19"]', 900); // right, held: no repeat in this one
+    show('04_buttons: after holding right (expect one step)', await readPanel(page));
     await press(page, '[data-pin="20"]', 120); // down, briefly
-    show('buttons: after a short tap on down', await readPanel(page));
+    show('04_buttons: after a short tap on down', await readPanel(page));
     await page.keyboard.down('ArrowLeft');
     await page.waitForTimeout(500);
     await page.keyboard.up('ArrowLeft');
     await page.waitForTimeout(300);
-    show('buttons: after holding the left arrow key', await readPanel(page));
-    // A: a ring spreads from the dot. Read soon after, while it is small.
-    await press(page, '[data-pin="22"]', 60);
-    show('buttons: after A (a ring spreading from the dot)', await readPanel(page));
-    // B: the whole panel lights and fades; held, it keeps flashing.
-    await press(page, '[data-pin="21"]', 700, async () => {
-      show('buttons: B held (the whole panel flashing)', await readPanel(page));
+    show('04_buttons: after holding the left arrow key (expect one step)', await readPanel(page));
+  },
+  '04_buttons_held': async (page) => {
+    await press(page, '[data-pin="22"]', 700, async () => {
+      show('04_buttons_held: A held (expect all lit)', await readPanel(page));
     });
+    await page.waitForTimeout(200);
+    show('04_buttons_held: A released (expect blank)', await readPanel(page));
   },
 };
 

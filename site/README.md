@@ -20,14 +20,14 @@ Node は Docker の `node:22-bookworm-slim` の中で動かす（`docker/compose
 | `guide/` | はじめに（基板の各部、コンソール、シェル、ファームウェアの書き込み） |
 | `tutorial/` | チュートリアル 1〜8 |
 | `reference/` | ライブラリ、ピンとコネクタ |
-| `snippets/*.rb` | チュートリアルのコード。本文は `<<< @/snippets/xxx.rb` で読み込む |
+| （`../sim/examples/0*.rb`） | チュートリアルのコード。ページのサンプルと同じファイルで、本文は `<<< @/../sim/examples/01_light.rb` のように読み込む |
 | `public/` | 画像とフォント。そのまま出る |
 | `.vitepress/config.mts` | 目次（サイドバー）、URL の前置き（`SITE_BASE`、既定 `/adventure-board-firmware/`） |
 | `.vitepress/theme/style.css` | 色とフォント。picorubykaigi.org とコンソールに合わせてある |
 
 ## コンソールの同梱
 
-`rake site:build` は VitePress のあとに `site:console` を走らせ、次を `dist/` に写す。
+`rake site:build` は VitePress のあとに `site:console` を走らせ、次を `dist/` にコピーする。
 コンソールはリポジトリのファイルを相対パスで読むので、リポジトリと同じ並びにしてある。
 
 - `sim/`（`README.md` と `test/` を除く）→ `console/`
@@ -38,7 +38,7 @@ Node は Docker の `node:22-bookworm-slim` の中で動かす（`docker/compose
 
 ## チュートリアルのコード
 
-`snippets/` のコードは、シミュレータで動かして確かめてから載せる。実機と同じ書き方しか使わない
+チュートリアルのコード（`sim/examples/` の番号付きのもの）は、シミュレータで動かして確かめてから載せる。実機と同じ書き方しか使わない
 （シミュレータ専用の構文は禁止。基板の stdlib に無いメソッド、たとえば `Integer#clamp` や `Array#count` も避ける）。
 
 ## GitHub Actions

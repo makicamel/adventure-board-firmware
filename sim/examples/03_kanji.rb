@@ -1,3 +1,5 @@
+# チュートリアル 3: 漢字を 1 文字出す。
+
 require 'adventure_board'
 GC.start
 

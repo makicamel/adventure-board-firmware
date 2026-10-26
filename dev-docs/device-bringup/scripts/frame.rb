@@ -1,7 +1,7 @@
 # 外周の枠と対角線。向きが合っているかが一目で分かる。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix
 

@@ -179,6 +179,8 @@
     apply();
   };
 })();
+// ?name=value of the page's URL, for the Ruby side (null when absent).
+window.queryParam = function (name) { return new URLSearchParams(location.search).get(name); };
 </script>
 </head>
 <body>

@@ -1,3 +1,5 @@
+# チュートリアル 2: 跳ねるボール。端に来たら向きを変える。
+
 require 'adventure_board'
 GC.start
 

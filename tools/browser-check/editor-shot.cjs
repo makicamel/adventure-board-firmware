@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
 
 const ROOT = '/work';
 const OUT = path.join(ROOT, 'tmp', 'browser-check');
-const SAMPLE = process.argv[2] || 'buttons.rb';
+const SAMPLE = process.argv[2] || '04_buttons.rb';
 const SCROLL = parseInt(process.argv[3] || '420', 10);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.rb': 'text/plain' };
 

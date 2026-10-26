@@ -181,7 +181,7 @@ GPIO28 は TX、GPIO29 は RX にしかなれない。RP2350 で増えた F11（
 この 2 本には無い。したがって同じ基板同士をストレートで繋ぐと TX 同士がぶつかる。
 
 Seeed が **Grove - UART Crossover Cable 4Pin**（SS100052406）を出している。
-サンプルは [`examples/grove_uart_chat.rb`](../../examples/grove_uart_chat.rb)。
+サンプルだった `examples/grove_uart_chat.rb` は 2026-10-25 に消した（2 枚を繋ぐのは PIO の `grove_link_chat.rb` だけにした）。
 
 ## 5. サンプルプログラムの候補
 

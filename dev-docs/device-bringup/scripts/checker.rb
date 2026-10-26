@@ -1,7 +1,7 @@
 # 市松模様。明るいマスと暗いマスを交互に並べる。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix
 

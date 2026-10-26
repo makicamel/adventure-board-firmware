@@ -1,7 +1,7 @@
 # 左端に縦線を 1 本。上から下まで左端に揃っていれば、下半分の配線の左右反転が正しく直されている。
 
 require 'adventure_board'
-GC.start                               # 読み込みで使ったメモリを片付ける
+GC.start                               # 読み込みで使ったメモリを回収する
 
 matrix = AdventureBoard.matrix
 

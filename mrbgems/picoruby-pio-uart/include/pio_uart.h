@@ -11,7 +11,7 @@ extern "C" {
 
 typedef enum {
   PIO_UART_OK        =  0,
-  PIO_UART_E_BUSY    = -1,  /* already open */
+  PIO_UART_E_BUSY    = -1,  /* no longer returned: a second open moves the link */
   PIO_UART_E_NO_SM   = -2,  /* no free state machine or no room for the program */
   PIO_UART_E_NO_DMA  = -3,  /* no free DMA channel */
   PIO_UART_E_CLOSED  = -4

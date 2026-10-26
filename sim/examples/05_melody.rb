@@ -1,3 +1,5 @@
+# チュートリアル 5: MML でメロディを鳴らす。
+
 require 'adventure_board'
 GC.start
 

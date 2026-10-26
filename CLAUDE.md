@@ -99,7 +99,7 @@ docker compose -f docker/compose.yml run --rm shell bundle exec steep check --lo
 rake sim:wasm               # フォント・描画 gem 入りの PicoRuby.wasm を作る（要 emsdk）
 rake sim:test               # 中核のヘッドレス検証（ブラウザ不要）
 rake sim:check              # ヘッドレス Chromium でページを操作して結果を報告
-rake sim:check[one_dot]     # サンプル 1 つだけ
+rake sim:check[01_light]    # サンプル 1 つだけ
 rake sim:server             # 手で見るとき → http://localhost:8080/sim/
 rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から作り直す（kicad/kicad:9.0-full、約 5GB）
 ```
@@ -145,7 +145,7 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 - **スピーカーは PSG の左出力（GPIO10）だけ。** パンは `Speaker` が左いっぱい（`Board::PSG_SPEAKER_PAN`）にしている。
   音源（`PSG::Synth`）は設定を「送り主 × チャンネル」ごとに覚えるので、`synth.handle` で直接送った設定は
   `Speaker`（送り主 `:mml`）の音には効かない。3 声を v15 で重ねると出力は電源いっぱいまで振れる
-- **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。PV1 で J4・J5 とも並びを入れ替えて直り、
+- **r1 の GROVE はピン順が逆**（Grove ケーブルをそのまま挿すと VCC と GND が入れ替わる）。**r1 と PV1 / V1 を GROVE でつながない**（2026-10-25 に一度やった。V1 の GPIO29 が r1 の GND に、GPIO28 が r1 の 3.3V に当たる）。PV1 で J4・J5 とも並びを入れ替えて直り、
   量産版 V1 も同じ。**PV1 / V1 はふつうの Grove ケーブルで挿せる**（黄・白・赤・黒 = J4 は SCL(GPIO7)・SDA(GPIO6)・5V・GND、
   J5 は GPIO29・GPIO28・3V3・GND）
 - **GROVE の電源（赤）は 0Ω で選ぶ。量産版の部品表では J4（GROVE1）が 5V（R27）、J5（GROVE2）が 3V3（R25）**。
@@ -289,12 +289,15 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
 
 - **`sim/examples/` は一般ユーザのためのもの。基板の検証用のコードは置かない**（`dev-docs/device-bringup/scripts/` へ）。
   数を増やしすぎない。ページの選択肢は「初めての人が読む順」に並べる（`SimApp::EXAMPLES`）。
-  「ローカルの wasm が要る」という断り書きは付けない（自前の wasm をいずれ一般公開する前提）
+- **チュートリアルのコードは `sim/examples/` の番号付きのもの（`01_light.rb` など。番号は章）が正本**（2026-10-25）。
+  サイトの本文は `<<< @/../sim/examples/…` で同じファイルを読むので、直せば両方が変わる。チュートリアルに無いサンプルは番号を付けない
+- 「ローカルの wasm が要る」という断り書きは付けない（自前の wasm をいずれ一般公開する前提）
 - 冒頭は**題名 1 行 + 多くても 2 行**（操作方法、必要なもの）。仕組みや経緯の説明は書かない（README か dev-docs に置く）
 - 説明は**その行の横**に短く書く。初めて出てくる API に 1 回だけ。同じ説明を繰り返さない
-- 先頭は全サンプル同じ形: `require 'adventure_board'` / `GC.start  # 読み込みで使ったメモリを片付ける` / 空行 /
+- 先頭は全サンプル同じ形: `require 'adventure_board'` / `GC.start  # 読み込みで使ったメモリを回収する` / 空行 /
   `matrix = AdventureBoard.matrix  # LED マトリクス。使う部品は、こうして読み込んで取り出す` / `buttons = AdventureBoard.buttons  # ボタン` …
-  （部品の名前は取り出す行の横に。説明は最初の 1 行にだけ）
+  （部品の名前は取り出す行の横に。説明は最初の 1 行にだけ）。
+  **チュートリアルの番号付きのサンプルは、この先頭の行にコメントを付けない**（2026-10-25。本文のチュートリアル 1 が説明する）
 - コメントを直すときはコードを触らない。コメントを除いた行が元と一致することを確かめる
 - ブレッドボードを使うサンプルは、冒頭のあとに `# 配線:` の段落を置き、1 行 1 部品で `#   led c7 c9   説明` と書く
   （`Breadboard.wiring_in` が読み、ページが読み込み時にその配線にする。実物の手順書も兼ねる）
@@ -484,17 +487,20 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - ✅ ファーム更新で `/lib` を配り直す（中身のハッシュで判定。サンプルは触らない）
 - ✅ GROVE-B の基板間リンク — **普通の `UART`**（`unit: :PIO_UART0`）。
   受信は DMA のリングバッファ。ストレートケーブルで繋がる。
-  ループバック検証済み、2 枚での確認は基板待ち
+  **2026-10-25 に量産版 V1 の 2 枚をふつうの Grove ケーブルでつなぎ、両方向に届くことを確認**（`dev-docs/device-bringup/scripts/grove_link_check.rb`）。
+  同じ起動のあいだに役割を選び直すと最初のピンのまま動いていた件は直した（2026-10-25、`Board#grove_link` の使い回し・`PIO_UART_open` の `BUSY`・
+  閉じるときの DMA の固まり（RP2350-E5）の 3 つ。V1 2 枚で役割を 3 回入れ替えて確認）。**ケーブルは赤（電源）の線を切った Grove ケーブル**（3.3V どうしがつながるため）
 - ✅ スピーカーの音（PSG）。ざらざら・音程・三角波を直した。各音のあたまのノイズも直した（ADC の記録と耳で確認）。
   経緯と測定は [dev-docs/audio-quality/report.md](dev-docs/audio-quality/report.md)。基板自身の ADC で出力を録る
   `picoruby-adc-capture`（J6 → GPIO26）と `tools/adc_capture_dump.py` が検証に使える
-- ⬜ シミュレータを GitHub Pages で公開する。下の使い方のサイトの `console/` として出す（Actions で `rake sim:wasm` 相当を組む）。
-  **リポジトリの公開と同じイベントの日（2026-10-31）**（2026-10-03 の決定）。それまで `sim/vendor/` は git 管理外のままで、
-  色付け・漢字は `rake sim:wasm` をした環境でだけ出る（無ければ CDN の stock で、色なし・漢字なしで動く）
-- 🔶 使い方とチュートリアルのサイト（`site/`、VitePress。コンソールを `console/` に同梱）。下書きまで（2026-10-03）。
-  リポジトリ・シミュレータと同じく**イベントの日（2026-10-31）に公開**。`.github/workflows/site.yml` は push で組み立てだけ、
-  Pages に出すのは手で起動したときだけ。**チームの確認用に Cloudflare Pages + Access**（https://adventure-board.pages.dev、2026-10-04）。
-  設定と作り直す手順は [site/README.md](site/README.md) の「チームの確認用」
+- ✅ **2026-10-25 に一般公開した**（予定の 10-31 より前倒し）。リポジトリを public にし、使い方とチュートリアルのサイト
+  （`site/`、VitePress。コンソールを `console/` に同梱）を GitHub Pages に出した → https://picorubykaigi.org/adventure-board-firmware/ 。
+  wasm は Actions の中で `rake sim:wasm` 相当を組むので、`sim/vendor/` は git 管理外のまま。
+  `.github/workflows/site.yml` は push で組み立てだけ、Pages に出すのは手で起動して「GitHub Pages にも出す」にチェックしたときだけ
+  （**ドキュメントを直したら、手で起動しないと公開中のサイトは変わらない**）。
+  チームの確認用だった Cloudflare Pages + Access は片付ける（[site/README.md](site/README.md) の「公開の日に片付ける」）
+- ✅ ファームウェアの最初のリリース `v2026.10.25`（`56b9115d` の prod、`R2P2_CONSOLE_UART=1`。UF2 は `adventure-board-2026.10.25.uf2`）。
+  最初は `a32d9d72` で出し、同じ日に GROVE リンクの修正を入れた `56b9115d` に差し替えた（タグも付け直した）。2026-10-26 に量産基板へ書き込む
 - ⬜ GROVE-A センサ、サンプルプログラムの拡充
 - ✅ r1 実基板に `pico2` debug ビルドを SWD で焼き、UART で起動ログを確認
 - ✅ r1 で LED マトリクス（向き・列反転・階調）とスピーカー（`melody.rb`）が動く
