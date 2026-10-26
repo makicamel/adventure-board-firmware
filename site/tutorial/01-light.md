@@ -4,7 +4,9 @@ LED マトリクスの左上の 1 つだけを光らせます。
 
 <<< @/../sim/examples/01_light.rb
 
-コンソールに貼り付けて動かすと、左上が 1 つ光ります。
+<ConsoleLink example="01_light.rb" />
+
+コンソールで Run を押すと、左上が 1 つ光ります。
 
 ## 1 行ずつ見る
 
@@ -40,6 +42,8 @@ matrix.show
 `set` の 3 つ目に数を渡すと、明るさを変えられます。0 が消灯、255 がいちばん明るい。省くと 255 です。
 
 <<< @/../sim/examples/01_light_more.rb
+
+<ConsoleLink example="01_light_more.rb" />
 
 ::: tip やってみよう
 - 4 すみを全部光らせてみましょう

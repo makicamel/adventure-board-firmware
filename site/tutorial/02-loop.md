@@ -4,6 +4,8 @@
 
 <<< @/../sim/examples/02_loop.rb
 
+<ConsoleLink example="02_loop.rb" />
+
 ## 繰り返す
 
 `while true` のループは自分では止まりません。止めるには、シミュレータなら「シミュレータをリセット」（Run をもう一度押すと、最初からやり直しになります）、
@@ -33,6 +35,8 @@
 x と y の両方を動かし、端に来たら向きを逆にすると、ボールが跳ね回ります。
 
 <<< @/../sim/examples/02_bounce.rb
+
+<ConsoleLink example="02_bounce.rb" />
 
 `dx` と `dy` は「1 回にどれだけ動くか」です。
 

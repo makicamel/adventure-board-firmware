@@ -4,6 +4,8 @@
 
 <<< @/../sim/examples/05_melody.rb
 
+<ConsoleLink example="05_melody.rb" />
+
 ::: tip シミュレータで音が出ないとき
 ブラウザは、ボタンを押すまで音を出させてくれません。Run を押すと音が出せるようになります。
 音が聞こえなくても、「▸ 鳴った音を見る」で何が鳴ったかを確かめられます。
@@ -43,6 +45,8 @@ speaker.play_mml([メロディ, 和音, ベース], loop: true)   # 3 つ同時�
 ボタンを押しているあいだだけ音を出します。
 
 <<< @/../sim/examples/05_piano.rb
+
+<ConsoleLink example="05_piano.rb" />
 
 - `note_on(音の番号)` で鳴らし始め、`note_off(音の番号)` で止めます
 - 音の番号は MIDI の番号で、60 が MML の `o4 c`（約 262Hz のド）です。1 増えると半音上がります（62 がレ、64 がミ）

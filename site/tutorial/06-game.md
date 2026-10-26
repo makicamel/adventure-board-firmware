@@ -5,6 +5,8 @@
 
 <<< @/../sim/examples/06_game.rb
 
+<ConsoleLink example="06_game.rb" />
+
 ## しくみ
 
 ### 石を覚えておく

@@ -4,6 +4,8 @@
 
 <<< @/../sim/examples/04_buttons.rb
 
+<ConsoleLink example="04_buttons.rb" />
+
 シミュレータでは、絵のボタンを押すか、キーボードの矢印キーで動きます。
 
 ## 押されたボタンを受け取る
@@ -29,6 +31,8 @@ buttons = AdventureBoard.buttons
 「押しているあいだずっと」を知りたいときは `pressed?` を使います。
 
 <<< @/../sim/examples/04_buttons_held.rb
+
+<ConsoleLink example="04_buttons_held.rb" />
 
 | 命令 | 返すもの |
 |---|---|

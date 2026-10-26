@@ -1,6 +1,6 @@
 # コンソールを使う
 
-[Adventure Board Console](/console/){target="_blank"} は、ブラウザで開く Adventure Board のシミュレーション環境兼プログラム転送環境です。
+<ConsoleLink>Adventure Board Console</ConsoleLink> は、ブラウザで開く Adventure Board のシミュレーション環境兼プログラム転送環境です。
 
 - **シミュレータ**: シミュレーションされた基板上で、書いたプログラムを動かします
 - **実機につなぐ**: USB でつないだ本物の基板に、同じプログラムを送って動かします
@@ -16,7 +16,7 @@
 
 以下の手順でシミュレータ上でプログラムを実行できます。
 
-1. [コンソール](/console/){target="_blank"} を開きます
+1. <ConsoleLink>コンソール</ConsoleLink> を開きます
 2. 下のコードの欄に Ruby を書きます（サンプルの一覧から選んでもかまいません）
 3. **Run** を押します
 

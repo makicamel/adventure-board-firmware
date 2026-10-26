@@ -4,6 +4,8 @@
 
 <<< @/../sim/examples/03_draw.rb
 
+<ConsoleLink example="03_draw.rb" />
+
 ## 描いてからコピー
 
 線や文字は、いったん **描くための場所**（VRAM と呼びます）に描いてから、LEDドライバにコピーします。
@@ -28,12 +30,16 @@
 
 <<< @/../sim/examples/03_kanji.rb
 
+<ConsoleLink example="03_kanji.rb" />
+
 ## 文字を流す
 
 16 ドットには 1 文字しか入らないので、長い文字は流して見せます。
 `draw_text` の x を 1 ずつ減らしていくと、文字が左へ動きます。
 
 <<< @/../sim/examples/03_scroll.rb
+
+<ConsoleLink example="03_scroll.rb" />
 
 `matrix.pen` は、文字の明るさです（`draw_text` には明るさを渡せないので、先に決めておきます）。
 
