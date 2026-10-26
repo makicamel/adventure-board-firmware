@@ -23,6 +23,10 @@ module LinkPong
       @x + @dx < @court.left || @court.right < @x + @dx
     end
 
+    def will_hit_wall?
+      (@frames + 1) % X_STEPS_PER_Y == 0 && (@y + @dy < @court.top || @court.bottom < @y + @dy)
+    end
+
     def bounce
       @dx = -@dx
       @interval = FAST_MS

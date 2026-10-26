@@ -4,8 +4,9 @@ module LinkPong
     CPU_ERRS_ONE_IN = 5
     CPU_ERROR       = Paddle::HALF_LENGTH + 1
 
-    def initialize(matrix, buttons)
+    def initialize(matrix, buttons, sound)
       @buttons = buttons
+      @sound = sound
       @buttons.clear_presses
       @court = GameCourt.new(matrix)
       @court.draw
@@ -22,6 +23,7 @@ module LinkPong
         if next_at <= Machine.uptime_us / 1000
           tick
           if @ball.out?
+            @sound.miss
             show_miss
             return player_won?
           end
@@ -50,13 +52,20 @@ module LinkPong
     end
 
     def tick
-      @player.move(player_dy)
+      dy = player_dy
+      if @player.movable?(dy)
+        @player.move(dy)
+        @sound.move
+      end
       if @ball.will_go_out? && receiver.covers?(@ball.y)
         @ball.bounce
+        @sound.hit
         @cpu.head_for(@ball.y_at_receiving_paddle + cpu_error) if receiver.equal?(@cpu)
       end
+      @sound.wall if @ball.will_hit_wall?
       @ball.move
       @cpu.tick
+      @sound.tick
     end
 
     def player_dy

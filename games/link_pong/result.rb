@@ -38,9 +38,10 @@ module LinkPong
       "................"
     ]
 
-    def initialize(matrix, buttons, won)
+    def initialize(matrix, buttons, sound, won)
       @matrix = matrix
       @buttons = buttons
+      @sound = sound
       @won = won
     end
 
@@ -48,8 +49,10 @@ module LinkPong
       @matrix.clear
       draw(@won ? WIN : LOSE)
       @matrix.show
+      @won ? @sound.win : @sound.lose
       @buttons.clear_presses
       sleep_ms 20 until any_button_pressed?
+      @sound.stop
     end
 
     private
