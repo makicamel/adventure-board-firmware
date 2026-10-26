@@ -483,7 +483,7 @@ module BoardView
   # One line per part: kind, the legs in canvas pixels, then what the kind
   # needs (a wire's colour, an LED's brightness, whether a switch is down).
   def parts_spec(bb)
-    out = strips_spec
+    out = labels_spec + strips_spec
     parts = bb.parts
     i = 0
     while i < parts.size
@@ -513,6 +513,38 @@ module BoardView
       out << " " << ((xy[1] - PARTS_AREA[1]) * PARTS_PX_PER_MM).round.to_s << "\n"
     end
     out
+  end
+
+  # The names the wiring is written in (c9, J1 aside): the columns' numbers
+  # above a and below j, the rows' letters left of 1 and right of 17, one
+  # pitch out from the holes. The real breadboard has none printed; they are
+  # here so that a13 can be found by eye. Never changes, so built once.
+  def labels_spec
+    return @labels_spec if @labels_spec
+    out = ""
+    c = 1
+    while c <= Breadboard::COLUMNS
+      top = BoardView.hole_xy(Breadboard.hole_name(0, c))
+      bottom = BoardView.hole_xy(Breadboard.hole_name(9, c))
+      out << label_line(top[0], top[1] - PITCH, c.to_s)
+      out << label_line(bottom[0], bottom[1] + PITCH, c.to_s)
+      c += 1
+    end
+    r = 0
+    while r < 10
+      left = BoardView.hole_xy(Breadboard.hole_name(r, 1))
+      right = BoardView.hole_xy(Breadboard.hole_name(r, Breadboard::COLUMNS))
+      letter = "abcdefghij"[r]
+      out << label_line(left[0] - PITCH, left[1], letter)
+      out << label_line(right[0] + PITCH, right[1], letter)
+      r += 1
+    end
+    @labels_spec = out
+  end
+
+  def label_line(x, y, text)
+    "label " + ((x - PARTS_AREA[0]) * PARTS_PX_PER_MM).round.to_s + " " +
+      ((y - PARTS_AREA[1]) * PARTS_PX_PER_MM).round.to_s + " " + text + "\n"
   end
 
   # The five holes of each strip, joined by a line: what a beginner cannot

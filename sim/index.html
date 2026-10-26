@@ -430,6 +430,19 @@ window.queryParam = function (name) { return new URLSearchParams(location.search
     // The LEDs' brightness, where the headless check can read it.
     cv.dataset.leds = lines.filter((w) => w[0] === 'led').map((w) => w[5]).join(',');
     const num = (w, i) => parseFloat(w[i]);
+    // The holes' names around the edge (1-17, a-j). Only here: the real
+    // breadboard has none printed.
+    ctx.font = `bold ${1.5 * MM}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 0.35 * MM;
+    ctx.strokeStyle = 'rgba(70, 0, 0, .75)';
+    ctx.fillStyle = 'rgba(255, 255, 255, .92)';
+    for (const w of lines) if (w[0] === 'label') {
+      ctx.strokeText(w[3], num(w, 1), num(w, 2));
+      ctx.fillText(w[3], num(w, 1), num(w, 2));
+    }
     // The strips first, under everything plugged in.
     for (const w of lines) if (w[0] === 'strip' || w[0] === 'hot') {
       const hot = w[0] === 'hot';
