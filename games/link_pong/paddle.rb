@@ -1,6 +1,6 @@
 module LinkPong
   class Paddle
-    ON          = 0xFF
+    ON          = 0x40
     OFF         = 0
     HALF_LENGTH = 1
 

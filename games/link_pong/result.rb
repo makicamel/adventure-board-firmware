@@ -1,6 +1,6 @@
 module LinkPong
   class Result
-    BRIGHTNESS = 0xFF
+    BRIGHTNESS = 0x40
     WIN = [
       "................",
       "................",

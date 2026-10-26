@@ -1,6 +1,6 @@
 module LinkPong
   class Ball
-    ON            = 0xFF
+    ON            = 0x40
     X_STEPS_PER_Y = 2                    # 大きいほど角度が浅い
     FAST_MS       = 55                   # 打ち返した直後は 55ms で 1 ドット進む
     SLOW_MS       = 80                   # 減速しきると 80ms で 1 ドット進む

@@ -46,7 +46,7 @@ module LinkPong
       "#...#.#.#..#.#.#",
       "#...###.#..#..##"
     ]
-    TEXT_BRIGHT = 0x40
+    TEXT_BRIGHT = 0x20
     NET_BRIGHT  = 0x18
 
     def initialize(matrix)
