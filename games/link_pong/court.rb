@@ -1,6 +1,7 @@
 module LinkPong
   class Court
-    OFF = 0
+    OFF        = 0
+    NET_BRIGHT = 0x18
 
     attr_reader :top, :bottom, :left, :right
 
@@ -46,8 +47,7 @@ module LinkPong
       "#...#.#.#..#.#.#",
       "#...###.#..#..##"
     ]
-    TEXT_BRIGHT = 0x20
-    NET_BRIGHT  = 0x18
+    LOGO_BRIGHT = 0x20
 
     def initialize(matrix)
       super(matrix, top: 6, bottom: 11, left: 2, right: 15)
@@ -61,7 +61,7 @@ module LinkPong
     def background_at(x, y)
       c = LOGO[y - 1][x - 1]
       if c == "#"
-        TEXT_BRIGHT
+        LOGO_BRIGHT
       elsif c == "+"
         NET_BRIGHT
       else
@@ -86,10 +86,33 @@ module LinkPong
   end
 
   class GameCourt < Court
+    NET_X = LedMatrix::WIDTH / 2 + 1
+
     def initialize(matrix)
       super(matrix, top: 1, bottom: LedMatrix::HEIGHT, left: 2, right: LedMatrix::WIDTH - 1)
     end
 
-    def draw = @matrix.clear
+    def draw
+      @matrix.clear
+      draw_net
+    end
+
+    def background_at(x, y)
+      if x == NET_X && y.even?
+        NET_BRIGHT
+      else
+        OFF
+      end
+    end
+
+    private
+
+    def draw_net
+      y = @top
+      while y <= @bottom
+        @matrix.set(NET_X, y, background_at(NET_X, y))
+        y += 1
+      end
+    end
   end
 end
