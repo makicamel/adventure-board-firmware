@@ -437,7 +437,7 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 **全部の一覧と理由は [dev-docs/upstream-changes.md](dev-docs/upstream-changes.md)。**
 以下は要約:
 
-- `Rakefile` — `tasks/docker.rake`・`tasks/sim.rake`・`tasks/site.rake` の load 3 行
+- `Rakefile` — `tasks/docker.rake`・`tasks/sim.rake`・`tasks/site.rake`・`tasks/games.rake` の load 4 行
 - `build_config/r2p2-picoruby-pico2{,_w}.rb` — `conf.gem core:` 各 1〜2 行
   （`picoruby-is31fl3729` と `picoruby-pio-uart`）
 - `build_config/r2p2-picoruby-pico2_w.rb` — `networking` / `picoruby-ble` /

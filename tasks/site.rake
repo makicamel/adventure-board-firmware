@@ -38,14 +38,15 @@ namespace :site do
   # same page runs here and under `rake sim:server`. Only what the page asks
   # for is copied, not the repository.
   copy_console = lambda do |out, repo|
-    FileUtils.rm_rf [out, "#{repo}/lib", "#{repo}/examples", "#{repo}/mrbgems"]
-    FileUtils.mkdir_p [out, "#{repo}/lib", "#{repo}/examples"]
+    FileUtils.rm_rf [out, "#{repo}/lib", "#{repo}/examples", "#{repo}/games", "#{repo}/mrbgems"]
+    FileUtils.mkdir_p [out, "#{repo}/lib", "#{repo}/examples", "#{repo}/games"]
     Dir.children("#{MRUBY_ROOT}/sim").each do |name|
       next if %w[README.md test].include?(name)
       FileUtils.cp_r "#{MRUBY_ROOT}/sim/#{name}", out
     end
     FileUtils.cp_r ["#{MRUBY_ROOT}/lib/adventure_board.rb", "#{MRUBY_ROOT}/lib/adventure_board"], "#{repo}/lib"
     FileUtils.cp Dir["#{MRUBY_ROOT}/examples/*.rb"], "#{repo}/examples"
+    FileUtils.cp Dir["#{MRUBY_ROOT}/games/*.rb"], "#{repo}/games"
     # The gems whose Ruby the page loads (the M + '...' entries in index.html).
     File.read("#{MRUBY_ROOT}/sim/index.html").scan(%r{M \+ '([^']+)'}).flatten.each do |path|
       FileUtils.mkdir_p File.dirname("#{repo}/mrbgems/#{path}")

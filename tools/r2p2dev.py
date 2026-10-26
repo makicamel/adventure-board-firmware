@@ -125,6 +125,10 @@ def console_path():
     fixed = os.environ.get("R2P2_PORT")
     if fixed:
         return fixed
+    # macOS: the board's three CDC ports, of which the first is the shell.
+    if sys.platform == "darwin":
+        ports = sorted(glob.glob("/dev/cu.usbmodem*"))
+        return ports[0] if ports else None
     try:
         names = os.listdir(BY_ID)
     except FileNotFoundError:
@@ -490,6 +494,61 @@ def cmd_reset(args):
     print(attach())
 
 
+def cmd_reboot(args):
+    """Reboot from the shell and come back to its prompt, without app.rb.
+
+    The board runs /home/app.rb at every start, and a program started that
+    way does not give the prompt back on Ctrl-C. So the boot's own question,
+    "Press 's' to skip running /etc/init.d/r2p2", is answered with a lone 's'.
+    Nothing else may be sent while the board starts: Ctrl-C or Enter there
+    sent it into a reboot loop.
+    """
+    con = open_console()
+    try:
+        if not con.sync():
+            die("Cannot talk to the board: no prompt. If its app.rb is running, "
+                "unplug and replug it and run this again.")
+        con._write(b"reboot\r")
+    finally:
+        con.close()
+    end = time.time() + 30.0
+    con = None
+    seen = ""
+    while time.time() < end:
+        if con is None:
+            path = console_path()
+            try:
+                con = Console(path) if path else None
+            except OSError:
+                con = None
+            if con is None:
+                time.sleep(0.1)
+                continue
+        try:
+            seen += con._read(0.1)
+        except OSError:
+            # The old port goes away as the board drops off the bus.
+            try:
+                con.close()
+            except OSError:
+                pass
+            con = None
+            seen = ""
+            continue
+        if "to skip running" in seen:
+            con._write(b"s")
+            break
+    else:
+        die("The board did not come back from reboot.")
+    try:
+        out = con._read(10.0, done=lambda t: bool(PROMPT.search(t)))
+        if not PROMPT.search(ANSI.sub("", out)):
+            die("Rebooted, but the shell did not come up.")
+        print("rebooted (app.rb skipped)")
+    finally:
+        con.close()
+
+
 def cmd_wipefs(args):
     """Erase the device filesystem, so the next boot rebuilds it.
 
@@ -532,11 +591,12 @@ def main():
     r.add_argument("--wait", type=float, default=3.0,
                    help="seconds to wait for each reply (default 3)")
     sub.add_parser("reset", help="reset the target over SWD and re-attach")
+    sub.add_parser("reboot", help="reboot from the shell, skipping app.rb")
     w = sub.add_parser("watch", help="print raw console output for a while")
     w.add_argument("seconds", type=float, nargs="?", default=20.0)
     args = p.parse_args()
     {"port": cmd_port, "attach": cmd_attach, "push": cmd_push, "watch": cmd_watch,
-     "run": cmd_run, "reset": cmd_reset, "wipefs": cmd_wipefs,
+     "run": cmd_run, "reset": cmd_reset, "reboot": cmd_reboot, "wipefs": cmd_wipefs,
      "recover": cmd_recover}[args.cmd](args)
 
 

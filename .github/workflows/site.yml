@@ -21,6 +21,7 @@ on:
       - 'sim/**'
       - 'lib/**'
       - 'examples/**'
+      - 'games/**'
       - 'mrbgems/picoruby-is31fl3729/**'
       - 'mrbgems/picoruby-midibase/**'
       - 'mrbgems/picoruby-midibase-mml/**'
