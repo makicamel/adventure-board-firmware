@@ -1,0 +1,2 @@
+# games/<name>.rb is made from games/<name>/ by `rake games:combine`.
+/*.rb

@@ -59,7 +59,7 @@ namespace :site do
   end
 
   # Into the built guide, at console/ with the repository's files beside it.
-  task :console do
+  task :console => "games:combine" do
     abort "#{dist} is not built" unless File.directory?(dist)
     copy_console.call("#{dist}/console", dist)
   end
@@ -67,7 +67,7 @@ namespace :site do
   # The console as a site of its own (picorubykaigi.org/adventure-board-console/):
   # the page at the top and the repository's files in repo/.
   desc "Assemble the console on its own into tmp/console (or OUT=dir)"
-  task :console_standalone do
+  task :console_standalone => "games:combine" do
     out = File.expand_path(ENV["OUT"] || "#{MRUBY_ROOT}/tmp/console")
     copy_console.call(out, "#{out}/repo")
     page = "#{out}/index.html"
