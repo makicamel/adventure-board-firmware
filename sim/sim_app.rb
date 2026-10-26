@@ -648,7 +648,7 @@ class SimApp < Funicular::Component
     if text.nil?
       return nil if texts.key?("fetching #{file}")
       texts["fetching #{file}"] = true
-      JS.global.fetch("../lib/#{file}", { cache: "no-store" }) do |response|
+      JS.global.fetch("#{JS.global[:REPO_ROOT].to_s}lib/#{file}", { cache: "no-store" }) do |response|
         begin
           texts[file] = response[:ok] ? response.text.await.to_s : "# #{file}: #{response[:status].to_i}"
         rescue Exception => e
@@ -836,7 +836,7 @@ class SimApp < Funicular::Component
 
   def load_example(path)
     device_only = path.start_with?("device:")
-    url = device_only ? "../examples/#{path[7, path.size - 7]}" : "examples/#{path}"
+    url = device_only ? "#{JS.global[:REPO_ROOT].to_s}examples/#{path[7, path.size - 7]}" : "examples/#{path}"
     # What a device-only sample looked like when loaded, for on_run. Only this
     # hash is touched inside the fetch's block (see draw_lib_code).
     device = (@device_example ||= {})

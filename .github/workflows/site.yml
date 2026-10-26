@@ -1,15 +1,16 @@
-# The board's guide (site/) with the console (sim/) inside it, for GitHub Pages.
+# The guide and the console are published by their own repositories,
+# picorubykaigi/adventure-board and picorubykaigi/adventure-board-console:
+# each has a workflow, started by hand, that calls build-guide.yml or
+# build-console.yml here and deploys the result to its GitHub Pages
+# (picorubykaigi.org/adventure-board/ and .../adventure-board-console/).
 #
-# Two jobs on purpose. `build` runs on every push to main and only checks that
-# the site still builds; what it makes stays inside Actions. `deploy` runs only
-# when started by hand with "GitHub Pages" ticked (Actions -> site -> Run
-# workflow), so nothing is published until someone means it. Publishing also needs the repository to be
-# public and Settings -> Pages -> Source set to GitHub Actions; see
-# site/README.md.
-#
-# Until then the team looks at it on Cloudflare Pages, behind Cloudflare
-# Access (the steps at the end of `build`). That copy is for the team only;
-# the public site is GitHub Pages.
+# This workflow does two smaller things:
+#   - on every push to main, builds both, to show that they still build
+#     (what they make stays inside Actions);
+#   - started by hand with "GitHub Pages" ticked, publishes this repository's
+#     own Pages (picorubykaigi.org/adventure-board-firmware/, where both
+#     lived until 2026-10-26) as pages that send visitors on to the new
+#     addresses. Source: site/old-url-redirect/. See site/README.md.
 name: site
 
 on:
@@ -29,10 +30,12 @@ on:
       - 'build_config/picoruby-wasm.rb'
       - 'tasks/site.rake'
       - '.github/workflows/site.yml'
+      - '.github/workflows/build-guide.yml'
+      - '.github/workflows/build-console.yml'
   workflow_dispatch:
     inputs:
       github_pages:
-        description: 'GitHub Pages にも出す（リポジトリを公開して Pages を有効にしたあと）'
+        description: 'GitHub Pages にも出す（古い URL から新しい URL へ送るページ）'
         type: boolean
         default: false
 
@@ -43,102 +46,30 @@ concurrency:
   group: site
   cancel-in-progress: true
 
-env:
-  # The emscripten that `rake sim:wasm` uses on the development machine.
-  EMSDK_VERSION: 6.0.6
-  SITE_BASE: /adventure-board-firmware/
-
 jobs:
-  build:
+  guide:
+    uses: ./.github/workflows/build-guide.yml
+    with:
+      ref: ${{ github.sha }}
+      artifact: guide
+
+  console:
+    uses: ./.github/workflows/build-console.yml
+    with:
+      ref: ${{ github.sha }}
+      artifact: console
+
+  redirect:
+    if: github.event_name == 'workflow_dispatch' && inputs.github_pages
     runs-on: ubuntu-latest
-    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
-
-      # Every submodule but the two that only the firmware needs (pico-sdk
-      # and its own submodules are most of the download).
-      - name: Submodules
-        run: |
-          paths=$(git config -f .gitmodules --get-regexp '\.path$' | awk '{print $2}' \
-            | grep -v -e 'picoruby-r2p2/lib/pico-sdk' -e 'picoruby-r2p2/lib/rp2040js')
-          git submodule update --init --recursive --depth 1 -- $paths
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-
-      - name: brotli
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends brotli
-
-      - uses: mymindstorm/setup-emsdk@v16
-        with:
-          version: ${{ env.EMSDK_VERSION }}
-          actions-cache-folder: emsdk-cache
-
-      # The same build as `rake sim:wasm`, without Docker: a PicoRuby.wasm
-      # with the drawing, font and LED gems, copied into sim/vendor.
-      - name: PicoRuby.wasm
-        run: |
-          PICOBOARD_WASM=1 CONFIG=picoruby-wasm rake
-          mkdir -p sim/vendor
-          for f in init.iife.js picoruby.js picoruby.wasm; do
-            cp mrbgems/picoruby-wasm/npm/picoruby/dist/$f sim/vendor/
-          done
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: site/package-lock.json
-
-      - name: Guide
-        working-directory: site
-        run: |
-          npm ci --no-fund --no-audit
-          npx vitepress build
-
-      # What `rake site:build` does after VitePress: the console and the
-      # files it reads beside it.
-      - name: Console
-        run: rake site:console
-
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site/.vitepress/dist
-
-      # The team's preview: the same site on Cloudflare Pages, behind
-      # Cloudflare Access, so that only the people let in can see it while
-      # the repository is private. Skipped until the secrets are set, and the
-      # secrets go in last, after Access guards the project (site/README.md).
-      - name: Cloudflare preview?
-        id: cloudflare
-        env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: if [ -n "$TOKEN" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; fi
-
-      # pages.dev serves the site at the root, so it is built again without
-      # the repository's name in front of every path.
-      - name: Guide and console for Cloudflare
-        if: steps.cloudflare.outputs.enabled == 'true'
-        env:
-          SITE_BASE: /
-        run: |
-          (cd site && npx vitepress build)
-          rake site:console
-
-      - name: Send to Cloudflare Pages
-        if: steps.cloudflare.outputs.enabled == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: >
-          npx --yes wrangler@4 pages deploy site/.vitepress/dist
-          --project-name="${{ vars.CLOUDFLARE_PROJECT || 'adventure-board' }}"
-          --branch=main --commit-dirty=true
+          path: site/old-url-redirect
 
   deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.github_pages
-    needs: build
+    needs: redirect
     runs-on: ubuntu-latest
     permissions:
       pages: write

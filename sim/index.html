@@ -155,6 +155,13 @@
                           background: #fbe3e5; color: var(--redd); border: 1px solid #f0a3ab; }
 </style>
 <script>
+// Where the rest of the repository is, for the files the page reads from it
+// (lib/, mrbgems/, examples/): beside sim/ in the repository and in the guide's
+// copy, and in repo/ when the console is published on its own
+// (`rake site:console_standalone` rewrites this line).
+window.REPO_ROOT = '../';
+</script>
+<script>
 // The size of the text in the code box, the library view, the note log and
 // the terminal: small / medium / large, kept per viewer in this browser.
 (function () {
@@ -483,7 +490,8 @@ window.queryParam = function (name) { return new URLSearchParams(location.search
 // driver's `require 'i2c'`, which has no gem to resolve to in the browser.
 (async function () {
   const status = document.getElementById('status');
-  const M = '../mrbgems/';
+  const R = window.REPO_ROOT;
+  const M = R + 'mrbgems/';
   const SOURCES = [
     'sim_panel.rb',
     // The breadboard: where things are on the board, the circuit solver, and
@@ -508,12 +516,12 @@ window.queryParam = function (name) { return new URLSearchParams(location.search
     // The board layer is a directory on the device and `require` pulls the
     // parts in; there is no filesystem here, so the page lists them itself,
     // ahead of the loader whose requires then find the classes already there.
-    '../lib/adventure_board/board.rb',
-    '../lib/adventure_board/led_matrix.rb',
-    '../lib/adventure_board/speaker.rb',
-    '../lib/adventure_board/status_led.rb',
-    '../lib/adventure_board/buttons.rb',
-    '../lib/adventure_board.rb',
+    R + 'lib/adventure_board/board.rb',
+    R + 'lib/adventure_board/led_matrix.rb',
+    R + 'lib/adventure_board/speaker.rb',
+    R + 'lib/adventure_board/status_led.rb',
+    R + 'lib/adventure_board/buttons.rb',
+    R + 'lib/adventure_board.rb',
     'sim_audio.rb',
     'sim_device.rb',
     'sim_board_view.rb',

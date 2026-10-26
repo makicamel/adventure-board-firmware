@@ -1,8 +1,14 @@
 import { defineConfig } from 'vitepress'
 
-// Published as a project page of the picorubykaigi organization, so it lives
-// under the repository's name. SITE_BASE overrides it (docker/compose.yml).
-const base = process.env.SITE_BASE || '/adventure-board-firmware/'
+// Published at picorubykaigi.org/adventure-board/ by the repository of that
+// name (its workflow calls .github/workflows/build-guide.yml here).
+// SITE_BASE overrides it (docker/compose.yml).
+const base = process.env.SITE_BASE || '/adventure-board/'
+
+// The console's own site (picorubykaigi.org/adventure-board-console/). Unset,
+// the links go to console/ beside the guide, which is where `rake site:build`
+// puts it for looking at locally. <ConsoleLink> reads the same variable.
+const consoleUrl = process.env.VITE_CONSOLE_URL || '/console/'
 
 export default defineConfig({
   lang: 'ja',
@@ -17,6 +23,14 @@ export default defineConfig({
   // The console (sim/) is copied in after the build by `rake site:build`,
   // so VitePress does not know it is there.
   ignoreDeadLinks: [/^\/console\//],
+
+  // The home page's button to the console is written as /console/ in its
+  // frontmatter, which cannot read the environment.
+  transformPageData(pageData) {
+    const actions = pageData.frontmatter.hero?.actions
+    if (!actions) return
+    for (const action of actions) if (action.link === '/console/') action.link = consoleUrl
+  },
 
   head: [
     // The fonts picorubykaigi.org and the console use (Google Fonts, OFL).
@@ -38,7 +52,7 @@ export default defineConfig({
       { text: 'はじめに', link: '/guide/' },
       { text: 'チュートリアル', link: '/tutorial/' },
       { text: 'リファレンス', link: '/reference/library' },
-      { text: 'コンソール', link: '/console/', target: '_blank' }
+      { text: 'コンソール', link: consoleUrl, target: '_blank' }
     ],
 
     sidebar: {

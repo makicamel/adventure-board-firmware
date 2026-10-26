@@ -121,7 +121,8 @@ services:
       - ..:/work
     environment:
       HOME: /tmp
-      SITE_BASE: ${SITE_BASE:-/adventure-board-firmware/}
+      SITE_BASE: ${SITE_BASE:-/adventure-board/}
+      VITE_CONSOLE_URL: ${VITE_CONSOLE_URL:-}
     ports:
       - "${SITE_PORT:-5173}:5173"
     command: ["npm", "run", "build"]

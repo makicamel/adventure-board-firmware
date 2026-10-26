@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  picorubykaigi.org/adventure-board-firmware/ until 2026-10-26. The guide is now
+  at /adventure-board/ and the console at /adventure-board-console/; this page
+  (as index.html and 404.html, so that every old address lands here) sends a
+  visitor to the same page there, query and all (?example=...).
+  Published by .github/workflows/site.yml.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Adventure Board は移動しました</title>
+<meta http-equiv="refresh" content="3; url=https://picorubykaigi.org/adventure-board/">
+<script>
+(function () {
+  var rest = location.pathname.replace(/^\/adventure-board-firmware/, '');
+  var to;
+  if (/^\/console(\/|$)/.test(rest)) {
+    to = 'https://picorubykaigi.org/adventure-board-console/' + rest.replace(/^\/console\/?/, '');
+  } else {
+    to = 'https://picorubykaigi.org/adventure-board' + (rest || '/');
+  }
+  location.replace(to + location.search + location.hash);
+})();
+</script>
+<style>
+  body { font-family: sans-serif; background: #fff; color: #222; margin: 0; padding: 32px 16px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<p>Adventure Board の使い方のページは移動しました。</p>
+<ul>
+  <li>使い方とチュートリアル: <a href="https://picorubykaigi.org/adventure-board/">https://picorubykaigi.org/adventure-board/</a></li>
+  <li>コンソール: <a href="https://picorubykaigi.org/adventure-board-console/">https://picorubykaigi.org/adventure-board-console/</a></li>
+</ul>
+</body>
+</html>

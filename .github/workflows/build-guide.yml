@@ -1,0 +1,49 @@
+# The board's guide (site/), built for picorubykaigi.org/adventure-board/.
+#
+# Called by picorubykaigi/adventure-board, whose own workflow then deploys
+# what this uploads to its GitHub Pages, and by site.yml here to check that
+# the guide still builds. The console is not inside it: the links to it go
+# to picorubykaigi.org/adventure-board-console/ (build-console.yml).
+name: build-guide
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'adventure-board-firmware のブランチ・タグ・コミット'
+        type: string
+        default: main
+      artifact:
+        description: 'アップロードする成果物の名前（Pages に出すなら github-pages）'
+        type: string
+        default: github-pages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: picorubykaigi/adventure-board-firmware
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Guide
+        working-directory: site
+        env:
+          SITE_BASE: /adventure-board/
+          VITE_CONSOLE_URL: https://picorubykaigi.org/adventure-board-console/
+        run: |
+          npm ci --no-fund --no-audit
+          npx vitepress build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: site/.vitepress/dist

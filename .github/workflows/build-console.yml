@@ -1,0 +1,72 @@
+# Adventure Board Console (sim/) as a site of its own, built for
+# picorubykaigi.org/adventure-board-console/.
+#
+# Called by picorubykaigi/adventure-board-console, whose own workflow then
+# deploys what this uploads to its GitHub Pages, and by site.yml here to check
+# that the console still builds. The page sits at the top and the files it
+# reads from the repository go in repo/ (`rake site:console_standalone`).
+name: build-console
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'adventure-board-firmware のブランチ・タグ・コミット'
+        type: string
+        default: main
+      artifact:
+        description: 'アップロードする成果物の名前（Pages に出すなら github-pages）'
+        type: string
+        default: github-pages
+
+env:
+  # The emscripten that `rake sim:wasm` uses on the development machine.
+  EMSDK_VERSION: 6.0.6
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: picorubykaigi/adventure-board-firmware
+          ref: ${{ inputs.ref }}
+
+      # Every submodule but the two that only the firmware needs (pico-sdk
+      # and its own submodules are most of the download).
+      - name: Submodules
+        run: |
+          paths=$(git config -f .gitmodules --get-regexp '\.path$' | awk '{print $2}' \
+            | grep -v -e 'picoruby-r2p2/lib/pico-sdk' -e 'picoruby-r2p2/lib/rp2040js')
+          git submodule update --init --recursive --depth 1 -- $paths
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - name: brotli
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends brotli
+
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      # The same build as `rake sim:wasm`, without Docker: a PicoRuby.wasm
+      # with the drawing, font and LED gems, copied into sim/vendor.
+      - name: PicoRuby.wasm
+        run: |
+          PICOBOARD_WASM=1 CONFIG=picoruby-wasm rake
+          mkdir -p sim/vendor
+          for f in init.iife.js picoruby.js picoruby.wasm; do
+            cp mrbgems/picoruby-wasm/npm/picoruby/dist/$f sim/vendor/
+          done
+
+      - name: Console
+        run: rake site:console_standalone OUT="$RUNNER_TEMP/console"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/console
