@@ -3,7 +3,7 @@ module LinkPong
     MISS_BLINKS = 3
     HELD_DOTS   = 2                      # 上下を押し続けたとき 1 フレームに動くドット数
 
-    def initialize(matrix, buttons, sound)
+    def initialize(matrix, buttons, sound, sideways)
       @buttons = buttons
       @sound = sound
       @buttons.clear_presses
@@ -11,11 +11,11 @@ module LinkPong
       @court.draw
       @player = Paddle.new(
         @court, @court.left - 1, @court.middle,
-        columns: (@court.left - 1)..(Court::NET_X - 1),
+        columns: @court.left_columns(sideways),
       )
       @cpu = AutoPaddle.new(
         @court, @court.right + 1, @court.middle,
-        columns: (Court::NET_X + 1)..(@court.right + 1),
+        columns: @court.right_columns(sideways),
         frames_per_dot: 1,
       )
       @ball = new_ball

@@ -16,6 +16,10 @@ module LinkPong
 
     def middle = (@top + @bottom) / 2
 
+    def left_columns(sideways) = (@left - 1)..(sideways ? NET_X - 1 : @left - 1)
+
+    def right_columns(sideways) = (sideways ? NET_X + 1 : @right + 1)..(@right + 1)
+
     def set(x, y, brightness)
       @matrix.set(x, y, brightness)
     end
