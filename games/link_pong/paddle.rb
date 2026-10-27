@@ -15,6 +15,10 @@ module LinkPong
       @middle - HALF_LENGTH <= y && y <= @middle + HALF_LENGTH
     end
 
+    def middle_at?(y)
+      @middle == y
+    end
+
     def movable?(dy)
       clamp(@middle + dy) != @middle
     end

@@ -43,7 +43,7 @@ module LinkPong
 
     def cpu_error
       if rand(CPU_ERRS_ONE_IN) != 0
-        0
+        rand(Paddle::HALF_LENGTH * 2 + 1) - Paddle::HALF_LENGTH
       elsif rand(2) == 0
         -CPU_ERROR
       else
@@ -58,8 +58,13 @@ module LinkPong
         @sound.move
       end
       if @ball.will_go_out? && receiver.covers?(@ball.y)
-        @ball.bounce
-        @sound.hit
+        if receiver.middle_at?(@ball.y)
+          @ball.smash
+          @sound.smash
+        else
+          @ball.bounce
+          @sound.hit
+        end
         @cpu.head_for(@ball.y_at_receiving_paddle + cpu_error) if receiver.equal?(@cpu)
       end
       @sound.wall if @ball.will_hit_wall?

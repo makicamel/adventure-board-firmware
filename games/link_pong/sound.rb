@@ -5,6 +5,7 @@ module LinkPong
     MOVE_NOTE     = 48                   # プレイヤーがパドルを動かした音
     MOVE_VELOCITY = 40                   # 動かした音は小さく（ほかは 100）
     BEEP_MS       = 40
+    SMASH_MML     = "t240 v15 o6 l64 c g > c e g"
     MISS_MML      = "t150 o4 l16 c <g e c"
     WIN_MML       = "t150 o5 l16 c e g > c"
     LOSE_MML      = "t100 o4 l8 e d c"
@@ -17,6 +18,8 @@ module LinkPong
     end
 
     def hit = beep(HIT_NOTE)
+
+    def smash = @speaker.play_mml(SMASH_MML)
 
     def wall = beep(WALL_NOTE)
 
