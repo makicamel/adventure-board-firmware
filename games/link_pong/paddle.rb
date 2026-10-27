@@ -70,10 +70,12 @@ module LinkPong
       @frames = 0
     end
 
-    def head_for(y)
+    # frames を渡すと、行き過ぎて戻るのがその間に合わないときは、まっすぐ向かう
+    def head_for(y, frames: nil)
       target = clamp(y)
       overshoot = @middle < target ? target + 1 : target - 1
-      @waypoints = reachable?(overshoot) ? [overshoot, target] : [target]
+      in_time = frames.nil? || ((target - @middle).abs + 2) * @frames_per_dot <= frames
+      @waypoints = reachable?(overshoot) && in_time ? [overshoot, target] : [target]
       @frames = 0
     end
 

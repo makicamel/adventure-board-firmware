@@ -7,8 +7,7 @@ module LinkPong
     BEEP_MS       = 40
     SMASH_MML     = "t240 v15 o6 l64 c g > c e g"
     MISS_MML      = "t150 o4 l16 c <g e c"
-    WIN_MML       = "t150 o5 l16 c e g > c"
-    LOSE_MML      = "t100 o4 l8 e d c"
+    RESULT_MML    = "t150 o5 l16 c e g > c"
 
     def initialize(speaker)
       @speaker = speaker
@@ -27,9 +26,7 @@ module LinkPong
 
     def miss = @speaker.play_mml(MISS_MML)
 
-    def win = @speaker.play_mml(WIN_MML)
-
-    def lose = @speaker.play_mml(LOSE_MML)
+    def result = @speaker.play_mml(RESULT_MML)
 
     def stop = @speaker.stop
 

@@ -14,6 +14,6 @@ buttons = AdventureBoard.buttons
 sound = LinkPong::Sound.new(AdventureBoard.speaker)
 while true
   LinkPong::Title.new(matrix, buttons).run
-  won = LinkPong::Game.new(matrix, buttons, sound).run
-  LinkPong::Result.new(matrix, buttons, sound, won).run
+  returns = LinkPong::Game.new(matrix, buttons, sound).run
+  LinkPong::Result.new(matrix, buttons, sound, returns).run
 end

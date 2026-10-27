@@ -1,8 +1,6 @@
 module LinkPong
   class Game
-    MISS_BLINKS     = 3
-    CPU_ERRS_ONE_IN = 5
-    CPU_ERROR       = Paddle::HALF_LENGTH + 1
+    MISS_BLINKS = 3
 
     def initialize(matrix, buttons, sound)
       @buttons = buttons
@@ -13,7 +11,8 @@ module LinkPong
       @player = Paddle.new(@court, @court.left - 1, @court.middle)
       @cpu = AutoPaddle.new(@court, @court.right + 1, @court.middle, frames_per_dot: 1)
       @ball = new_ball
-      @cpu.head_for(@ball.y_at_receiving_paddle + cpu_error)
+      @cpu.head_for(@ball.y_at_receiving_paddle + cpu_offset, frames: @ball.frames_to_receiving_paddle)
+      @returns = 0
       @court.flush
     end
 
@@ -25,7 +24,7 @@ module LinkPong
           if @ball.out?
             @sound.miss
             show_miss
-            return player_won?
+            return @returns
           end
           @court.flush
           next_at += @ball.interval
@@ -41,14 +40,9 @@ module LinkPong
       Ball.new(@court, @court.left, y, 1, rand(2) == 0 ? -1 : 1)
     end
 
-    def cpu_error
-      if rand(CPU_ERRS_ONE_IN) != 0
-        rand(Paddle::HALF_LENGTH * 2 + 1) - Paddle::HALF_LENGTH
-      elsif rand(2) == 0
-        -CPU_ERROR
-      else
-        CPU_ERROR
-      end
+    # CPU がパドルのどこで受けるか。真ん中ならスマッシュになる
+    def cpu_offset
+      rand(Paddle::HALF_LENGTH * 2 + 1) - Paddle::HALF_LENGTH
     end
 
     def tick
@@ -58,6 +52,7 @@ module LinkPong
         @sound.move
       end
       if @ball.will_go_out? && receiver.covers?(@ball.y)
+        @returns += 1 if receiver.equal?(@player)
         if receiver.middle_at?(@ball.y)
           @ball.smash
           @sound.smash
@@ -65,7 +60,9 @@ module LinkPong
           @ball.bounce
           @sound.hit
         end
-        @cpu.head_for(@ball.y_at_receiving_paddle + cpu_error) if receiver.equal?(@cpu)
+        if receiver.equal?(@cpu)
+          @cpu.head_for(@ball.y_at_receiving_paddle + cpu_offset, frames: @ball.frames_to_receiving_paddle)
+        end
       end
       @sound.wall if @ball.will_hit_wall?
       @ball.move
@@ -110,10 +107,6 @@ module LinkPong
         sleep_ms 200
         i += 1
       end
-    end
-
-    def player_won?
-      @court.right < @ball.x
     end
   end
 end

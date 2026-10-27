@@ -61,6 +61,11 @@ module LinkPong
       draw
     end
 
+    def frames_to_receiving_paddle
+      goal = @dx < 0 ? @court.left : @court.right
+      (goal - @x).abs
+    end
+
     def y_at_receiving_paddle
       goal = @dx < 0 ? @court.left : @court.right
       x = @x
