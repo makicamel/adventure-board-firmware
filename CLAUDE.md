@@ -335,6 +335,9 @@ canvas はハートビートで仮想チップを映すので、コード側か�
   （`require 'adventure_board/led_matrix'`）。隠さないこと——
   何を読み込んでいるかはサンプルが教えることの一部で、実費でもある。
   `Board` 側は構築だけ遅延させる（使わないハードを起こさない）
+- **終わった `Task` は `close` するまでメモリに残る**（1 つ約 1.3KB。GC では回収されない作り）。`MML::Player#start` は曲ごとに Task を作って
+  `close` しないので、`play_mml` をくり返すといずれ `NoMemoryError`。量産基板のファームはもう直せないので、`/lib` の `Speaker` で直す
+  （[dev-docs/device-bringup/task-memory.md](dev-docs/device-bringup/task-memory.md)）
 - **サンプルの時間は `sleep_ms` の回数ではなく時計（`Machine.uptime_us`）で決める。** 1 コマの描画時間がビルド
   （debug / prod）とシミュレータで数倍違うので、回数で作った曲はビルドを変えると速さが変わる（`sound_and_light.rb` で実際に起きた）
 - **サンプルは require 1 本ごとに `GC.start` を呼ぶ。** `require.rb` は
