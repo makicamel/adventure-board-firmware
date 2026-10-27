@@ -5,10 +5,10 @@ module LinkPong
       @buttons.clear_presses
       @court = TitleCourt.new(matrix)
       @court.draw
-      @left = AutoPaddle.new(@court, @court.left - 1, @court.top + 1)
-      @right = AutoPaddle.new(@court, @court.right + 1, @court.top + 1)
+      @left = AutoPaddle.new(@court, @court.left - 1, @court.top + 1, columns: (@court.left - 1)..(Court::NET_X - 1))
+      @right = AutoPaddle.new(@court, @court.right + 1, @court.top + 1, columns: (Court::NET_X + 1)..(@court.right + 1))
       @ball = new_ball
-      receiver.head_for(@ball.y_at_receiving_paddle)
+      receiver.receive(@ball)
       @court.flush
     end
 
@@ -42,17 +42,23 @@ module LinkPong
     end
 
     def tick
-      if @ball.will_go_out? && receiver.covers?(@ball.y)
+      if receiver.meets?(@ball)
+        hitter = receiver
         @ball.bounce
-        receiver.head_for(@ball.y_at_receiving_paddle)
+        receiver.receive(@ball)
+        hitter.drift(@ball)
       end
       @ball.move
       if @ball.out?
         @court.redraw_background(@ball.x, @ball.y)
         @ball = new_ball
-        receiver.head_for(@ball.y_at_receiving_paddle)
+        receiver.receive(@ball)
       end
-      receiver.tick
+      @left.tick
+      @right.tick
+      @ball.redraw
+      @left.redraw
+      @right.redraw
     end
   end
 end

@@ -1,6 +1,7 @@
 module LinkPong
   class Game
     MISS_BLINKS = 3
+    HELD_DOTS   = 2                      # 上下を押し続けたとき 1 フレームに動くドット数
 
     def initialize(matrix, buttons, sound)
       @buttons = buttons
@@ -8,10 +9,17 @@ module LinkPong
       @buttons.clear_presses
       @court = GameCourt.new(matrix)
       @court.draw
-      @player = Paddle.new(@court, @court.left - 1, @court.middle)
-      @cpu = AutoPaddle.new(@court, @court.right + 1, @court.middle, frames_per_dot: 1)
+      @player = Paddle.new(
+        @court, @court.left - 1, @court.middle,
+        columns: (@court.left - 1)..(Court::NET_X - 1),
+      )
+      @cpu = AutoPaddle.new(
+        @court, @court.right + 1, @court.middle,
+        columns: (Court::NET_X + 1)..(@court.right + 1),
+        frames_per_dot: 1,
+      )
       @ball = new_ball
-      @cpu.head_for(@ball.y_at_receiving_paddle + cpu_offset, frames: @ball.frames_to_receiving_paddle)
+      @cpu.receive(@ball, offset: cpu_offset)
       @returns = 0
       @court.flush
     end
@@ -46,13 +54,14 @@ module LinkPong
     end
 
     def tick
-      dy = player_dy
-      if @player.movable?(dy)
-        @player.move(dy)
+      dx, dy = player_direction
+      if @player.movable?(dx, dy)
+        @player.move(dx, dy)
         @sound.move
       end
-      if @ball.will_go_out? && receiver.covers?(@ball.y)
-        @returns += 1 if receiver.equal?(@player)
+      if receiver.meets?(@ball)
+        hitter = receiver
+        @returns += 1 if hitter.equal?(@player)
         if receiver.middle_at?(@ball.y)
           @ball.smash
           @sound.smash(@ball.smash_chain)
@@ -60,35 +69,40 @@ module LinkPong
           @ball.bounce
           @sound.hit
         end
-        if receiver.equal?(@cpu)
-          @cpu.head_for(@ball.y_at_receiving_paddle + cpu_offset, frames: @ball.frames_to_receiving_paddle)
+        if hitter.equal?(@player)
+          @cpu.receive(@ball, offset: cpu_offset)
+        else
+          @cpu.drift(@ball)
         end
       end
       @sound.wall if @ball.will_hit_wall?
       @ball.move
       @cpu.tick
+      @ball.redraw
+      @player.redraw
+      @cpu.redraw
       @sound.tick
     end
 
-    def player_dy
-      dy = dy_from_presses
-      dy = dy_from_held if dy == 0
-      dy
-    end
-
-    def dy_from_presses
-      dy = 0
+    # 短く押したのも取りこぼさないように、押した回数（each_press）を先に見る
+    def player_direction
+      pressed_dx = 0
+      pressed_dy = 0
       @buttons.each_press do |name|
-        dy = -1 if name == :up
-        dy = 1 if name == :down
+        pressed_dx = -1 if name == :left
+        pressed_dx = 1 if name == :right
+        pressed_dy = -1 if name == :up
+        pressed_dy = 1 if name == :down
       end
-      dy
+      dx = pressed_dx == 0 ? held_direction(:left, :right) : pressed_dx
+      dy = pressed_dy == 0 ? held_direction(:up, :down) * HELD_DOTS : pressed_dy
+      [dx, dy]
     end
 
-    def dy_from_held
-      if @buttons.pressed?(:up)
+    def held_direction(minus, plus)
+      if @buttons.pressed?(minus)
         -1
-      elsif @buttons.pressed?(:down)
+      elsif @buttons.pressed?(plus)
         1
       else
         0

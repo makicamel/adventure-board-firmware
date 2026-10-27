@@ -2,6 +2,7 @@ module LinkPong
   class Court
     OFF        = 0
     NET_BRIGHT = 0x18
+    NET_X      = LedMatrix::WIDTH / 2 + 1
 
     attr_reader :top, :bottom, :left, :right
 
@@ -86,8 +87,6 @@ module LinkPong
   end
 
   class GameCourt < Court
-    NET_X = LedMatrix::WIDTH / 2 + 1
-
     def initialize(matrix)
       super(matrix, top: 1, bottom: LedMatrix::HEIGHT, left: 2, right: LedMatrix::WIDTH - 1)
     end

@@ -29,10 +29,6 @@ module LinkPong
       @bounced = false
     end
 
-    def will_go_out?
-      @x + @dx < @court.left || @court.right < @x + @dx
-    end
-
     def will_hit_wall?
       (@frames + 1) % X_STEPS_PER_Y == 0 && (@y + @dy < @court.top || @court.bottom < @y + @dy)
     end
@@ -66,18 +62,19 @@ module LinkPong
       draw
     end
 
-    def frames_to_receiving_paddle
-      goal = @dx < 0 ? @court.left : @court.right
-      (goal - @x).abs
+    # ボールが column の列のパドルの前に着くまでのフレーム数
+    def frames_until(column)
+      (column - @dx - @x).abs
     end
 
-    def y_at_receiving_paddle
-      goal = @dx < 0 ? @court.left : @court.right
+    # ボールが column の列のパドルの前に着くときの y
+    def y_at(column)
+      goal = column - @dx
       x = @x
       y = @y
       dy = @dy
       frames = @frames
-      while x != goal
+      while short_of?(goal, x)
         x += @dx
         frames += 1
         if frames % X_STEPS_PER_Y == 0
@@ -88,7 +85,11 @@ module LinkPong
       y
     end
 
+    def redraw = draw
+
     private
+
+    def short_of?(goal, x) = (goal - x) * @dx > 0
 
     def turn_back(interval, smashed)
       @dx = -@dx
