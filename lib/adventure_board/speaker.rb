@@ -19,6 +19,7 @@ class Speaker
     @router = MIDIBASE::Router.new
     @router.connect(:mml, sink)
     @player = nil
+    @task = nil
     @pan = pan
     @channels = 0   # how many channels anything has been sent on so far
     use_channels(1)
@@ -67,7 +68,12 @@ class Speaker
       clock: MIDIBASE::MML::InternalClock.new,
       output: @router.output(:mml)
     )
-    @player.start
+    # Not Player#start: it makes a Task nobody closes, and a Task that has
+    # finished stays in the heap until it is closed, so a program playing
+    # short pieces over and over runs out of it. This one is closed when the
+    # next piece starts or the speaker stops (halt), so at most one is left.
+    player = @player
+    @task = Task.new(name: "Speaker") { player.run }
     self
   end
 
@@ -100,6 +106,9 @@ class Speaker
     player = @player
     player.stop if player
     @player = nil
+    task = @task
+    task.close if task
+    @task = nil
     ch = 0
     while ch < @channels
       all_notes_off(channel: ch)

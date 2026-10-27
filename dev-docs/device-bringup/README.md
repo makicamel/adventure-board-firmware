@@ -6,7 +6,7 @@ Pico 2 W（基板が来るまでの開発機）に R2P2 を焼いて、実際に
 |---|---|
 | [flashing-from-wsl.md](flashing-from-wsl.md) | **WSL から RP2350 を焼いてデバッグする。** usbipd、tty、openocd のリセット、BOOTSEL からの復旧、ファームが黙って死ぬ場所。この repo に限らず使える話 |
 | [require-memory.md](require-memory.md) | **PicoRuby で `require` はいくらかかるか。** `/lib` のライブラリが読めなかった件の計測と、そこから決めた設計 |
-| [task-memory.md](task-memory.md) | **終わった Task はメモリに残る。** `Task#close` するまで解放されない作り。`play_mml` をくり返すと `NoMemoryError` になる件の原因と、`/lib` の差し替えだけで直す案。検証は [scripts/task_close_check.rb](scripts/task_close_check.rb) |
+| [task-memory.md](task-memory.md) | **終わった Task はメモリに残る。** `Task#close` するまで解放されない作り。`play_mml` をくり返すと `NoMemoryError` になる件の原因と、`/lib` の `Speaker` だけで直した方法と、実機での測定 |
 | [probe-workflow.md](probe-workflow.md) | **Debug Probe だけで基板を触る手順書。** 繋ぐ・渡す・焼く・触る・切り分ける・落とし穴。USB が無いときの標準手順 |
 | [r1-board.md](r1-board.md) | **r1 試作基板の初回ブリングアップ。** USB が死んでいる基板に J2 から焼いて UART で起動ログを見るまで。halt が効かない件 |
 | [pv1-board.md](pv1-board.md) | **PV1 基板（r1 の次の版）。** USB から UF2 で焼く手順と、r1 で問題だった USB 接続と音が PV1 でも問題ないことの確認 |
