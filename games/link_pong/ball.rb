@@ -7,10 +7,13 @@ module LinkPong
     X_STEPS_PER_Y = 2                    # 大きいほど角度が浅い
     FAST_MS       = 55                   # 打ち返した直後は 55ms で 1 ドット進む
     SMASH_MS      = 35
+    SMASH_SPEEDUP_MS = 5                 # スマッシュをスマッシュで返すたびに縮める長さ
+    FASTEST_MS    = 20
     SLOW_MS       = 80                   # 減速しきると 80ms で 1 ドット進む
     SLOWDOWN_MS   = 2                    # 1 フレームごとの減速
 
     attr_reader :x, :y, :dx, :interval    # interval は次のフレームまでの長さ
+    attr_reader :smash_chain              # スマッシュが何回続いたか。最初のスマッシュは 0
 
     def initialize(court, x, y, dx, dy)
       @court = court
@@ -21,6 +24,7 @@ module LinkPong
       @frames = 0
       @interval = FAST_MS
       @smashed = false
+      @smash_chain = 0
       @halo_on_screen = false
       @bounced = false
     end
@@ -38,7 +42,8 @@ module LinkPong
     end
 
     def smash
-      turn_back(SMASH_MS, true)
+      @smash_chain = @smashed ? @smash_chain + 1 : 0
+      turn_back([SMASH_MS - SMASH_SPEEDUP_MS * @smash_chain, FASTEST_MS].max, true)
     end
 
     def out?

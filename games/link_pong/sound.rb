@@ -6,6 +6,7 @@ module LinkPong
     MOVE_VELOCITY = 40                   # 動かした音は小さく（ほかは 100）
     BEEP_MS       = 40
     SMASH_MML     = "t240 v15 o6 l64 c g > c e g"
+    SMASH_RISE    = 2                    # スマッシュが続くたびに上げる半音の数
     MISS_MML      = "t150 o4 l16 c <g e c"
     RESULT_MML    = "t150 o5 l16 c e g > c"
 
@@ -18,7 +19,7 @@ module LinkPong
 
     def hit = beep(HIT_NOTE)
 
-    def smash = @speaker.play_mml(SMASH_MML)
+    def smash(chain) = @speaker.play_mml("k+#{chain * SMASH_RISE} #{SMASH_MML}")
 
     def wall = beep(WALL_NOTE)
 

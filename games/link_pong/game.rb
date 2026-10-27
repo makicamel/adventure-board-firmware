@@ -55,7 +55,7 @@ module LinkPong
         @returns += 1 if receiver.equal?(@player)
         if receiver.middle_at?(@ball.y)
           @ball.smash
-          @sound.smash
+          @sound.smash(@ball.smash_chain)
         else
           @ball.bounce
           @sound.hit
