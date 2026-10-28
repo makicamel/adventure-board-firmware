@@ -11,9 +11,15 @@ module LinkPong
     FASTEST_MS    = 20
     SLOW_MS       = 80                   # 減速しきると 80ms で 1 ドット進む
     SLOWDOWN_MS   = 2                    # 1 フレームごとの減速
+    MISS_BLINKS   = 3
 
     attr_reader :x, :y, :dx, :interval    # interval は次のフレームまでの長さ
     attr_reader :smash_chain              # スマッシュが何回続いたか。最初のスマッシュは 0
+
+    def self.serve(court)
+      y = court.top + 2 + rand(court.bottom - court.top - 3)
+      new(court, court.left, y, 1, rand(2) == 0 ? -1 : 1)
+    end
 
     def initialize(court, x, y, dx, dy)
       @court = court
@@ -86,6 +92,16 @@ module LinkPong
     end
 
     def redraw = draw
+
+    def blink
+      i = 0
+      while i < MISS_BLINKS * 2
+        @court.set(@x, @y, i % 2 == 0 ? ON : Court::OFF)
+        @court.flush
+        sleep_ms 200
+        i += 1
+      end
+    end
 
     private
 

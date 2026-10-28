@@ -1,7 +1,6 @@
 module LinkPong
   class Game
-    MISS_BLINKS = 3
-    HELD_DOTS   = 2                      # 上下を押し続けたとき 1 フレームに動くドット数
+    include Controls
 
     def initialize(matrix, buttons, sound, sideways)
       @buttons = buttons
@@ -18,7 +17,7 @@ module LinkPong
         columns: @court.right_columns(sideways),
         frames_per_dot: 1,
       )
-      @ball = new_ball
+      @ball = Ball.serve(@court)
       @cpu.receive(@ball, offset: cpu_offset)
       @returns = 0
       @court.flush
@@ -31,7 +30,7 @@ module LinkPong
           tick
           if @ball.out?
             @sound.miss
-            show_miss
+            @ball.blink
             return @returns
           end
           @court.flush
@@ -42,11 +41,6 @@ module LinkPong
     end
 
     private
-
-    def new_ball
-      y = @court.top + 2 + rand(@court.bottom - @court.top - 3)
-      Ball.new(@court, @court.left, y, 1, rand(2) == 0 ? -1 : 1)
-    end
 
     # CPU がパドルのどこで受けるか。真ん中ならスマッシュになる
     def cpu_offset
@@ -84,43 +78,8 @@ module LinkPong
       @sound.tick
     end
 
-    # 短く押したのも取りこぼさないように、押した回数（each_press）を先に見る
-    def player_direction
-      pressed_dx = 0
-      pressed_dy = 0
-      @buttons.each_press do |name|
-        pressed_dx = -1 if name == :left
-        pressed_dx = 1 if name == :right
-        pressed_dy = -1 if name == :up
-        pressed_dy = 1 if name == :down
-      end
-      dx = pressed_dx == 0 ? held_direction(:left, :right) : pressed_dx
-      dy = pressed_dy == 0 ? held_direction(:up, :down) * HELD_DOTS : pressed_dy
-      [dx, dy]
-    end
-
-    def held_direction(minus, plus)
-      if @buttons.pressed?(minus)
-        -1
-      elsif @buttons.pressed?(plus)
-        1
-      else
-        0
-      end
-    end
-
     def receiver
       @ball.dx < 0 ? @player : @cpu
-    end
-
-    def show_miss
-      i = 0
-      while i < MISS_BLINKS * 2
-        @court.set(@ball.x, @ball.y, i % 2 == 0 ? Ball::ON : Court::OFF)
-        @court.flush
-        sleep_ms 200
-        i += 1
-      end
     end
   end
 end
