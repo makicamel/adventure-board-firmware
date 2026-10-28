@@ -1,5 +1,7 @@
 module LinkPong
   class Title
+    include Screen
+
     def initialize(matrix, buttons)
       @buttons = buttons
       @buttons.clear_presses
@@ -33,12 +35,6 @@ module LinkPong
 
     def receiver
       @ball.dx < 0 ? @left : @right
-    end
-
-    def any_button_pressed?
-      pressed = false
-      @buttons.each_press { pressed = true }
-      pressed
     end
 
     def tick

@@ -8,6 +8,8 @@ module LinkPong
     PLAYERS_TOP    = 3
     LEVEL_TOP      = 10
 
+    include Screen
+
     attr_reader :players
 
     def initialize(matrix, buttons)
@@ -45,18 +47,18 @@ module LinkPong
     private
 
     def draw
-      @matrix.clear
-      draw_option("1P", LEFT_OPTION_X, PLAYERS_TOP, @players == 1, @on_players)
-      draw_option("2P", RIGHT_OPTION_X, PLAYERS_TOP, @players == 2, @on_players)
-      draw_option("N", LEFT_OPTION_X, LEVEL_TOP, !@hard, !@on_players)
-      draw_option("H", RIGHT_OPTION_X, LEVEL_TOP, @hard, !@on_players)
-      @matrix.show
+      repaint do
+        draw_option("1P", LEFT_OPTION_X, PLAYERS_TOP, @players == 1, @on_players)
+        draw_option("2P", RIGHT_OPTION_X, PLAYERS_TOP, @players == 2, @on_players)
+        draw_option("N", LEFT_OPTION_X, LEVEL_TOP, !@hard, !@on_players)
+        draw_option("H", RIGHT_OPTION_X, LEVEL_TOP, @hard, !@on_players)
+      end
     end
 
     def draw_option(text, left, top, chosen, on_this_row)
       width = Font.width(text)
       x = left + (OPTION_WIDTH - width) / 2
-      Font.draw(@matrix, text, x, top, chosen ? CHOSEN : UNCHOSEN)
+      draw_text(text, x, top, chosen ? CHOSEN : UNCHOSEN)
       draw_underline(x, top + Font::HEIGHT + 1, width) if chosen && on_this_row
     end
 

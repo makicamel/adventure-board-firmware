@@ -1,6 +1,7 @@
 require 'adventure_board'
 GC.start
 
+require_relative 'screen'
 require_relative 'court'
 require_relative 'ball'
 require_relative 'paddle'
