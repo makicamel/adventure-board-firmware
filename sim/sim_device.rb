@@ -18,9 +18,11 @@ class DeviceLink
   STX = 0x02
   ACK = 0x06
 
+  FILE_READ  = 0x01
   FILE_WRITE = 0x02
   CHUNK      = 0x04
   ABORT      = 0xFF
+  FILE_DATA  = 0x81
   FILE_ACK   = 0x82
   CHUNK_ACK  = 0x84
   DONE_ACK   = 0x8F
@@ -34,7 +36,39 @@ class DeviceLink
   TIMEOUT_MS  = 5000
 
   RUN_PATH = "/home/run.rb"   # what "実機で実行" runs; nothing runs it later
+  OPS_PATH = "/home/lib_ops.rb"   # the page's file operations; removes itself
+  OPS_DONE = "[lib_ops] done"
+  # The start of what DeviceLink#file_ops sends. The board's File.rename
+  # will not write over a file (it says so and returns), so the old one is
+  # moved aside first and put back if the new one does not take its place.
+  OPS_HEADER = <<~RUBY
+    # Written by the console page. It removes itself.
+    def remove_file(path)
+      File.unlink(path) if File.exist?(path)
+    rescue => e
+      puts "rm \#{path}: \#{e.message}"
+    end
+
+    def replace_file(from, to)
+      old = to + ".old"
+      remove_file(old)
+      File.rename(to, old) if File.exist?(to)
+      File.rename(from, to)
+      if File.exist?(to)
+        remove_file(old)
+      elsif File.exist?(old)
+        File.rename(old, to)
+      end
+    rescue => e
+      puts "mv \#{from}: \#{e.message}"
+    end
+
+  RUBY
   APP_PATH = "/home/app.rb"   # what R2P2 runs at every start
+
+  # The firmware's record of the /lib it wrote. Gone, the firmware writes
+  # /lib again at the next start (system_files.c).
+  SYSTEM_STAMP = "/etc/adventure-board-files"
 
   # What `clear_app` leaves in APP_PATH: a board that starts with this comes
   # up idle, at its prompt.
@@ -56,6 +90,8 @@ class DeviceLink
     @returning = false
     @probe = nil
     @seen_ports = nil
+    @last_text = nil     # what the text capture held when the last wait ended
+    @board_said_error = false   # the last transfer ended with the board's ERROR
   end
 
   def connected?
@@ -63,10 +99,14 @@ class DeviceLink
   end
 
   # Keys from the terminal. Dropped while the page itself is talking to the
-  # board, so a transfer is not interleaved with typing.
+  # board, so a transfer is not interleaved with typing -- except the
+  # terminal's answer to "where is the cursor?" (ESC [ row ; col R). The
+  # shell's line editor asks that every time it redraws the line, and waits
+  # up to 500ms for the answer, throwing away what else comes in meanwhile.
   def type(text)
     port = @port
-    return nil if port.nil? || @busy
+    return nil if port.nil?
+    return nil if @busy && !cursor_report?(text)
     port.write(text)
     nil
   end
@@ -132,6 +172,134 @@ class DeviceLink
     end
   end
 
+  # Brings the board's library up to what this page has. `files` is
+  # [[path on the board, contents], ...]. Returns the paths it rewrote and the
+  # .mrb files it removed; both empty means the board was up to date, and then
+  # nothing is touched. Otherwise the board restarts at the end: what it has
+  # already loaded is still in memory.
+  #
+  # Every changed file is written beside its old self first, as <path>.new,
+  # and only once all of them are there are they moved into place. PicoModem
+  # deletes a file before writing it, so writing over it directly would leave
+  # the board without that file if the line dropped half way. A failure while
+  # writing takes the .new files away again and leaves the library as it was.
+  #
+  # A .mrb beside a library file goes too: `require` reads it before the .rb,
+  # so it would hide the new one.
+  def update_library(files)
+    changed = []
+    shadows = []
+    board_version = nil
+    talking do
+      interrupt
+      i = 0
+      while i < files.size
+        path = files[i][0]
+        text = download(path)
+        board_version = DeviceLink.version_in(text) if path == "/lib/adventure_board.rb"
+        changed << files[i] unless text == files[i][1]
+        shadow = "#{path[0, path.size - 3]}.mrb"
+        shadows << shadow if download(shadow)
+        i += 1
+      end
+      unless changed.empty? && shadows.empty?
+        stage(changed)
+        ops = []
+        i = 0
+        while i < changed.size
+          ops << [:replace, "#{changed[i][0]}.new", changed[i][0]]
+          i += 1
+        end
+        i = 0
+        while i < shadows.size
+          ops << [:remove, shadows[i]]
+          i += 1
+        end
+        file_ops(ops)
+        # Read back rather than trust what the script said.
+        i = 0
+        while i < changed.size
+          unless download(changed[i][0]) == changed[i][1]
+            raise "#{changed[i][0]} を入れ替えられませんでした。［ライブラリを初期設定に戻す］で戻せます"
+          end
+          i += 1
+        end
+        i = 0
+        while i < shadows.size
+          raise "#{shadows[i]} を消せませんでした" if download(shadows[i])
+          i += 1
+        end
+        send_text("reboot\r")
+      end
+    end
+    rewritten = []
+    i = 0
+    while i < changed.size
+      rewritten << changed[i][0]
+      i += 1
+    end
+    [rewritten, shadows, board_version]
+  end
+
+  # AdventureBoard::VERSION as written in a copy of lib/adventure_board.rb,
+  # or nil (the first firmware's library has none).
+  def self.version_in(text)
+    return nil unless text
+    at = text.index('VERSION = "')
+    return nil unless at
+    from = at + 11
+    to = text.index('"', from)
+    to ? text[from, to - from] : nil
+  end
+
+  # Puts /lib back the way the firmware on the board wrote it: the firmware
+  # writes it again at the next start when its stamp is gone. What the page
+  # may have left there and the firmware does not -- a .new from an update
+  # that stopped half way, a .mrb that would be loaded instead of the .rb --
+  # is taken away first. `paths` are the library's files (/lib/...). Returns
+  # the paths removed.
+  def reset_library(paths)
+    removed = []
+    talking do
+      interrupt
+      i = 0
+      while i < paths.size
+        path = paths[i]
+        candidates = ["#{path}.new", "#{path}.old", "#{path[0, path.size - 3]}.mrb"]
+        j = 0
+        while j < candidates.size
+          removed << candidates[j] if download(candidates[j])
+          j += 1
+        end
+        i += 1
+      end
+      gone = removed.dup
+      gone << SYSTEM_STAMP if download(SYSTEM_STAMP)
+      unless gone.empty?
+        ops = []
+        i = 0
+        while i < gone.size
+          ops << [:remove, gone[i]]
+          i += 1
+        end
+        file_ops(ops)
+        i = 0
+        while i < gone.size
+          raise "#{gone[i]} を消せませんでした" if download(gone[i])
+          i += 1
+        end
+      end
+      send_text("reboot\r")
+    end
+    removed
+  end
+
+  # A line in the terminal, as the link's own notes are: what stays there
+  # once the status line has moved on (a restart replaces it).
+  def log(text)
+    note(text)
+  end
+
   # `announced`: the browser said a port appeared (as opposed to the periodic
   # look), which is worth a line in the log even when nothing comes of it.
   def look_for_return(announced)
@@ -143,6 +311,10 @@ class DeviceLink
   end
 
   private
+
+  def cursor_report?(text)
+    text.start_with?("\e[") && text.end_with?("R") && text.include?(";")
+  end
 
   # Ownership of the line for the page's own conversations with the board:
   # keys wait, and the text capture is on so the prompt can be waited for.
@@ -208,6 +380,7 @@ class DeviceLink
     raw = raw_of(@port || @probe)
     deadline = now_ms + timeout_ms
     seen = nil
+    got = ""
     while seen.nil?
       got = JS::WebSerial.capture_peek(raw).to_s
       i = 0
@@ -222,6 +395,7 @@ class DeviceLink
       raise "実機の応答がありません（#{texts[0]} を待っています）" if deadline < now_ms
       sleep_ms 10
     end
+    @last_text = got
     # Seen; start afresh so the next wait does not find this one again.
     JS::WebSerial.capture_stop(raw)
     JS::WebSerial.capture_start(raw)
@@ -232,11 +406,45 @@ class DeviceLink
     wait_for_text("$> ", timeout_ms)
   end
 
+  # Replaces and removes files on the board: `ops` is a list of
+  # [:replace, from, to] (from takes to's place) and [:remove, path].
+  # Returns what the board printed.
+  #
+  # Not by typing `mv` and `rm` at the shell. R2P2's line editor, before it
+  # redraws the line after each key, throws away input that has not been
+  # read yet (IO.get_cursor_position), so the end of a long line is lost
+  # whenever it arrives while the editor is at the start (V1, v2026.10.25).
+  # The operations go over as a script, by PicoModem, and the line that runs
+  # it is short enough to arrive in one piece, like "実機で実行"'s.
+  def file_ops(ops)
+    script = OPS_HEADER
+    i = 0
+    while i < ops.size
+      op = ops[i]
+      if op[0] == :replace
+        script += "replace_file(#{op[1].inspect}, #{op[2].inspect})\n"
+      else
+        script += "remove_file(#{op[1].inspect})\n"
+      end
+      i += 1
+    end
+    script += "File.unlink(#{OPS_PATH.inspect})\nputs #{OPS_DONE.inspect}\n"
+    upload(script, OPS_PATH)
+    send_text("#{OPS_PATH}\r")
+    wait_for_text(OPS_DONE, TIMEOUT_MS)
+    out = @last_text.to_s
+    # The prompt may have come in with the mark, and the capture is fresh.
+    after = out[(out.index(OPS_DONE) || 0) + OPS_DONE.size, out.size].to_s
+    wait_for_prompt(TIMEOUT_MS) unless after.include?("$> ")
+    out
+  end
+
   # --- transfer --------------------------------------------------------------
 
   def upload(source, path)
     raw = raw_of(@port)
     success = false
+    @board_said_error = false
     begin
       enter_transfer(raw)
       send_frame(FILE_WRITE, [source.bytesize].pack("N") + path)
@@ -260,8 +468,10 @@ class DeviceLink
       # switching captures in between would lose whatever fell in the gap.
       tail = read_until(raw, "$> ")
     ensure
+      # A board that answered ERROR has already left PicoModem; an ABORT now
+      # would start with STX and take it straight back in.
       begin
-        send_frame(ABORT, "") unless success
+        send_frame(ABORT, "") unless success || @board_said_error
       rescue Exception
         nil
       end
@@ -271,7 +481,84 @@ class DeviceLink
         nil
       end
     end
-    @terminal.write(tail) if tail
+    # Without the shell's "where is the cursor?" (ESC [6n): it has long since
+    # stopped waiting, and the terminal's answer would reach the board in the
+    # middle of whatever the page sends next -- inside the next transfer, it
+    # ends the transfer.
+    @terminal.write(tail.split("\e[6n").join) if tail
+    nil
+  end
+
+  # The contents of a file on the board, or nil when there is none. The
+  # shell's "[PicoModem] read ..." and its prompt are read off here and not
+  # shown: a look at a file is not something to report in the terminal.
+  def download(path)
+    raw = raw_of(@port)
+    data = nil
+    begin
+      enter_transfer(raw)
+      send_frame(FILE_READ, path)
+      buf = ""
+      first = true
+      while true
+        cmd, payload = receive_frame(raw)
+        if cmd == FILE_DATA
+          # The first piece starts with the file's size, which is not needed.
+          payload = payload.byteslice(4, payload.bytesize - 4).to_s if first
+          first = false
+          buf << payload
+          send_frame(CHUNK_ACK, 0.chr)
+        elsif cmd == DONE_ACK
+          status, crc = payload.unpack("CN")
+          raise "読み出しに失敗しました (#{path}, status #{status})" unless status == 0
+          raise "CRC が一致しません（#{path} の読み出し）" unless crc == CRC.crc32(buf)
+          data = buf
+          break
+        elsif cmd == ERROR
+          break if payload.start_with?("File not found")
+          raise "実機がエラーを返しました (#{path} の読み出し): #{payload}"
+        else
+          raise "予期しない応答 (#{path} の読み出し): 0x#{cmd.to_s(16)}"
+        end
+      end
+      read_until(raw, "$> ")
+    ensure
+      begin
+        JS::WebSerial.binary_capture_stop(raw)
+      rescue Exception
+        nil
+      end
+    end
+    data
+  end
+
+  # Writes every [path, contents] to <path>.new. If one fails, the ones
+  # already written are removed again, as far as the board still answers.
+  def stage(files)
+    written = 0
+    begin
+      while written < files.size
+        upload(files[written][1], "#{files[written][0]}.new")
+        written += 1
+      end
+    rescue Exception => e
+      begin
+        # The prompt after a failed transfer may have gone by inside the
+        # binary capture, so ask for a fresh one rather than wait for it.
+        interrupt
+        ops = []
+        i = 0
+        while i < written
+          ops << [:remove, "#{files[i][0]}.new"]
+          i += 1
+        end
+        file_ops(ops) unless ops.empty?
+      rescue Exception => cleanup
+        # Left behind, a .new is only clutter: nothing loads it.
+        note("書きかけの .new を消せませんでした: #{cleanup.message}")
+      end
+      raise "#{e.message}（ライブラリは変えていません）"
+    end
     nil
   end
 
@@ -316,6 +603,7 @@ class DeviceLink
   def expect_frame(raw, want, what)
     cmd, payload = receive_frame(raw)
     if cmd == ERROR
+      @board_said_error = true
       raise "実機がエラーを返しました (#{what}): #{payload}"
     end
     raise "予期しない応答 (#{what}): 0x#{cmd.to_s(16)}" unless cmd == want

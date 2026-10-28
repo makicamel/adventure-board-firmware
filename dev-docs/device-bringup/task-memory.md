@@ -44,7 +44,7 @@ Task のブロックが `Player` を掴んでいるので、Task だけでなく
 `/etc/adventure-board-files` を比べ、同じなら何も書かない（`mrbgems/picoruby-r2p2/ports/rp2040/system_files.c`）。
 基板の `/lib/adventure_board/speaker.rb` を上書きすると、次に別のファームを焼くまでそのまま使われる
 （別のファームを焼くと、そのファームの版で書き直される）。
-参加者の基板へ届ける手段として、コンソールに［ライブラリを最新にする］などを足す計画がある（[../webserial-console/file-transfer-plan.md](../webserial-console/file-transfer-plan.md)、未実装）。
+参加者の基板へは、コンソールの［ライブラリを最新にする］で届ける（[../webserial-console/file-transfer-plan.md](../webserial-console/file-transfer-plan.md)。2026-10-28 に V1 で確認）。
 
 ## 直し方: `Speaker` が Task を自分で作り、曲を替えるときに `close` する
 
@@ -90,7 +90,23 @@ tools/r2p2dev.py run 'ruby /home/task_close_check.rb'
 
 4 は `Speaker` を書き換えたまま終わるので、あとで基板をリセットする。
 
-`task_close_check.rb` はまだ流していない。代わりに、`play_mml` をくり返すスクリプトと、2 本のスクリプトを続けて流す手順で
+**`task_close_check.rb` の結果**（V1、prod `v2026.10.25`、2026-10-28。コンソールの［ライブラリを最新にする］で `/lib/adventure_board/speaker.rb` を
+`close` する形に差し替えたあと。なので 2 の「いまの Speaker」はもう直った形）
+
+| 段階 | used | max_free | `Task.list.size` |
+|---|---|---|---|
+| はじめ | 309,016 | 17,976 | 7 |
+| 1. Task を 20 個作って終わらせた | 335,224 | 17,976 | 27 |
+| 1. その 20 個を close した | 309,400 | 17,976 | 7 |
+| 2. いまの Speaker で 20 回鳴らした（残った Player の Task は 0） | 313,040 | 17,976 | 7 |
+| 3. それを close した | 313,032 | 17,976 | 7 |
+| 4. 直し方の案で 20 回鳴らした（残った Speaker の Task は 1） | 315,840 | 17,976 | 8 |
+| 4. stop した | 312,968 | 17,976 | 7 |
+
+1 は Task 1 つ約 1.3KB が `close` で戻ることを示す。2 は 20 回鳴らして約 4KB 増えただけで、4 のあとも増えていない（最初に一度だけ作るものと思われる）。
+差し替える前なら 20 回で約 60KB 減るところ。差し替えた `speaker.rb` が基板で使われていることの確認にもなった。
+
+それより前（2026-10-27）は、`play_mml` をくり返すスクリプトと、2 本のスクリプトを続けて流す手順で
 確かめた（V1、prod、2026-10-27。`Speaker` は手元で直したものをプログラムに同梱した）。
 
 **`play_mml` を 12 周 × 3 回（36 回）。1 周ごとに `stop` と `GC.start` のあと測る**

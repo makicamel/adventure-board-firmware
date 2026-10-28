@@ -107,14 +107,22 @@ class SimApp < Funicular::Component
   ]
   DEVICE_ONLY = "実機専用のサンプルです（シミュレータには無いハードを使います）。基板をつないで「実機で実行」で送ってください。"
 
-  # The board library, as it is in the board's /lib and as this page runs it.
+  # The board library, as it is in the board's /lib: what "ライブラリを最新にする"
+  # writes there, and what the library view shows. The page itself runs all of
+  # it but grove_link.rb (index.html), since the simulator has no UART.
+  # `rake sim:lib_files` checks this against lib/.
+  # What the first firmware (v2026.10.25) wrote to /lib: a library with no
+  # AdventureBoard::VERSION is that one.
+  FIRST_LIB_VERSION = "2026.10.25"
+
   LIB_FILES = [
     "adventure_board.rb",
     "adventure_board/board.rb",
     "adventure_board/led_matrix.rb",
     "adventure_board/buttons.rb",
     "adventure_board/speaker.rb",
-    "adventure_board/status_led.rb"
+    "adventure_board/status_led.rb",
+    "adventure_board/grove_link.rb"
   ]
 
   KEY_PINS = {
@@ -274,6 +282,36 @@ class SimApp < Funicular::Component
         # helper.
         tag("pre", ref: :notes, id: "notelog",
             hidden: state[:notes_visible] ? nil : "hidden")
+        # For when a board's library is in a state the buttons above cannot
+        # mend. Last on the page, closed: not something to press by chance.
+        if state[:device_supported]
+          div(id: "device-advanced") do
+            button(id: "advanced-toggle", class: "disclosure", onclick: :on_advanced_toggle) do
+              @advanced_visible ? "▾ 高度な機能（実機用）" : "▸ 高度な機能（実機用）"
+            end
+            if @advanced_visible
+              div(class: "controls") do
+                button(id: "device-update-lib", onclick: :on_device_update_lib,
+                       disabled: (state[:device] == :connected) ? nil : "disabled") do
+                  "ライブラリを最新にする"
+                end
+                button(id: "device-reset-lib", onclick: :on_device_reset_lib,
+                       disabled: (state[:device] == :connected) ? nil : "disabled") do
+                  "ライブラリを初期設定に戻す"
+                end
+              end
+              div(class: "legend") do
+                "［ライブラリを最新にする］実機の /lib を、最新のライブラリ（#{lib_version} 版）に書き換えて再起動します。"
+              end
+              div(class: "legend") do
+                "［ライブラリを初期設定に戻す］実機の /lib を、実機のファームウェアに入っている版（量産基板なら #{FIRST_LIB_VERSION} 版）に戻して再起動します。"
+              end
+              div(class: "legend") do
+                "どちらも /home 以下のファイルは影響を受けません。"
+              end
+            end
+          end
+        end
       end
     end
   end
@@ -310,6 +348,13 @@ class SimApp < Funicular::Component
       "実機の app.rb を空にする"
     end
     nil
+  end
+
+  # The library this page carries (and runs in the simulator).
+  def lib_version
+    AdventureBoard::VERSION
+  rescue Exception
+    "?"
   end
 
   def lib_options
@@ -607,6 +652,110 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # Writes this page's lib/ over the board's /lib, where they differ, and
+  # restarts the board if anything changed. The page's copies are fetched
+  # first, so a page that cannot read them leaves the board alone.
+  def on_device_update_lib(_event)
+    patch(device: :busy, status: "実機のライブラリとこのページのものを比べています…", kind: "busy")
+    Task.new(name: "device-update-lib") do
+      begin
+        files = []
+        i = 0
+        while i < SimApp::LIB_FILES.size
+          name = SimApp::LIB_FILES[i]
+          text = nil
+          status = nil
+          JS.global.fetch("#{JS.global[:REPO_ROOT].to_s}lib/#{name}", { cache: "no-store" }) do |response|
+            if response[:ok]
+              text = response.text.await.to_s
+            else
+              status = response[:status].to_i
+            end
+          end
+          raise "lib/#{name} を読めませんでした（#{status}）" if text.nil?
+          files << ["/lib/#{name}", text]
+          i += 1
+        end
+        result = $device.update_library(files)
+        $app.device_updated_lib(result, nil) if $app
+      rescue Exception => e
+        $app.device_updated_lib(nil, e) if $app
+      end
+    end
+    nil
+  end
+
+  def on_advanced_toggle(_event)
+    @advanced_visible = !@advanced_visible
+    refresh
+    nil
+  end
+
+  # Takes away what the page may have left in /lib and has the firmware
+  # write the library again at the next start.
+  def on_device_reset_lib(_event)
+    patch(device: :busy, status: "実機のライブラリを初期設定に戻しています…", kind: "busy")
+    Task.new(name: "device-reset-lib") do
+      begin
+        paths = []
+        i = 0
+        while i < SimApp::LIB_FILES.size
+          paths << "/lib/#{SimApp::LIB_FILES[i]}"
+          i += 1
+        end
+        removed = $device.reset_library(paths)
+        $app.device_reset_lib(removed, nil) if $app
+      rescue Exception => e
+        $app.device_reset_lib(nil, e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_reset_lib(removed, error)
+    patch(device: $device.connected? ? :connected : :none)
+    if error
+      report("ライブラリを初期設定に戻す", error)
+      return nil
+    end
+    done = removed.empty? ? "" : "#{removed.size} 個の余分なファイルを消しました。"
+    $device.log("ライブラリを初期設定に戻します。#{done}")
+    @before_restart = "ライブラリを初期設定に戻しました。#{done}"
+    patch(kind: "busy", status: "#{done}実機を再起動しています。起動するときにファームウェアがライブラリを書き直します。" \
+                                "起動し終わると自動でつなぎ直します。")
+    nil
+  end
+
+  def device_updated_lib(result, error)
+    patch(device: $device.connected? ? :connected : :none)
+    if error
+      report("ライブラリを最新にする", error)
+      return nil
+    end
+    rewritten = result[0]
+    removed = result[1]
+    was = result[2] || FIRST_LIB_VERSION
+    if rewritten.empty? && removed.empty?
+      patch(kind: "ok", status: "実機のライブラリは最新（#{lib_version} 版）です。変更はありません。")
+      return nil
+    end
+    names = []
+    i = 0
+    while i < rewritten.size
+      names << rewritten[i].split("/").last
+      i += 1
+    end
+    # The same name on both sides when lib/ changed without its date.
+    done = was == lib_version ? "実機のライブラリを #{lib_version} 版にそろえました。" :
+                                "実機のライブラリを #{was} 版から #{lib_version} 版にしました。"
+    done += "#{names.join('、')} を新しくしました。" unless names.empty?
+    done += "#{removed.size} 個の .mrb を消しました。" unless removed.empty?
+    $device.log(done)
+    @before_restart = done
+    patch(kind: "busy", status: "#{done}実機を再起動しています。起動し終わると自動でつなぎ直します。")
+    nil
+  end
+
   def device_finished(error)
     state_now = $device.connected? ? :connected : :none
     if error
@@ -753,7 +902,12 @@ class SimApp < Funicular::Component
             status: "実機との接続が切れました。再起動や挿し直しなら、戻ってきたら自動でつなぎ直します。")
     elsif state[:device] == :none && $device.connected?
       # The link came back without anyone clicking (DeviceLink#watch_for_return).
-      patch(device: :connected, status: "実機につなぎ直しました。", kind: "ok")
+      # What was done before the restart is said again: the restart took it
+      # off the status line, and the board's start-up off the terminal.
+      done = @before_restart
+      @before_restart = nil
+      $device.log(done) if done
+      patch(device: :connected, status: "実機につなぎ直しました。#{done}", kind: "ok")
     end
     nil
   end
@@ -868,7 +1022,8 @@ class SimApp < Funicular::Component
 
   # The run loop is a class method — it outlives any one render — and it pokes
   # the mounted instance, so these two cannot stay private.
-  public :draw, :report, :device_finished, :device_rebooting, :device_installed, :device_cleared
+  public :draw, :report, :device_finished, :device_rebooting, :device_installed, :device_cleared,
+         :device_updated_lib, :device_reset_lib
 end
 
 Funicular.start(SimApp, container: 'app')

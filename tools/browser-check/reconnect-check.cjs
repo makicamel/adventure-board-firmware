@@ -16,10 +16,14 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'applic
 
 const FAKE_SERIAL = () => {
   const enc = new TextEncoder(), dec = new TextDecoder();
+  // The line editor's redraw after PicoModem: it asks where the cursor is
+  // before it draws the prompt. Nobody answers inside the page's binary
+  // capture, so it gives up after a while and draws it anyway.
+  const REDRAW = '\x1b[6n$> ';
   class FakePort extends EventTarget {
     constructor(name, shell) { super(); this.name = name; this.shell = shell; this.connected = true; this.opened = false;
       this.readable = null; this.writable = null; this.written = []; this.bootText = null;
-      this.line = ''; this.modem = null; this.file = null; this.files = {}; this.ran = []; }
+      this.line = ''; this.asking = null; this.modem = null; this.file = null; this.files = {}; this.ran = []; }
     async open() {
       if (!this.connected) throw new DOMException('The device has been lost.', 'NetworkError');
       if (this.opened) throw new DOMException('The port is already open.', 'InvalidStateError');
@@ -39,14 +43,72 @@ const FAKE_SERIAL = () => {
         if (chunk.includes(0x03)) { this.running = false; this.emit('^C\r\n$> '); }
         return;
       }
-      for (const b of chunk) {
-        if (b === 0x02) { this.modem = { buf: [] }; this.emit('\x06'); continue; }
+      // Like the real shell's line editor: before redrawing the line after a
+      // key, it asks the terminal where the cursor is (ESC [6n) and waits for
+      // the answer, up to 500ms a key, throwing away whatever else comes in
+      // meanwhile (window.__lost counts the bytes). Only then the echo.
+      if (this.asking) {
+        if (/\x1b\[\d+;\d+R/.test(dec.decode(chunk))) { this.answered(); return; }
+        if (!chunk.includes(0x03)) { window.__lost = (window.__lost || 0) + chunk.length; return; }
+        this.answered();
+      }
+      const before = this.line;
+      let out = ''; const emit = this.emit; this.emit = (t) => { out += t; };
+      try { this.shellBytes(chunk); } finally { this.emit = emit; }
+      if (this.line.length > before.length) {
+        const wait = 500 * (this.line.length - before.length);
+        this.asking = { out, timer: setTimeout(() => this.answered(), wait) };
+        this.emit('\x1b[6n');
+      } else if (out) this.emit(out);
+    }
+    answered() {
+      const a = this.asking; if (!a) return;
+      this.asking = null; clearTimeout(a.timer); this.emit(a.out);
+    }
+    shellBytes(chunk) {
+      for (let i = 0; i < chunk.length; i++) {
+        const b = chunk[i];
+        // Ctrl-B: PicoModem from here, including the rest of this chunk
+        if (b === 0x02) { this.modem = { buf: [] }; this.emit('\x06'); this.modemBytes(chunk.slice(i + 1)); return; }
         if (b === 0x03) { this.line = ''; this.emit('^C\r\n$> '); continue; }
         if (b === 0x0d) {
           const line = this.line; this.line = '';
           if (line === 'reboot') { this.emit('\r\nRebooting in 500 ms\r\n'); setTimeout(() => window.__board.reboot(), 500); continue; }
+          // The page's file operations (DeviceLink#file_ops): done here, the way
+          // the script would on the board.
+          if ((this.files[line] || '').startsWith('# Written by the console page')) {
+            const say = [];
+            const rename = (f, t) => {   // like the board's File.rename: will not write over a file
+              if (t in this.files) { say.push(`File exists: ${t}. Can't overwrite`); return; }
+              if (f in this.files) { this.files[t] = this.files[f]; delete this.files[f]; }
+            };
+            const remove = (p) => { delete this.files[p]; };
+            for (const m of this.files[line].matchAll(/^(replace_file|remove_file)\(("[^"]*")(?:, ("[^"]*"))?\)$/gm)) {
+              const a = JSON.parse(m[2]);
+              if (m[1] === 'remove_file') { remove(a); continue; }
+              const to = JSON.parse(m[3]), old = to + '.old';
+              remove(old);
+              if (to in this.files) rename(to, old);
+              rename(a, to);
+              if (to in this.files) remove(old); else if (old in this.files) rename(old, to);
+            }
+            (window.__ops = window.__ops || []).push(this.files[line]);   // what ran, for the checks
+            delete this.files[line];
+            if (say.length) this.emit('\r\n' + say.join('\r\n'));
+            this.emit('\r\n[lib_ops] done\r\n$> '); continue;
+          }
           if (line.startsWith('/home/')) { this.emit('\r\nLoading ' + line + '\r\n'); this.ran.push(line); continue; }
           if (line === 'free') { this.emit('\r\nfree: 176536\r\n$> '); continue; }
+          const words = line.split(' ');
+          if (words[0] === 'mv' && words.length === 3) {
+            if (!(words[1] in this.files)) { this.emit(`\r\nmv: cannot stat '${words[1]}': No such file or directory\r\n$> `); continue; }
+            this.files[words[2]] = this.files[words[1]]; delete this.files[words[1]]; this.emit('\r\n$> '); continue;
+          }
+          if (words[0] === 'rm') {
+            let out = '';
+            for (const f of words.slice(1)) { if (f in this.files) delete this.files[f]; else out += `rm: cannot remove '${f}': No such file\r\n`; }
+            this.emit('\r\n' + out + '$> '); continue;
+          }
           this.emit('\r\n$> '); continue;
         }
         this.line += String.fromCharCode(b); this.emit(String.fromCharCode(b));   // echo
@@ -54,13 +116,24 @@ const FAKE_SERIAL = () => {
     }
     modemBytes(chunk) {
       const m = this.modem; for (const b of chunk) m.buf.push(b);
+      // Like the board's session: anything but a frame ends it.
+      if (m.buf.length > 0 && m.buf[0] !== 0x02) { this.modem = null; this.emit('[PicoModem] timeout\r\n' + REDRAW); return; }
       while (m.buf.length >= 3 && m.buf[0] === 0x02) {
         const len = (m.buf[1] << 8) | m.buf[2];
         if (m.buf.length < 3 + len + 2) return;
         const body = m.buf.slice(3, 3 + len); m.buf = m.buf.slice(3 + len + 2);
         const cmd = body[0];
-        if (cmd === 0x02) {          // FILE_WRITE: 4-byte size, then the path
+        if (cmd === 0x01) {          // FILE_READ: the path; the file goes out a piece per CHUNK_ACK
+          const p = dec.decode(new Uint8Array(body.slice(1)));
+          if (!(p in this.files)) { this.fail('File not found: ' + p, 'read ' + p); continue; }
+          const data = Array.from(enc.encode(this.files[p]));
+          this.reading = { path: p, data, offset: 0 };
+          this.sendPiece();
+        } else if (cmd === 0x84 && this.reading) {   // the host took a piece
+          this.sendPiece();
+        } else if (cmd === 0x02) {   // FILE_WRITE: 4-byte size, then the path
           this.file = { size: (body[1] << 24) | (body[2] << 16) | (body[3] << 8) | body[4], path: dec.decode(new Uint8Array(body.slice(5))), data: [] };
+          if ((window.__failWrite || []).includes(this.file.path)) { this.fail('No space left', 'write ' + this.file.path); continue; }
           this.reply(0x82, [0]);
         } else if (cmd === 0x04) {   // CHUNK
           for (const x of body.slice(1)) this.file.data.push(x);
@@ -70,12 +143,31 @@ const FAKE_SERIAL = () => {
             this.reply(0x8f, [0, (crc >>> 24) & 0xff, (crc >>> 16) & 0xff, (crc >>> 8) & 0xff, crc & 0xff]);
             this.files[this.file.path] = dec.decode(new Uint8Array(this.file.data));
             this.modem = null;
-            this.emit('[PicoModem] write ' + this.file.path + '\r\n$> ');   // as the shell prints on the way back
+            this.emit('[PicoModem] write ' + this.file.path + '\r\n' + REDRAW);   // as the shell prints on the way back
           }
         } else if (cmd === 0xff) {   // ABORT
           this.modem = null; this.emit('\r\n$> ');
         }
       }
+    }
+    sendPiece() {
+      const r = this.reading;
+      if (r.offset < r.data.length) {   // an empty file is only DONE, as on the board
+        const piece = r.data.slice(r.offset, r.offset + 480);
+        const head = r.offset === 0 ? [(r.data.length >>> 24) & 0xff, (r.data.length >>> 16) & 0xff, (r.data.length >>> 8) & 0xff, r.data.length & 0xff] : [];
+        r.offset += piece.length;
+        this.reply(0x81, [...head, ...piece]);
+        return;
+      }
+      const crc = window.__crc32(r.data);
+      this.reply(0x8f, [0, (crc >>> 24) & 0xff, (crc >>> 16) & 0xff, (crc >>> 8) & 0xff, crc & 0xff]);
+      this.reading = null; this.modem = null;
+      this.emit('[PicoModem] read ' + r.path + '\r\n' + REDRAW);
+    }
+    fail(message, info) {
+      this.reply(0xfe, Array.from(enc.encode(message)));
+      this.modem = null;
+      this.emit('[PicoModem] ' + info + '\r\n' + REDRAW);
     }
     reply(cmd, payload) {
       // the CRC is not checked by the fake; the page checks the one it gets
@@ -125,6 +217,9 @@ async function termText(page) {
     return lines.join('\n');
   });
 }
+
+module.exports = { FAKE_SERIAL, termText, TYPES, ROOT };
+if (require.main !== module) return;
 
 (async () => {
   const server = http.createServer((req, res) => {

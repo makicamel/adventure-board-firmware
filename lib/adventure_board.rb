@@ -46,6 +46,11 @@ require 'adventure_board/board'
 # A program never has to know how the peripherals were built, and the same
 # source runs in both places.
 module AdventureBoard
+  # The date of this library. Raised whenever anything under lib/ changes:
+  # the console shows it when it writes the library to a board. The library
+  # the first firmware (v2026.10.25) wrote has no VERSION.
+  VERSION = "2026.10.28"
+
   # The Board itself, for what is not below: its pins, and how it was built.
   def self.board
     $board ||= Board.boot

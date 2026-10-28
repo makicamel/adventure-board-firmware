@@ -229,7 +229,18 @@ rake sim:board_art          # 基板の絵と位置の表を .kicad_pcb から�
   バイナリ側に先に入っていることがあるので、`$> ` までバイナリ側で読み切ってから端末に書く（切り替えの隙間で落ちる）
 - **`JS::Object` 同士の `==` は同じ JS オブジェクトでも偽になる**（参照 ID の比較で、Ruby 側から見るたびに新しい ID が付く）。
   見分けたければ JS オブジェクトにプロパティで印を付ける
-- **WebSerial の再接続は `tools/browser-check/reconnect-check.cjs`**（偽の `navigator.serial`）で実機なしに確かめられる
+- **WebSerial の再接続は `tools/browser-check/reconnect-check.cjs`**（偽の `navigator.serial`）で実機なしに確かめられる。
+  ［ライブラリを最新にする］と［ライブラリを初期設定に戻す］は `lib-update-check.cjs`（同じ偽の基板に `FILE_READ`・`mv`・`rm` を足した）
+- **R2P2 の行エディタは、1 文字ごとに端末へカーソル位置を尋ね（`ESC [6n`）、返事を 0.5 秒まで待つ。その前に、まだ読んでいない入力を捨てる**
+  （`IO.get_cursor_position`）。ページがやり取りの最中にキーを止めていたら返事まで止まり、1 文字 0.5 秒かかった。長い行を一度に送ると 32 バイトから先が捨てられた（V1、2026-10-28）。
+  小分けにして表示を待っても、USB で 2 回に分かれて届いた後ろ半分が捨てられた。**ページからシェルに長い行を打たない。** ファイル操作は
+  Ruby のスクリプトにして PicoModem で送り、短いパスだけを 1 回で送って実行する（`DeviceLink#file_ops`）。やり取りの最中もカーソル位置の返事だけは
+  通す（`DeviceLink#type`）。効いたかはエラーの文字ではなく、ファイルを読み直して確かめる。手で打つ分には、1 文字ずつ間を空けて届くので落ちない。
+  **バイナリの取り込みで受けた出力を端末に書くときは `ESC [6n` を抜く。** 基板はもう待っておらず、xterm の返事が次の転送の中に入って
+  転送を終わらせた（`[PicoModem] timeout`）
+- **基板の `File.rename` は既にあるファイルに上書きしない**（`File exists: … Can't overwrite` と出して戻るだけで、例外にならない）。シェルの `mv` も同じ
+- **基板が PicoModem の ERROR を返したら、ページから ABORT を送らない。** 基板の転送モードはもう終わっていて、ABORT は STX で始まるので
+  入り直させてしまう。転送に失敗したあとのプロンプトはバイナリの取り込みの中に消えていることがあるので、待たずに Ctrl-C で出させる
 - **ハートビートで「前回表示した文字列」と比べるなら、`<<` で伸ばした文字列を渡さない。**
   覚えておいた値も同じオブジェクトなので一緒に伸び、いつ比べても等しくなって表示が止まる。
   `@log = @log + out` のように新しい文字列を作る
@@ -338,6 +349,12 @@ canvas はハートビートで仮想チップを映すので、コード側か�
 - **終わった `Task` は `close` するまでメモリに残る**（1 つ約 1.3KB。GC では回収されない作り）。`MML::Player#start` は曲ごとに Task を作って
   `close` しないので、`play_mml` をくり返すといずれ `NoMemoryError`。量産基板のファームはもう直せないので、`/lib` の `Speaker` が前の曲の Task を `close` するようにした
   （[dev-docs/device-bringup/task-memory.md](dev-docs/device-bringup/task-memory.md)）
+- **main の `lib/` は量産基板のファーム（`v2026.10.25`）で動くものに限る**（2026-10-27）。コンソールの［ライブラリを最新にする］が
+  古いファームの基板に新しい `lib/` を書くため。ファームに無い C の gem・メソッドを `lib/` から使わない
+  （[dev-docs/webserial-console/file-transfer-plan.md](dev-docs/webserial-console/file-transfer-plan.md)）
+- **`lib/` を直したら `AdventureBoard::VERSION`（`lib/adventure_board.rb`、`YYYY.MM.DD`）の日付を上げる**（2026-10-28）。コンソールが
+  「2026.10.25 版から 2026.10.28 版にしました」のように出す。最初のファーム（`v2026.10.25`）のライブラリには `VERSION` が無く、それを 2026.10.25 版と見なす。
+  上げ忘れても書き換えは中身を比べて行うので壊れないが、表示がずれる。`rake sim:lib_files` は形だけ調べる
 - **サンプルの時間は `sleep_ms` の回数ではなく時計（`Machine.uptime_us`）で決める。** 1 コマの描画時間がビルド
   （debug / prod）とシミュレータで数倍違うので、回数で作った曲はビルドを変えると速さが変わる（`sound_and_light.rb` で実際に起きた）
 - **サンプルは require 1 本ごとに `GC.start` を呼ぶ。** `require.rb` は

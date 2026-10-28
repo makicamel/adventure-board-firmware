@@ -76,8 +76,30 @@ namespace :sim do
        "kicad/kicad:9.0-full python3 /work/tools/board-art/build.py /board /work/sim"
   end
 
+  # The firmware takes every file under lib/adventure_board
+  # (gen_system_files.rb), and "ライブラリを最新にする" writes the ones in
+  # SimApp::LIB_FILES to the board. A file left out of the list is one a
+  # board never gets. (index.html loads its own list, which may leave out what
+  # the simulator cannot run.)
+  desc "Check that the page lists every file of the board library"
+  task :lib_files do
+    FileUtils.cd MRUBY_ROOT do
+      on_disk = Dir.glob("lib/adventure_board{.rb,/**/*.rb}").map { |f| f.delete_prefix("lib/") }.sort
+      app = File.read("sim/sim_app.rb")[/LIB_FILES = \[(.*?)\]/m, 1].to_s.scan(/"([^"]+)"/).flatten.sort
+      problems = []
+      problems << "SimApp::LIB_FILES is missing #{(on_disk - app).join(', ')}" unless (on_disk - app).empty?
+      problems << "SimApp::LIB_FILES lists #{(app - on_disk).join(', ')}, which lib/ does not have" unless (app - on_disk).empty?
+      # The console shows it; the date format is what it expects.
+      version = File.read("lib/adventure_board.rb")[/VERSION = "([^"]*)"/, 1]
+      problems << "lib/adventure_board.rb has no AdventureBoard::VERSION" unless version
+      problems << "AdventureBoard::VERSION #{version.inspect} is not YYYY.MM.DD" if version && version !~ /\A\d{4}\.\d{2}\.\d{2}\z/
+      abort problems.join("\n") unless problems.empty?
+      puts "lib files: all #{on_disk.size} in SimApp::LIB_FILES, version #{version}"
+    end
+  end
+
   desc "Run the headless check of the simulator core"
-  task :test do
+  task :test => :lib_files do
     FileUtils.cd MRUBY_ROOT do
       sh "bin/picoruby sim/test/panel_test.rb"
       sh "bin/picoruby sim/test/circuit_test.rb"
