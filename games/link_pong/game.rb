@@ -19,7 +19,7 @@ module LinkPong
       )
       @ball = Ball.serve(@court)
       @cpu.receive(@ball, offset: cpu_offset)
-      @returns = 0
+      @rally_length = 0
       @court.flush
     end
 
@@ -31,7 +31,7 @@ module LinkPong
           if @ball.out?
             @sound.miss
             @ball.blink
-            return @returns
+            return @rally_length
           end
           @court.flush
           next_at += @ball.interval
@@ -55,7 +55,7 @@ module LinkPong
       end
       if receiver.meets?(@ball)
         hitter = receiver
-        @returns += 1 if hitter.equal?(@player)
+        @rally_length += 1 if hitter.equal?(@player)
         if receiver.middle_at?(@ball.y)
           @ball.smash
           @sound.smash(@ball.smash_chain)

@@ -20,6 +20,6 @@ menu = LinkPong::Menu.new(matrix, buttons)
 while true
   LinkPong::Title.new(matrix, buttons).run
   menu.run
-  returns = LinkPong::Game.new(matrix, buttons, sound, menu.hard?).run
-  LinkPong::Result.new(matrix, buttons, sound, returns).run
+  rally_length = LinkPong::Game.new(matrix, buttons, sound, menu.hard?).run
+  LinkPong::Result.new(matrix, buttons, sound, rally_length).run
 end

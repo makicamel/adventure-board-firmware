@@ -5,15 +5,15 @@ module LinkPong
 
     include Screen
 
-    def initialize(matrix, buttons, sound, returns)
+    def initialize(matrix, buttons, sound, rally_length)
       @matrix = matrix
       @buttons = buttons
       @sound = sound
-      @returns = returns
+      @rally_length = rally_length
     end
 
     def run
-      repaint { draw_number(@returns) }
+      repaint { draw_number(@rally_length) }
       @sound.result
       @buttons.clear_presses
       sleep_ms 20 until any_button_pressed?
