@@ -7,6 +7,8 @@
 //      the .new already written is taken away, and the library is as it was
 //   4. "ライブラリを初期設定に戻す": a .new
 //      left over, the .mrb and the firmware's stamp go, the board restarts
+//   5. ".mrb にして実機で実行" / "実機の app.mrb にする": the code goes over compiled,
+//      and "app.rb にする" / "app.rb を空にする" take an app.mrb away
 // The fake shell throws away what comes in while it waits for the terminal
 // to say where the cursor is, as the real one does; no byte may be lost.
 //
@@ -61,7 +63,7 @@ async function waitStatus(page, text, ms) {
   let failed = false;
   const check = (label, ok) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}`); if (!ok) failed = true; };
 
-  for (const scenario of ['update', 'disk full', 'reset']) {
+  for (const scenario of ['update', 'disk full', 'reset', 'mrb']) {
     const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
     const log = [];
     page.on('console', (m) => log.push(`[${m.type()}] ${m.text()}`));
@@ -80,7 +82,29 @@ async function waitStatus(page, text, ms) {
     await page.waitForSelector('#device-reset-lib');
     check('the advanced part names the version', (await page.textContent('#device-advanced')).includes(`${VERSION} 版`));
 
-    if (scenario === 'reset') {
+    if (scenario === 'mrb') {
+      const ran = () => page.evaluate(() => window.__board.shell.ran.join(' '));
+      await page.fill('#code', 'puts "hello from mrb"\n');
+      await page.click('#device-run-mrb');
+      check('run .mrb: reports', await waitStatus(page, '実機で実行しています', 30000));
+      let f = await board();
+      check('run .mrb: /home/run.mrb is bytecode', (f['/home/run.mrb'] || '').startsWith('RITE'));
+      check('run .mrb: and it was run', (await ran()).includes('/home/run.mrb'));
+      await page.evaluate(() => { window.__board.shell.files['/home/app.mrb'] = 'RITE0300...'; });
+      await page.click('#device-install');
+      check('app.rb: reports', await waitStatus(page, '/home/app.rb に書いて実行しています', 30000));
+      check('app.rb: app.mrb is gone', !('/home/app.mrb' in await board()));
+      await page.click('#device-install-mrb');
+      check('app.mrb: reports', await waitStatus(page, '/home/app.mrb に書いて実行しています', 30000));
+      f = await board();
+      check('app.mrb: is bytecode, app.rb stays', (f['/home/app.mrb'] || '').startsWith('RITE') && '/home/app.rb' in f);
+      await page.click('#device-clear');
+      check('clear: reports', await waitStatus(page, '何もしない', 30000));
+      check('clear: app.mrb is gone', !('/home/app.mrb' in await board()));
+      await page.fill('#code', 'def broken(\n');
+      await page.click('#device-run-mrb');
+      check('a syntax error is reported, nothing sent', await waitStatus(page, 'コンパイルできませんでした', 30000));
+    } else if (scenario === 'reset') {
       await page.evaluate(() => { window.__board.shell.files['/lib/adventure_board/speaker.rb.new'] = '# half way\n'; });
       await page.click('#device-reset-lib');
       check('reports the reset', await waitStatus(page, 'ファームウェアがライブラリを書き直します', 60000));
@@ -129,7 +153,8 @@ async function waitStatus(page, text, ms) {
     (await termText(page)).split('\n').filter((l) => l.trim()).slice(-12).forEach((l) => console.log('   ' + l));
     // The page reports its own failure on the console too; that one is expected.
     const errs = log.filter((l) => (l.startsWith('[error]') || l.startsWith('[pageerror]')) &&
-                                   !(scenario === 'disk full' && l.includes('ライブラリは変えていません')));
+                                   !(scenario === 'disk full' && l.includes('ライブラリは変えていません')) &&
+                                   !(scenario === 'mrb' && l.includes('コンパイルできませんでした')));
     check(`no page errors${errs.length ? ': ' + errs.join(' / ') : ''}`, errs.length === 0);
     await page.close();
   }

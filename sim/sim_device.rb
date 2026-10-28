@@ -65,6 +65,10 @@ class DeviceLink
 
   RUBY
   APP_PATH = "/home/app.rb"   # what R2P2 runs at every start
+  # The same, compiled in the page. R2P2 runs app.mrb instead of app.rb when
+  # both are there, and the shell runs a .mrb as it is (Sandbox#load_file).
+  RUN_MRB_PATH = "/home/run.mrb"
+  APP_MRB_PATH = "/home/app.mrb"
 
   # The firmware's record of the /lib it wrote. Gone, the firmware writes
   # /lib again at the next start (system_files.c).
@@ -153,21 +157,44 @@ class DeviceLink
     end
   end
 
+  # The same as `run`, with the code compiled here: `binary` is a .mrb.
+  # The board does not compile it, so it does not need the room for that.
+  def run_mrb(binary)
+    talking do
+      interrupt
+      upload(binary, RUN_MRB_PATH)
+      send_text("#{RUN_MRB_PATH}\r")
+    end
+  end
+
   # Stops the program and makes the code the board's own: written to
   # APP_PATH and started right away, as it will be at every start from now.
+  # An app.mrb would be run instead of it, so that goes.
   def install(source)
     talking do
       interrupt
+      remove_app_mrb
       upload(source, APP_PATH)
       send_text("#{APP_PATH}\r")
     end
   end
 
+  # `install` with the code compiled here, to APP_MRB_PATH. app.rb stays;
+  # it is what runs again once app.mrb is gone.
+  def install_mrb(binary)
+    talking do
+      interrupt
+      upload(binary, APP_MRB_PATH)
+      send_text("#{APP_MRB_PATH}\r")
+    end
+  end
+
   # Stops the program and puts a line that does nothing in APP_PATH, so that
-  # the board no longer runs anything when it starts.
+  # the board no longer runs anything when it starts. An app.mrb goes too.
   def clear_app
     talking do
       interrupt
+      remove_app_mrb
       upload(IDLE_PROGRAM, APP_PATH)
     end
   end
@@ -311,6 +338,13 @@ class DeviceLink
   end
 
   private
+
+  def remove_app_mrb
+    return nil unless download(APP_MRB_PATH)
+    file_ops([[:remove, APP_MRB_PATH]])
+    raise "#{APP_MRB_PATH} を消せませんでした" if download(APP_MRB_PATH)
+    nil
+  end
 
   def cursor_report?(text)
     text.start_with?("\e[") && text.end_with?("R") && text.include?(";")

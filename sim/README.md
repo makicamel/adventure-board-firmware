@@ -77,8 +77,9 @@ canvas は 50ms ごとに仮想チップの中身を映しているので、
 | 実機の app.rb にする | 欄のコードを `/home/app.rb` に書いて実行する。**電源を入れるたびに動く**、基板の「作品」にする（R2P2 は起動のたびに `/home/app.rb` を実行する。PC なしで動かすための仕組み） |
 | 実機を再起動 | Ctrl-C のあとシェルの `reboot`（ウォッチドッグによる再起動。周辺回路も電源投入時の状態に戻る）。電源の入れ直しと同じで、`app.rb` があればそれが走る |
 | 実機の app.rb を空にする | Ctrl-C のあと `/home/app.rb` を何もしない 1 行に書き換える。作品をやめて、電源を入れるとプロンプトで止まる基板に戻す |
-| ライブラリを最新にする | ページのいちばん下の「▸ 実機（上級者向け）」の中。基板の `/lib` をこのページの `lib/`（`SimApp::LIB_FILES`）にそろえる。1 本ずつ読んで比べ、違うものだけ `<パス>.new` に書いてから `mv` で入れ替え、同じ名前の `.mrb` を消して再起動する。全部同じなら何もしない。書く途中で失敗したら `.new` を消して元のまま。量産基板のファームを焼き直さずにライブラリの修正を届けるためのもの（[dev-docs/webserial-console/file-transfer-plan.md](../dev-docs/webserial-console/file-transfer-plan.md)）。偽の基板での確認は `tools/browser-check/lib-update-check.cjs` |
-| ライブラリを初期設定に戻す | ページのいちばん下の「▸ 実機（上級者向け）」の中。基板の `/lib` に残った `.new` と `.mrb` を消し、`/etc/adventure-board-files`（ファームが書いた印）を消して再起動する。起動するときにファームが、自分の版のライブラリを書き直す。`/home` には触らない |
+| ライブラリを最新にする | ページのいちばん下の「▸ 高度な機能（実機用）」の中。基板の `/lib` をこのページの `lib/`（`SimApp::LIB_FILES`）にそろえる。1 本ずつ読んで比べ、違うものだけ `<パス>.new` に書いてから `mv` で入れ替え、同じ名前の `.mrb` を消して再起動する。全部同じなら何もしない。書く途中で失敗したら `.new` を消して元のまま。量産基板のファームを焼き直さずにライブラリの修正を届けるためのもの（[dev-docs/webserial-console/file-transfer-plan.md](../dev-docs/webserial-console/file-transfer-plan.md)）。偽の基板での確認は `tools/browser-check/lib-update-check.cjs` |
+| .mrb にして実機で実行 / 実機の app.mrb にする | 「▸ 高度な機能（実機用）」の中。コードの欄をページでコンパイルし（`PicoRubyVM::InstructionSequence.compile(src).to_binary`）、`/home/run.mrb` に送って動かす / `/home/app.mrb` に書く。実機の上でコンパイルしないので、その分のメモリが要らない。R2P2 は `app.mrb` を `app.rb` より先に動かすので、［実機の app.rb にする］と［実機の app.rb を空にする］は `app.mrb` があれば消す |
+| ライブラリを初期設定に戻す | ページのいちばん下の「▸ 高度な機能（実機用）」の中。基板の `/lib` に残った `.new` と `.mrb` を消し、`/etc/adventure-board-files`（ファームが書いた印）を消して再起動する。起動するときにファームが、自分の版のライブラリを書き直す。`/home` には触らない |
 
 **「実機の端末」は本物の端末（xterm.js）。** つないだあとはそこに打てば R2P2 のシェルがそのまま使える（`ls` `free` `irb` `vim` …）。
 基板の出力は stock の `JS::WebSerial#start_terminal_read` が JS 側で直接端末に流し、Ruby 側は「実機で実行」などのあいだだけ

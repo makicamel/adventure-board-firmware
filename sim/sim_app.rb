@@ -291,6 +291,24 @@ class SimApp < Funicular::Component
             end
             if @advanced_visible
               div(class: "controls") do
+                button(id: "device-run-mrb", onclick: :on_device_run_mrb,
+                       disabled: (state[:device] == :connected) ? nil : "disabled") do
+                  ".mrb にして実機で実行"
+                end
+                button(id: "device-install-mrb", onclick: :on_device_install_mrb,
+                       disabled: (state[:device] == :connected) ? nil : "disabled") do
+                  "実機の app.mrb にする"
+                end
+              end
+              div(class: "legend") do
+                "［.mrb にして実機で実行］コードの欄のプログラムを、このページでコンパイルしてから送って動かします（#{DeviceLink::RUN_MRB_PATH}）。" \
+                "実機の上でコンパイルしないので、大きいプログラムでもメモリが足りなくなりにくくなります。"
+              end
+              div(class: "legend") do
+                "［実機の app.mrb にする］同じものを #{DeviceLink::APP_MRB_PATH} に書き、電源を入れるたびに動くようにします。" \
+                "app.mrb があると app.rb は動きません。［実機の app.rb にする］と［実機の app.rb を空にする］は app.mrb を消します。"
+              end
+              div(class: "controls") do
                 button(id: "device-update-lib", onclick: :on_device_update_lib,
                        disabled: (state[:device] == :connected) ? nil : "disabled") do
                   "ライブラリを最新にする"
@@ -685,6 +703,52 @@ class SimApp < Funicular::Component
     nil
   end
 
+  # The code compiled here, the way the board would (the same compiler and
+  # the same build settings: dev-docs/webserial-console/file-transfer-plan.md).
+  def compiled_code
+    box = refs[:codebox]
+    source = box ? box[:value].to_s : ""
+    PicoRubyVM::InstructionSequence.compile(source).to_binary
+  rescue Exception => e
+    raise "コンパイルできませんでした（#{e.message}）。文法の誤りは Run で場所が分かります"
+  end
+
+  def on_device_run_mrb(_event)
+    patch(device: :busy, status: "コンパイルして実機に送っています…", kind: "busy")
+    Task.new(name: "device-run-mrb") do
+      begin
+        $device.run_mrb($app.compiled_code)
+        $app.device_finished(nil) if $app
+      rescue Exception => e
+        $app.device_finished(e) if $app
+      end
+    end
+    nil
+  end
+
+  def on_device_install_mrb(_event)
+    patch(device: :busy, status: "コンパイルして実機の #{DeviceLink::APP_MRB_PATH} に書いています…", kind: "busy")
+    Task.new(name: "device-install-mrb") do
+      begin
+        $device.install_mrb($app.compiled_code)
+        $app.device_installed_mrb(nil) if $app
+      rescue Exception => e
+        $app.device_installed_mrb(e) if $app
+      end
+    end
+    nil
+  end
+
+  def device_installed_mrb(error)
+    patch(device: $device.connected? ? :connected : :none)
+    if error
+      report("実機の app.mrb にする", error)
+    else
+      patch(kind: "ok", status: "#{DeviceLink::APP_MRB_PATH} に書いて実行しています。電源を入れるたびにこのプログラムが動きます。")
+    end
+    nil
+  end
+
   def on_advanced_toggle(_event)
     @advanced_visible = !@advanced_visible
     refresh
@@ -1023,7 +1087,7 @@ class SimApp < Funicular::Component
   # The run loop is a class method — it outlives any one render — and it pokes
   # the mounted instance, so these two cannot stay private.
   public :draw, :report, :device_finished, :device_rebooting, :device_installed, :device_cleared,
-         :device_updated_lib, :device_reset_lib
+         :device_updated_lib, :device_reset_lib, :compiled_code, :device_installed_mrb
 end
 
 Funicular.start(SimApp, container: 'app')
