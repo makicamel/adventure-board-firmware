@@ -2,7 +2,9 @@
 #
 #   rake games:combine             # games/<name>/main.rb -> games/<name>.rb
 #   rake games:mrb                 # games/*.rb + lib/ -> dist/games/*.mrb
-#   rake games:run[link_pong]      # reboot, send it to /home, reboot, run it
+#   rake games:run                 # reboot, send link_pong to /home, reboot, run it
+#   rake games:run_all             # link_pong to every board plugged in, as /home/app.mrb, which the board runs when it starts
+#   rake games:run_all[,game]      # ... as /home/link_pong.mrb, and run it
 #
 # A game is written as files in games/<name>/, and main.rb lists them with
 # require_relative. The board and the console both take one file, so
@@ -57,6 +59,25 @@ def games_for_board(source)
   source.sub(require_line, library)
 end
 
+# as is "app" (/home/app.mrb, run when the board starts) or "game"
+# (/home/<name>.mrb, run now). port is nil for the board r2p2dev.py finds.
+def games_send(name, as, port = nil)
+  mrb = "dist/games/#{name}.mrb"
+  abort "#{mrb} was not built" unless File.exist?("#{MRUBY_ROOT}/#{mrb}")
+  dev = "python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")}"
+  dev = "R2P2_PORT=#{Shellwords.escape(port)} #{dev}" if port
+  local = Shellwords.escape("#{MRUBY_ROOT}/#{mrb}")
+  sh("#{dev} reboot") { |ok| sh "#{dev} skip" unless ok }  # app で動いていると戻れないので、抜き差ししてもらう
+  if as == "app"
+    sh "#{dev} push #{local} /home/app.mrb"
+    sh("#{dev} run reboot --wait 1") { }  # 再起動でポートが消えるので、終わり方は問わない
+  else
+    sh "#{dev} push #{local} /home/#{name}.mrb"
+    sh "#{dev} reboot"
+    sh "#{dev} run /home/#{name}.mrb"
+  end
+end
+
 namespace :games do
   desc "Combine games/<name>/ into games/<name>.rb"
   task :combine do
@@ -88,13 +109,17 @@ namespace :games do
   # to receive a file, and one after, since receiving it leaves pieces too.
   desc "Build a game, reboot the board, send it, reboot and run the game"
   task :run, [:name] => :mrb do |_t, args|
-    name = args[:name] || "link_pong"
-    mrb = "dist/games/#{name}.mrb"
-    abort "#{mrb} was not built" unless File.exist?("#{MRUBY_ROOT}/#{mrb}")
-    dev = "python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")}"
-    sh "#{dev} reboot"
-    sh "#{dev} push #{Shellwords.escape("#{MRUBY_ROOT}/#{mrb}")} /home/#{name}.mrb"
-    sh "#{dev} reboot"
-    sh "#{dev} run /home/#{name}.mrb"
+    games_send(args[:name] || "link_pong", "game")
+  end
+
+  # One board after another. As app, the board starts the game by itself
+  # whenever it is turned on.
+  desc "Build a game and send it to every board plugged in, as app (default) or game"
+  task :run_all, [:name, :as] => :mrb do |_t, args|
+    as = args[:as] || "app"
+    abort "as must be app or game, not #{as}" unless %w[app game].include?(as)
+    ports = `python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")} ports`.split
+    abort "no board is plugged in" if ports.empty?
+    ports.each { |port| games_send(args[:name] || "link_pong", as, port) }
   end
 end

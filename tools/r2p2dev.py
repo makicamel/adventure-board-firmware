@@ -139,6 +139,23 @@ def console_path():
     return None
 
 
+def console_paths():
+    """The shell of every board plugged in, one for each board."""
+    if sys.platform == "darwin":
+        # A board's three ports differ only in the last digit (usbmodem101,
+        # 103, 105), and the first of them is the shell.
+        shells = {}
+        for path in sorted(glob.glob("/dev/cu.usbmodem*")):
+            shells.setdefault(path[:-1], path)
+        return list(shells.values())
+    try:
+        names = sorted(os.listdir(BY_ID))
+    except FileNotFoundError:
+        return []
+    return [os.path.realpath(os.path.join(BY_ID, name)) for name in names
+            if name.startswith(CONSOLE_GLOB) and name.endswith(CONSOLE_IFACE)]
+
+
 def wait_for_console(timeout):
     end = time.time() + timeout
     while time.time() < end:
@@ -306,6 +323,11 @@ def die(msg):
 
 def cmd_port(args):
     print(attach())
+
+
+def cmd_ports(args):
+    for path in console_paths():
+        print(path)
 
 
 def cmd_watch(args):
@@ -503,7 +525,9 @@ def cmd_reboot(args):
     Nothing else may be sent while the board starts: Ctrl-C or Enter there
     sent it into a reboot loop.
     """
-    con = open_console()
+    # A board running its app never gives the prompt, so do not try again and
+    # again: fail in a few seconds and leave it to skip.
+    con = open_console(attempts=1)
     old_path = con.path
     try:
         if not con.sync():
@@ -518,7 +542,37 @@ def cmd_reboot(args):
     gone_by = time.time() + 10.0
     while time.time() < gone_by and os.path.exists(old_path):
         time.sleep(0.02)
-    end = time.time() + 30.0
+    skip_app(old_path, 30.0)
+
+
+def cmd_skip(args):
+    """Wait for the board to start, answer 's' and come back to the prompt.
+
+    For a board whose app does not give the prompt back: unplug it, run this,
+    and plug it in again.
+    """
+    print(f"unplug the board on {console_path()} and plug it in again")
+    gone_by = time.time() + 60.0
+    while time.time() < gone_by and board_plugged():
+        time.sleep(0.02)
+    back_by = time.time() + 60.0
+    while time.time() < back_by and not board_plugged():
+        time.sleep(0.02)
+    # Its three ports come back one by one, and the shell is the first of them.
+    time.sleep(0.5)
+    path = console_path()
+    if not path:
+        die("The board did not come back.")
+    skip_app(path, 30.0)
+
+
+def board_plugged():
+    path = console_path()
+    return bool(path) and os.path.exists(path)
+
+
+def skip_app(old_path, seconds):
+    end = time.time() + seconds
     con = None
     seen = ""
     while time.time() < end:
@@ -584,6 +638,7 @@ def main():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("port", help="print the console tty, attaching if needed")
+    sub.add_parser("ports", help="print the shell tty of every board plugged in")
     sub.add_parser("attach", help="put the probe and the board on the WSL bus")
     sub.add_parser("wipefs",
                    help="erase the device filesystem and reboot")
@@ -600,11 +655,12 @@ def main():
                    help="seconds to wait for each reply (default 3)")
     sub.add_parser("reset", help="reset the target over SWD and re-attach")
     sub.add_parser("reboot", help="reboot from the shell, skipping app.rb")
+    sub.add_parser("skip", help="wait for a replugged board and skip its app")
     w = sub.add_parser("watch", help="print raw console output for a while")
     w.add_argument("seconds", type=float, nargs="?", default=20.0)
     args = p.parse_args()
-    {"port": cmd_port, "attach": cmd_attach, "push": cmd_push, "watch": cmd_watch,
-     "run": cmd_run, "reset": cmd_reset, "reboot": cmd_reboot, "wipefs": cmd_wipefs,
+    {"port": cmd_port, "ports": cmd_ports, "attach": cmd_attach, "push": cmd_push, "watch": cmd_watch,
+     "run": cmd_run, "reset": cmd_reset, "reboot": cmd_reboot, "skip": cmd_skip, "wipefs": cmd_wipefs,
      "recover": cmd_recover}[args.cmd](args)
 
 
