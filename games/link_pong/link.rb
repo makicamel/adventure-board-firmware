@@ -14,8 +14,9 @@ module LinkPong
 
     def flush = @grove.flush_input
 
+    # 先頭の改行で、相手が UART を開いたときに届くゴミを別の行に切り離す
     def write(*words)
-      @grove.puts(words.join(" "))
+      @grove.puts("\n" + words.join(" "))
     end
 
     def read
