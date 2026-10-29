@@ -29,5 +29,5 @@ while true
     link ||= LinkPong::Link.new
     rally_length = LinkPong::Match.new(matrix, buttons, sound, link, menu.hard?).run
   end
-  LinkPong::Result.new(matrix, buttons, sound, rally_length).run if rally_length
+  LinkPong::Result.new(matrix, buttons, sound, rally_length.to_s).run if rally_length
 end
