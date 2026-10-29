@@ -18,7 +18,7 @@ module LinkPong
         frames_per_dot: 1,
       )
       @ball = Ball.serve(@court)
-      @cpu.receive(@ball, offset: cpu_offset)
+      @cpu.receive(@ball, offset: AutoPaddle.random_offset)
       @rally_length = 0
       @court.flush
     end
@@ -42,11 +42,6 @@ module LinkPong
 
     private
 
-    # CPU がパドルのどこで受けるか。真ん中ならスマッシュになる
-    def cpu_offset
-      rand(Paddle::HALF_LENGTH * 2 + 1) - Paddle::HALF_LENGTH
-    end
-
     def tick
       dx, dy = player_direction
       if @player.movable?(dx, dy)
@@ -64,7 +59,7 @@ module LinkPong
           @sound.hit
         end
         if hitter.equal?(@player)
-          @cpu.receive(@ball, offset: cpu_offset)
+          @cpu.receive(@ball, offset: AutoPaddle.random_offset)
         else
           @cpu.drift(@ball)
         end

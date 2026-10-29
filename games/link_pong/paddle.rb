@@ -93,6 +93,11 @@ module LinkPong
   class AutoPaddle < Paddle
     FRAMES_PER_DOT = 2
 
+    # パドルのどこで受けるか。真ん中ならスマッシュになる
+    def self.random_offset
+      rand(Paddle::HALF_LENGTH * 2 + 1) - Paddle::HALF_LENGTH
+    end
+
     def initialize(court, x, middle, columns: x..x, frames_per_dot: FRAMES_PER_DOT)
       super(court, x, middle, columns: columns)
       @home = x
