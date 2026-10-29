@@ -61,7 +61,7 @@ module LinkPong
         if hitter.equal?(@player)
           @cpu.receive(@ball, offset: AutoPaddle.random_offset)
         else
-          @cpu.drift(@ball)
+          @cpu.wander(@ball)
         end
       end
       @sound.wall if @ball.will_hit_wall?

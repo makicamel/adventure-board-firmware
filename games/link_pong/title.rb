@@ -42,7 +42,7 @@ module LinkPong
         hitter = receiver
         @ball.bounce
         receiver.receive(@ball)
-        hitter.drift(@ball)
+        hitter.wander(@ball)
       end
       @ball.move
       if @ball.out?

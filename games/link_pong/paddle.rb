@@ -121,7 +121,7 @@ module LinkPong
     end
 
     # ボールが遠ざかっているあいだに、自分の側のどこかの列へ移り、高さはボールに合わせておく
-    def drift(ball)
+    def wander(ball)
       @target_x = @columns.first + rand(@columns.last - @columns.first + 1)
       @waypoints = []
       @following = ball
