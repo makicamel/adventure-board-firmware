@@ -2,9 +2,9 @@
 #
 #   rake games:combine             # games/<name>/main.rb -> games/<name>.rb
 #   rake games:mrb                 # games/*.rb + lib/ -> dist/games/*.mrb
-#   rake games:run                 # reboot, send link_pong to /home, reboot, run it
-#   rake games:run_all             # link_pong to every board plugged in, as /home/app.mrb, which the board runs when it starts
-#   rake games:run_all[,game]      # ... as /home/link_pong.mrb, and run it
+#   rake games:run                 # link_pong to every board plugged in, as /home/app.mrb
+#   rake games:run[game]           # ... as /home/link_pong.mrb, and run it now
+#   R2P2_PORT=/dev/cu.usbmodem1301 rake games:run   # only to that board
 #
 # A game is written as files in games/<name>/, and main.rb lists them with
 # require_relative. The board and the console both take one file, so
@@ -60,12 +60,12 @@ def games_for_board(source)
 end
 
 # as is "app" (/home/app.mrb, run when the board starts) or "game"
-# (/home/<name>.mrb, run now). port is nil for the board r2p2dev.py finds.
-def games_send(name, as, port = nil)
+# (/home/<name>.mrb, run now).
+def games_send(name, as, port)
   mrb = "dist/games/#{name}.mrb"
   abort "#{mrb} was not built" unless File.exist?("#{MRUBY_ROOT}/#{mrb}")
   dev = "python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")}"
-  dev = "R2P2_PORT=#{Shellwords.escape(port)} #{dev}" if port
+  dev = "R2P2_PORT=#{Shellwords.escape(port)} #{dev}"
   local = Shellwords.escape("#{MRUBY_ROOT}/#{mrb}")
   sh("#{dev} reboot") { |ok| sh "#{dev} skip" unless ok }  # app で動いていると戻れないので、抜き差ししてもらう
   if as == "app"
@@ -103,22 +103,17 @@ namespace :games do
     end
   end
 
-  # Over the board's USB, with tools/r2p2dev.py (R2P2_PORT picks the port).
+  # Over the board's USB, with tools/r2p2dev.py, one board after another;
+  # R2P2_PORT picks one board instead of all. As app, the board starts the
+  # game by itself whenever it is turned on.
   # A reboot clears the heap the last run left in pieces, and skips app.rb:
   # one before sending, since a game that filled the heap leaves too little
   # to receive a file, and one after, since receiving it leaves pieces too.
-  desc "Build a game, reboot the board, send it, reboot and run the game"
-  task :run, [:name] => :mrb do |_t, args|
-    games_send(args[:name] || "link_pong", "game")
-  end
-
-  # One board after another. As app, the board starts the game by itself
-  # whenever it is turned on.
   desc "Build a game and send it to every board plugged in, as app (default) or game"
-  task :run_all, [:name, :as] => :mrb do |_t, args|
+  task :run, [:as, :name] => :mrb do |_t, args|
     as = args[:as] || "app"
     abort "as must be app or game, not #{as}" unless %w[app game].include?(as)
-    ports = `python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")} ports`.split
+    ports = ENV["R2P2_PORT"] ? [ENV["R2P2_PORT"]] : `python3 #{Shellwords.escape("#{MRUBY_ROOT}/tools/r2p2dev.py")} ports`.split
     abort "no board is plugged in" if ports.empty?
     ports.each { |port| games_send(args[:name] || "link_pong", as, port) }
   end
