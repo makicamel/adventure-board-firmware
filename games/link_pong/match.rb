@@ -1,10 +1,10 @@
 module LinkPong
-  # GROVE でつないだ 2 枚の基板で 1 つのコートを作って打ち合う。先に待っていたほうが左
+  # GROVE でつないだ 2 枚の基板で 1 つのコートを作って打ち合う。先に待っていたプレイヤーの左右の選択を採用する
   #
   # 基板間で送るメッセージ（1 行。単語はスペース区切り）
   #   join                                            2P を選んで待ち始めた
-  #   start sideways                                  試合の申し込み。sideways はパドルが左右にも動くなら 1、上下だけなら 0
-  #   ok                                              申し込みを受け入れた
+  #   start side                                      試合の提案。先に待っていたプレイヤーが、あとから来たプレイヤーの join を受けて送る。side は自分が選択した左右で、L か R
+  #   ok                                              提案への同意。あとから来たプレイヤーが返す
   #   ball y dy frames interval smashed smash_chain   ボールを渡す。smashed はスマッシュした球なら 1、ふつうの球なら 0
   #   miss                                            打ち返せなかった
   class Match
@@ -14,26 +14,25 @@ module LinkPong
     include Screen
     include Controls
 
-    def initialize(matrix, buttons, sound, link, chosen_sideways)
+    def initialize(matrix, buttons, sound, link, chosen_left)
       @matrix = matrix
       @buttons = buttons
       @sound = sound
       @link = link
-      @chosen_sideways = chosen_sideways
+      @chosen_left = chosen_left
     end
 
     def run
-      agreement = agree_with_partner
-      return nil unless agreement # 接続前にボタンが押されたらタイトルに戻る
+      left = agree_with_partner
+      return nil if left.nil? # 接続前にボタンが押されたらタイトルに戻る
 
-      left, game_sideways = agreement
-      start(left, game_sideways)
+      start(left)
       play
     end
 
     private
 
-    # @return [Array(Boolean, Boolean)] [左かどうか, パドルが左右にも動くか]。左右に動くかは、先に選択したプレイヤー（左）の選択
+    # @return [Boolean] 左かどうか。先に待っていたプレイヤーは選択したとおり、あとから来たプレイヤーはその反対になる
     # @return [nil] つながる前にボタンが押された場合nil
     def agree_with_partner
       @link.flush  # 前の試合やメニューの間に届いたstartやokで試合を始めないように捨てる
@@ -45,14 +44,14 @@ module LinkPong
         return nil if @buttons.take_press
 
         message = @link.read
-        if message && message[0] == "join"  # 相手が来たら試合を申し込む
-          @link.write("start", @chosen_sideways ? 1 : 0)
+        if message && message[0] == "join"  # あとから来た相手の join を受けたら、試合を提案する
+          @link.write("start", @chosen_left ? "L" : "R")
           sent_start = true
-        elsif message && message[0] == "start" && !(sent_start && @link.role_a?)  # 申し込みを受けて右になる。abが同時に申し込んだ場合、bが申し込みを受けて右に、aは無視してokを待ち左になる
+        elsif message && message[0] == "start" && !(sent_start && @link.role_a?)  # 先に待っていた相手の提案に同意して、相手の左右の反対になる。同時に提案した場合は、b が a の提案に同意し、a は b の提案を無視して ok を待つ
           @link.write("ok")
-          return [false, message[1] == "1"]
-        elsif message && message[0] == "ok"  # 申し込みが受け入れられたら左になる
-          return [true, @chosen_sideways]
+          return message[1] == "R"
+        elsif message && message[0] == "ok"  # 提案に同意されたら、選択したとおりになる
+          return @chosen_left
         end
         sleep_ms 10
       end
@@ -62,11 +61,11 @@ module LinkPong
       repaint { draw_centered_text("2P", Paddle::ON) }
     end
 
-    def start(left, game_sideways)
+    def start(left)
       @mirrored = !left
       @court = LinkCourt.new(@mirrored ? MirroredMatrix.new(@matrix) : @matrix)
       @court.draw
-      @player = Paddle.new(@court, @court.left - 1, @court.middle, columns: @court.left_columns(game_sideways))
+      @player = Paddle.new(@court, @court.left - 1, @court.middle)
       @ball = left ? Ball.serve(@court) : nil
       @buttons.clear_presses
       @court.flush

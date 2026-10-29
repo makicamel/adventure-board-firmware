@@ -17,10 +17,13 @@ module LinkPong
       @buttons = buttons
       @players = 1
       @hard = false
+      @left = true
       @on_players = true
     end
 
     def hard? = @hard
+
+    def left? = @left
 
     def run
       @buttons.clear_presses
@@ -33,8 +36,10 @@ module LinkPong
         elsif button == :left || button == :right
           if @on_players
             @players = button == :left ? 1 : 2
-          else
+          elsif @players == 1
             @hard = button == :right
+          else
+            @left = button == :left
           end
           draw
         elsif button
@@ -50,8 +55,13 @@ module LinkPong
       repaint do
         draw_option("1P", LEFT_OPTION_X, PLAYERS_TOP, @players == 1, @on_players)
         draw_option("2P", RIGHT_OPTION_X, PLAYERS_TOP, @players == 2, @on_players)
-        draw_option("N", LEFT_OPTION_X, LEVEL_TOP, !@hard, !@on_players)
-        draw_option("H", RIGHT_OPTION_X, LEVEL_TOP, @hard, !@on_players)
+        if @players == 1
+          draw_option("N", LEFT_OPTION_X, LEVEL_TOP, !@hard, !@on_players)
+          draw_option("H", RIGHT_OPTION_X, LEVEL_TOP, @hard, !@on_players)
+        else
+          draw_option("L", LEFT_OPTION_X, LEVEL_TOP, @left, !@on_players)
+          draw_option("R", RIGHT_OPTION_X, LEVEL_TOP, !@left, !@on_players)
+        end
       end
     end
 

@@ -28,7 +28,7 @@ while true
     LinkPong::Result.new(matrix, buttons, sound, rally_length.to_s).run
   else
     link ||= LinkPong::Link.new
-    outcome = LinkPong::Match.new(matrix, buttons, sound, link, menu.hard?).run
+    outcome = LinkPong::Match.new(matrix, buttons, sound, link, menu.left?).run
     if outcome == :win
       LinkPong::Result.new(matrix, buttons, sound, "WIN!").run
     elsif outcome == :lose
