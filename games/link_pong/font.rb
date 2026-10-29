@@ -15,9 +15,12 @@ module LinkPong
       "N" => ["#.#", "###", "###", "#.#", "#.#"],
       "H" => ["#.#", "#.#", "###", "#.#", "#.#"],
     }
-    WIDTH  = 3
     HEIGHT = 5
 
-    def self.width(text, scale = 1) = (text.size * (WIDTH + 1) - 1) * scale
+    def self.width(text, scale = 1)
+      width = -1
+      text.size.times { |i| width += GLYPHS[text[i]][0].size + 1 }
+      width * scale
+    end
   end
 end

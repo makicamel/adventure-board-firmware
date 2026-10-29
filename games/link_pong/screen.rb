@@ -15,13 +15,15 @@ module LinkPong
     end
 
     def draw_text(text, left, top, brightness, scale = 1)
+      glyph_left = left
       text.size.times do |i|
-        glyph_left = left + i * (Font::WIDTH + 1) * scale
-        Font::GLYPHS[text[i]].each_with_index do |row, y|
-          Font::WIDTH.times do |x|
+        glyph = Font::GLYPHS[text[i]]
+        glyph.each_with_index do |row, y|
+          row.size.times do |x|
             fill_square(glyph_left + x * scale, top + y * scale, scale, brightness) if row[x] == "#"
           end
         end
+        glyph_left += (glyph[0].size + 1) * scale
       end
     end
 
