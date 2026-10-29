@@ -1,21 +1,21 @@
 module LinkPong
   class Menu
-    CHOSEN         = 0x40
-    UNCHOSEN       = 0x18
-    LEFT_OPTION_X  = 2
-    RIGHT_OPTION_X = Court::NET_X + 1
-    OPTION_WIDTH   = 7
-    PLAYERS_TOP    = 3
-    LEVEL_TOP      = 10
+    CHOSEN           = 0x40
+    UNCHOSEN         = 0x18
+    LEFT_OPTION_X    = 2
+    RIGHT_OPTION_X   = Court::NET_X + 1
+    OPTION_WIDTH     = 7
+    UPPER_OPTION_TOP = 3
+    LOWER_OPTION_TOP = 10
 
     include Screen
 
-    attr_reader :players
+    attr_reader :player_count
 
     def initialize(matrix, buttons)
       @matrix = matrix
       @buttons = buttons
-      @players = 1
+      @player_count = 1
       @hard = false
       @left = true
       @on_players = true
@@ -35,8 +35,8 @@ module LinkPong
           draw
         elsif button == :left || button == :right
           if @on_players
-            @players = button == :left ? 1 : 2
-          elsif @players == 1
+            @player_count = button == :left ? 1 : 2
+          elsif @player_count == 1
             @hard = button == :right
           else
             @left = button == :left
@@ -53,14 +53,14 @@ module LinkPong
 
     def draw
       repaint do
-        draw_option("1P", LEFT_OPTION_X, PLAYERS_TOP, @players == 1, @on_players)
-        draw_option("2P", RIGHT_OPTION_X, PLAYERS_TOP, @players == 2, @on_players)
-        if @players == 1
-          draw_option("N", LEFT_OPTION_X, LEVEL_TOP, !@hard, !@on_players)
-          draw_option("H", RIGHT_OPTION_X, LEVEL_TOP, @hard, !@on_players)
+        draw_option("1P", LEFT_OPTION_X, UPPER_OPTION_TOP, @player_count == 1, @on_players)
+        draw_option("2P", RIGHT_OPTION_X, UPPER_OPTION_TOP, @player_count == 2, @on_players)
+        if @player_count == 1
+          draw_option("N", LEFT_OPTION_X, LOWER_OPTION_TOP, !@hard, !@on_players)
+          draw_option("H", RIGHT_OPTION_X, LOWER_OPTION_TOP, @hard, !@on_players)
         else
-          draw_option("L", LEFT_OPTION_X, LEVEL_TOP, @left, !@on_players)
-          draw_option("R", RIGHT_OPTION_X, LEVEL_TOP, !@left, !@on_players)
+          draw_option("L", LEFT_OPTION_X, LOWER_OPTION_TOP, @left, !@on_players)
+          draw_option("R", RIGHT_OPTION_X, LOWER_OPTION_TOP, !@left, !@on_players)
         end
       end
     end

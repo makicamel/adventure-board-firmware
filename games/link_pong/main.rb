@@ -23,7 +23,7 @@ link = nil
 while true
   LinkPong::Title.new(matrix, buttons).run
   menu.run
-  if menu.players == 1
+  if menu.player_count == 1
     rally_length = LinkPong::Game.new(matrix, buttons, sound, menu.hard?).run
     LinkPong::Result.new(matrix, buttons, sound, rally_length.to_s).run
   else
