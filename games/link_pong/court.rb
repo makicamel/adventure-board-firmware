@@ -90,6 +90,16 @@ module LinkPong
     end
   end
 
+  class LinkCourt < Court
+    def initialize(matrix)
+      super(matrix, top: 1, bottom: LedMatrix::HEIGHT, left: 2, right: LedMatrix::WIDTH)
+    end
+
+    def draw
+      @matrix.clear
+    end
+  end
+
   class GameCourt < Court
     def initialize(matrix)
       super(matrix, top: 1, bottom: LedMatrix::HEIGHT, left: 2, right: LedMatrix::WIDTH - 1)

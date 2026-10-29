@@ -13,7 +13,7 @@ module LinkPong
     SLOWDOWN_MS   = 2                    # 1 フレームごとの減速
     MISS_BLINKS   = 3
 
-    attr_reader :x, :y, :dx, :interval    # interval は次のフレームまでの長さ
+    attr_reader :x, :y, :dx, :dy, :frames, :interval    # interval は次のフレームまでの長さ
     attr_reader :smash_chain              # スマッシュが何回続いたか。最初のスマッシュは 0
 
     def self.serve(court)
@@ -21,16 +21,16 @@ module LinkPong
       new(court, court.left, y, 1, rand(2) == 0 ? -1 : 1)
     end
 
-    def initialize(court, x, y, dx, dy)
+    def initialize(court, x, y, dx, dy, frames: 0, interval: FAST_MS, smashed: false, smash_chain: 0)
       @court = court
       @x = x
       @y = y
       @dx = dx
       @dy = dy
-      @frames = 0
-      @interval = FAST_MS
-      @smashed = false
-      @smash_chain = 0
+      @frames = frames
+      @interval = interval
+      @smashed = smashed
+      @smash_chain = smash_chain
       @halo_on_screen = false
       @bounced = false
     end
@@ -48,12 +48,17 @@ module LinkPong
       turn_back([SMASH_MS - SMASH_SPEEDUP_MS * @smash_chain, FASTEST_MS].max, true)
     end
 
+    def smashed? = @smashed
+
     def out?
       @x < @court.left || @court.right < @x
     end
 
+    def leaving? = @court.right < @x + @dx
+
     def move
-      erase
+      erase if inside_court?(@x, @y)
+
       if @bounced
         @bounced = false
       elsif @interval < SLOW_MS
@@ -65,6 +70,7 @@ module LinkPong
         @dy = -@dy if @y + @dy < @court.top || @court.bottom < @y + @dy
         @y += @dy
       end
+
       draw
     end
 
@@ -93,6 +99,11 @@ module LinkPong
 
     def redraw = draw
 
+    def erase
+      @court.redraw_background(@x, @y)
+      erase_halo if @halo_on_screen
+    end
+
     def blink
       i = 0
       while i < MISS_BLINKS * 2
@@ -112,11 +123,6 @@ module LinkPong
       @interval = interval
       @smashed = smashed
       @bounced = true
-    end
-
-    def erase
-      @court.redraw_background(@x, @y)
-      erase_halo if @halo_on_screen
     end
 
     def draw
