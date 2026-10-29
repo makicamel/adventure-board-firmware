@@ -25,9 +25,14 @@ while true
   menu.run
   if menu.players == 1
     rally_length = LinkPong::Game.new(matrix, buttons, sound, menu.hard?).run
+    LinkPong::Result.new(matrix, buttons, sound, rally_length.to_s).run
   else
     link ||= LinkPong::Link.new
-    rally_length = LinkPong::Match.new(matrix, buttons, sound, link, menu.hard?).run
+    outcome = LinkPong::Match.new(matrix, buttons, sound, link, menu.hard?).run
+    if outcome == :win
+      LinkPong::Result.new(matrix, buttons, sound, "WIN!").run
+    elsif outcome == :lose
+      LinkPong::Result.new(matrix, buttons, sound, "LOSE", lost: true).run
+    end
   end
-  LinkPong::Result.new(matrix, buttons, sound, rally_length.to_s).run if rally_length
 end

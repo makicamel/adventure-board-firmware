@@ -9,6 +9,7 @@ module LinkPong
     SMASH_RISE    = 2                    # スマッシュが続くたびに上げる半音の数
     MISS_MML      = "t150 o4 l16 c <g e c"
     RESULT_MML    = "t150 o5 l16 c e g > c"
+    LOSE_MML      = "t150 o4 l16 g f+ f e8"      # 半音ずつ下がる
 
     def initialize(speaker)
       @speaker = speaker
@@ -28,6 +29,8 @@ module LinkPong
     def miss = @speaker.play_mml(MISS_MML)
 
     def result = @speaker.play_mml(RESULT_MML)
+
+    def lose = @speaker.play_mml(LOSE_MML)
 
     def stop = @speaker.stop
 

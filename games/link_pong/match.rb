@@ -2,11 +2,11 @@ module LinkPong
   # GROVE でつないだ 2 枚の基板で 1 つのコートを作って打ち合う。先に待っていたほうが左
   #
   # 基板間で送るメッセージ（1 行。単語はスペース区切り）
-  #   join                                                         2P を選んで待ち始めた
-  #   start sideways                                               試合の申し込み。sideways はパドルが左右にも動くなら 1、上下だけなら 0
-  #   ok                                                           申し込みを受け入れた
-  #   ball y dy frames interval smashed smash_chain rally_length   ボールを渡す。smashed はスマッシュした球なら 1、ふつうの球なら 0
-  #   miss rally_length                                            打ち返せなかった
+  #   join                                            2P を選んで待ち始めた
+  #   start sideways                                  試合の申し込み。sideways はパドルが左右にも動くなら 1、上下だけなら 0
+  #   ok                                              申し込みを受け入れた
+  #   ball y dy frames interval smashed smash_chain   ボールを渡す。smashed はスマッシュした球なら 1、ふつうの球なら 0
+  #   miss                                            打ち返せなかった
   class Match
     BALL_ON_PARTNER_SIDE_FRAME_MS = Ball::FAST_MS
     BALL_RETURN_TIMEOUT_MS        = 5000
@@ -68,7 +68,6 @@ module LinkPong
       @court.draw
       @player = Paddle.new(@court, @court.left - 1, @court.middle, columns: @court.left_columns(game_sideways))
       @ball = left ? Ball.serve(@court) : nil
-      @rally_length = 0
       @buttons.clear_presses
       @court.flush
       @next_at = now_ms
@@ -82,7 +81,7 @@ module LinkPong
           receive_ball(message)
         elsif message && message[0] == "miss"  # 相手が打ち返せなかったら試合を終える
           @sound.miss
-          return message[1].to_i
+          return :win
         end
         return nil if partner_lost?
 
@@ -90,10 +89,10 @@ module LinkPong
           pass_ball if @ball && @ball.leaving?
           tick
           if @ball && @ball.out?
-            @link.write("miss", @rally_length)
+            @link.write("miss")
             @sound.miss
             @ball.blink
-            return @rally_length
+            return :lose
           end
           @court.flush
           @next_at += @ball ? @ball.interval : BALL_ON_PARTNER_SIDE_FRAME_MS
@@ -115,7 +114,6 @@ module LinkPong
       end
       if @ball
         if @ball.dx < 0 && @player.meets?(@ball)
-          @rally_length += 1
           if @player.middle_at?(@ball.y)
             @ball.smash
             @sound.smash(@ball.smash_chain)
@@ -133,16 +131,15 @@ module LinkPong
     end
 
     def pass_ball
-      @link.write("ball", @ball.y, @ball.dy, @ball.frames, @ball.interval, @ball.smashed? ? 1 : 0, @ball.smash_chain, @rally_length)
+      @link.write("ball", @ball.y, @ball.dy, @ball.frames, @ball.interval, @ball.smashed? ? 1 : 0, @ball.smash_chain)
       @ball.erase
       @ball = nil
       @passed_at = now_ms
     end
 
     def receive_ball(message)
-      y, dy, frames, interval, smashed, smash_chain, rally_length = message[1, 7].map { |word| word.to_i }
+      y, dy, frames, interval, smashed, smash_chain = message[1, 6].map { |word| word.to_i }
       @ball = Ball.new(@court, @court.right + 1, y, -1, dy, frames: frames, interval: interval, smashed: smashed == 1, smash_chain: smash_chain)
-      @rally_length = rally_length
       @next_at = now_ms
     end
 
